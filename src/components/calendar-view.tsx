@@ -1668,9 +1668,21 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   // (attachScroll) so it runs when the NEW view actually attaches — a parent
   // effect fires against the OLD, exiting view under AnimatePresence mode="wait".
   const focusTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const focusTimeline = useCallback(() => {
+  // The moment the user touches / scrolls the timeline they OWN it — no auto-
+  // focus pass may move the scroll out from under them (that was the "frozen
+  // until you play with it" glitch: the 0/120/300/600ms passes kept snapping
+  // scrollTop back to "now" while a finger was already dragging). Reset only
+  // when a deliberate navigation (view / day / barber change) re-arms focus.
+  const userTookOverRef = useRef(false);
+  const cancelFocusPasses = useCallback(() => {
     focusTimersRef.current.forEach(clearTimeout);
+    focusTimersRef.current = [];
+  }, []);
+  const focusTimeline = useCallback(() => {
+    cancelFocusPasses();
+    userTookOverRef.current = false; // fresh navigation → we may center once
     const run = () => {
+      if (userTookOverRef.current) return; // the finger is down / user scrolled — never fight it
       const el = scrollRef.current;
       if (!el) return;
       if (view === "day" && dayLayout === "grid") return; // box layout has no timeline
@@ -1693,16 +1705,32 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     };
     // Several passes so it lands on "now" even as the timeline reflows — the enter
     // slide (~220ms), appointments loading in, and the desktop row-height stretch
-    // all move the line after first paint.
+    // all move the line after first paint. Each pass bails once the user takes over.
     focusTimersRef.current = [0, 120, 300, 600].map(d => setTimeout(run, d));
-  }, [view, currentDate, dayLayout, isMobile]);
+  }, [view, currentDate, dayLayout, isMobile, cancelFocusPasses]);
 
-  // Callback ref for the timeline scroll container — fires when a new view mounts
-  // (after the outgoing one leaves), the correct moment to focus "now".
+  // Callback ref for the timeline scroll container. Focuses "now" when a new view
+  // mounts (the correct moment, after the outgoing one leaves), and hands control
+  // to the user on the very first touch/wheel/pointer on the timeline — cancelling
+  // any pending auto-focus passes so they can never yank the scroll. Listeners
+  // live on the element and are torn down when it swaps out (nav / unmount).
+  const scrollListenersCleanupRef = useRef<(() => void) | null>(null);
   const attachScroll = useCallback((el: HTMLDivElement | null) => {
+    scrollListenersCleanupRef.current?.();
+    scrollListenersCleanupRef.current = null;
     scrollRef.current = el;
-    if (el) focusTimeline();
-  }, [focusTimeline]);
+    if (!el) return;
+    const takeOver = () => { userTookOverRef.current = true; cancelFocusPasses(); };
+    el.addEventListener("touchstart", takeOver, { passive: true });
+    el.addEventListener("pointerdown", takeOver, { passive: true });
+    el.addEventListener("wheel", takeOver, { passive: true });
+    scrollListenersCleanupRef.current = () => {
+      el.removeEventListener("touchstart", takeOver);
+      el.removeEventListener("pointerdown", takeOver);
+      el.removeEventListener("wheel", takeOver);
+    };
+    focusTimeline();
+  }, [focusTimeline, cancelFocusPasses]);
 
   // If the screen locks / the app backgrounds while a focusTimeline() timer is still
   // pending, mobile browsers throttle it rather than drop it — it can fire minutes
