@@ -307,6 +307,28 @@ function connectReminder(data: Record<string, string>) {
   `);
 }
 
+// Monday summary of the past week for the shop owner (email only — no SMS). Sent
+// by the daily cron on Mondays when there was activity. Owner-facing, so it can
+// show the shop's own money.
+function ownerWeeklyDigest(data: Record<string, string>) {
+  return wrap(`
+    <div class="logo">Clip<span>Wise</span></div>
+    <div class="badge">Your week</div>
+    <h1>Last week at ${data.shopName}</h1>
+    <p>A quick look at how ${data.shopName} did over the past 7 days.</p>
+    <div class="panel">
+      <div class="row"><span class="label">Cuts completed</span><span class="val">${data.completed}</span></div>
+      <div class="row"><span class="label">Collected (before fees)</span><span class="val">${data.collected}</span></div>
+      <div class="row"><span class="label">No-shows</span><span class="val">${data.noShows}</span></div>
+      <div class="row"><span class="label">Booked for this week</span><span class="val">${data.upcoming}</span></div>
+    </div>
+    <a href="${BASE_URL}/dashboard" class="btn">Open your dashboard →</a>
+    <hr class="divider">
+    <p style="font-size:12px;color:#71717A">Your full numbers — net revenue, tips, per-barber — live in your dashboard.</p>
+    <p style="color:#71717A">— The ClipWise Team</p>
+  `);
+}
+
 function ownerRejected(data: Record<string, string>) {
   return wrap(`
     <div class="logo">Clip<span>Wise</span></div>
@@ -1168,6 +1190,11 @@ export async function sendAppEmail(type: string, data: Record<string, string>): 
       to = data.ownerEmail;
       subject = `Turn on payments for ${data.shopName}`;
       html = connectReminder(data);
+      break;
+    case "owner_weekly_digest":
+      to = data.ownerEmail;
+      subject = `Your week at ${data.shopName}`;
+      html = ownerWeeklyDigest(data);
       break;
     case "shop_rejected":
       to = data.ownerEmail;

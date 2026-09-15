@@ -6,6 +6,7 @@ import { effectivePlan, isPaidPlan } from "@/lib/validation";
 import { ensurePlansHydrated } from "@/lib/plans-server";
 import { prettyDate } from "@/lib/utils";
 import { safeTz, todayInTz, shiftYmd, hoursUntilBooking } from "@/lib/timezone";
+import { collectedTotals, type RevAppt, type RevTx } from "@/lib/revenue";
 import { sendAppEmail } from "@/lib/emailer";
 import { processTrials } from "@/lib/process-trials";
 import { reconcileSubscriptions } from "@/lib/reconcile-subscriptions";
@@ -335,6 +336,45 @@ async function run() {
           scheduleHtml,
         });
         emails++; sends++;
+      }
+    }
+
+    // ── Owner weekly digest — Monday summary of the past 7 days (email only) ──
+    // Owner-facing recap so they see the shop's week without opening the app. Only
+    // sent when there was activity, so a dead week never triggers a "0s" email.
+    if (isMonday && sends < MAX_SENDS) {
+      const weekAgo = shiftYmd(today, -7);
+      const yesterday = shiftYmd(today, -1);
+      const [{ data: lwAppts }, { data: lwTxs }] = await Promise.all([
+        supabaseAdmin.from("appointments")
+          .select("client_name, total_amount, tax_amount, tip_amount, gift_applied, balance_due, payment_status, payment_method, payment_intent_id, status, barber_id")
+          .eq("shop_id", shop.id).gte("date", weekAgo).lte("date", yesterday),
+        supabaseAdmin.from("transactions")
+          .select("client_name, amount, tip, tax, payment_method, created_at, payment_intent_id, source, refunded, barber_id")
+          .eq("shop_id", shop.id).gte("created_at", `${weekAgo}T00:00:00`),
+      ]);
+      const lastWeekAppts = (lwAppts ?? []) as RevAppt[];
+      const completed = lastWeekAppts.filter(a => a.status === "completed").length;
+      const noShows = lastWeekAppts.filter(a => a.status === "no-show").length;
+      const txCount = lwTxs?.length ?? 0;
+      if (completed > 0 || noShows > 0 || txCount > 0) {
+        const totals = collectedTotals(lastWeekAppts, (lwTxs ?? []) as RevTx[]);
+        const { count: upcoming } = await supabaseAdmin.from("appointments")
+          .select("id", { count: "exact", head: true })
+          .eq("shop_id", shop.id).gte("date", today).lte("date", shiftYmd(today, 6)).in("status", ["pending", "confirmed"]);
+        const ownerId = (shop as { owner_id?: string | null }).owner_id;
+        const { data: ownerRow } = ownerId
+          ? await supabaseAdmin.from("users").select("email").eq("id", ownerId).maybeSingle()
+          : { data: null as { email?: string | null } | null };
+        const ownerEmail = ownerRow?.email || shop.email;
+        if (ownerEmail) {
+          await sendEmail("owner_weekly_digest", {
+            ownerEmail, shopName: shop.name,
+            completed: String(completed), noShows: String(noShows),
+            collected: `$${totals.gross.toFixed(2)}`, upcoming: String(upcoming ?? 0),
+          });
+          emails++; sends++;
+        }
       }
     }
 
