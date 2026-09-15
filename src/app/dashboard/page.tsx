@@ -495,7 +495,11 @@ export default function DashboardPage() {
     const d = formatDateForDb(new Date(ts));
     return d >= rangeStart && d <= rangeEnd;
   });
-  const collected = collectedTotals(revenueApptsInRange, txnsInRange, stripeByPi);
+  // The owner-barber's own chair: their tips are the owner's money (like their
+  // 0-commission service), so collectedTotals splits them out and they're NOT
+  // subtracted from net revenue. Identified by user_id === the shop owner.
+  const ownerBarberId = (barbers.find((b) => (b as { user_id?: string | null }).user_id === shop?.owner_id)?.id) ?? null;
+  const collected = collectedTotals(revenueApptsInRange, txnsInRange, stripeByPi, ownerBarberId);
   // Count on the SAME money-moved basis as Collected (paid appts, dated by paid_at,
   // no-show fees excluded) so the sub-line under Collected reconciles with the
   // dollar figure instead of mixing a paid-date total with an appointment-date count.
@@ -559,10 +563,13 @@ export default function DashboardPage() {
     .sort((a, b) => b.revenue - a.revenue)
     .slice(0, 5);
   // Net revenue = what the shop KEEPS: Collected (after Stripe fees) − sales tax
-  // (gov't) − tips (barber) − barber commission (barber/owner pay).
+  // (gov't) − PAID-OUT tips (to non-owner barbers) − barber commission. The
+  // owner-barber's OWN tips are the owner's money (like their 0-commission chair),
+  // so they stay IN net revenue — only tips paid out to other barbers are subtracted.
   // NOT floored at 0 — a genuine loss (heavy refunds, high commission on a slow
   // week) should show as a red negative, not a misleading $0.00.
-  const netRevenue = collected.net - collected.tax - collected.tips - commission;
+  const paidOutTips = Math.max(0, collected.tips - collected.ownerTips);
+  const netRevenue = collected.net - collected.tax - paidOutTips - commission;
   // Avg Ticket = paid revenue ÷ the SAME paid rows (not all completions — dividing
   // by completed.length, which includes refunds, understated it).
   const avgTicket = paidCompleted.length > 0 ? revenue / paidCompleted.length : 0;
@@ -804,7 +811,7 @@ export default function DashboardPage() {
             })()}
 
             {/* Revenue hero (swipeable — revenue, bookings, top barbers, status) */}
-            <StatsCarousel revenue={collected.net} taxCollected={collected.tax} cashIncluded={collected.cash} feesPaid={collected.fees} tips={collected.tips} commission={commission} netRevenue={netRevenue} feesLoading={feesLoading} paidVisits={paidVisits} appointments={appointments} completed={completed} topBarbers={topBarbers} periodLabel={DATE_FILTER_LABELS[dateFilter]} />
+            <StatsCarousel revenue={collected.net} taxCollected={collected.tax} cashIncluded={collected.cash} feesPaid={collected.fees} tips={paidOutTips} commission={commission} netRevenue={netRevenue} feesLoading={feesLoading} paidVisits={paidVisits} appointments={appointments} completed={completed} topBarbers={topBarbers} periodLabel={DATE_FILTER_LABELS[dateFilter]} />
 
             {/* Minimal stat tiles — label + number only (helper sub-text removed),
                 borderless tiles on the canvas (dividers removed via globals). */}

@@ -217,7 +217,10 @@ export default function AnalyticsPage() {
   // + Payments use (so no screen can show a different number):
   //   Gross sales → − Stripe fee → − Tax → − Tips → − Barber commission → Net revenue
   const money = useMemo(() => {
-    const t = collectedTotals(revenueApptsInRange as RevAppt[], filteredTx as RevTx[], byPi);
+    // Owner-barber's own tips are the owner's money (like their 0-commission chair),
+    // so split them out and keep them IN net revenue — see the Dashboard fix.
+    const ownerBarberId = (barbers.find(b => (b as { user_id?: string | null }).user_id === shop?.owner_id)?.id) ?? null;
+    const t = collectedTotals(revenueApptsInRange as RevAppt[], filteredTx as RevTx[], byPi, ownerBarberId);
     // Barber commission tallied over the SAME sales `collected` counts (same as the
     // Dashboard + Payroll), so Net reconciles: paid appointments → (total − tax) ×
     // that barber's rate; counted POS sales with a barber → the stored cut.
@@ -243,9 +246,10 @@ export default function AnalyticsPage() {
     // then minus tax (govt), tips (barber), and barber commission (barber/owner).
     // NOT floored at 0 — mirrors the Dashboard, which shows a real negative (e.g. a
     // price raised above the held card) instead of hiding it behind a clamp.
-    const netRevenue = t.net - t.tax - t.tips - commission;
-    return { gross: t.gross, fees: t.fees, collected: t.net, tax: t.tax, tips: t.tips, commission, netRevenue };
-  }, [revenueApptsInRange, filteredTx, byPi, barbers]);
+    const paidOutTips = Math.max(0, t.tips - t.ownerTips);
+    const netRevenue = t.net - t.tax - paidOutTips - commission;
+    return { gross: t.gross, fees: t.fees, collected: t.net, tax: t.tax, tips: paidOutTips, commission, netRevenue };
+  }, [revenueApptsInRange, filteredTx, byPi, barbers, shop?.owner_id]);
   const totalRevenue = money.gross;
   const totalAppts = filteredAppts.length;
   const completedAppts = filteredAppts.filter(a => a.status === "completed").length;

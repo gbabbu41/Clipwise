@@ -21,6 +21,7 @@ export type RevAppt = {
   payment_method?: string | null;
   payment_intent_id?: string | null;
   status?: string | null;
+  barber_id?: string | null;      // who performed it — used to split owner-barber tips
 };
 
 export type RevTx = {
@@ -92,6 +93,8 @@ export type CollectedTotals = {
   tax: number;     // tax portion of gross (informational — owed to govt)
   cash: number;    // cash portion of gross (no fee)
   tips: number;    // tips collected (the barber's money, but it landed in the shop's Stripe)
+  ownerTips: number; // subset of `tips` earned by the OWNER-barber — their own money,
+                     // not paid out, so it stays in the owner's net revenue
   preTax: number;  // gross − tax
 };
 
@@ -100,11 +103,15 @@ export type CollectedTotals = {
  * caller passes in (already date-filtered). Pass the Stripe `byPi` map to get
  * exact net/fees; omit it and net === gross (fees 0).
  */
-export function collectedTotals(appts: RevAppt[], txs: RevTx[], byPi?: ByPi): CollectedTotals {
+export function collectedTotals(appts: RevAppt[], txs: RevTx[], byPi?: ByPi, ownerBarberId?: string | null): CollectedTotals {
   // Same income rule the Payments page uses (shared, so they can't disagree).
   const posTxs = countablePosTxs(appts, txs);
 
-  let gross = 0, fees = 0, net = 0, tax = 0, cash = 0, tips = 0;
+  let gross = 0, fees = 0, net = 0, tax = 0, cash = 0, tips = 0, ownerTips = 0;
+  // A tip belongs to the barber who earned it. The OWNER-barber's own tips are the
+  // owner's money (like their 0-commission chair), so they're tracked separately
+  // and NOT subtracted from the owner's net revenue.
+  const isOwnerBarber = (barberId: string | null | undefined) => !!ownerBarberId && barberId === ownerBarberId;
 
   // PaymentIntents accounted for by the appointment loop — a post-visit tip on
   // one of these intents is already inside the appointment, so it's skipped below.
@@ -137,6 +144,7 @@ export function collectedTotals(appts: RevAppt[], txs: RevTx[], byPi?: ByPi): Co
     gross += lineGross; net += n; fees += f;
     tax += total > 0 ? (a.tax_amount ?? 0) * (collectedSvcTax / total) : (a.tax_amount ?? 0);
     tips += apptTip;
+    if (isOwnerBarber(a.barber_id)) ownerTips += apptTip;
     if (a.payment_method === "cash") cash += lineGross;
     if (a.payment_intent_id) apptPis.add(a.payment_intent_id);
   }
@@ -150,6 +158,7 @@ export function collectedTotals(appts: RevAppt[], txs: RevTx[], byPi?: ByPi): Co
     gross += amt; net += n; fees += f;
     tax += t.tax ?? 0;
     tips += t.tip ?? 0;
+    if (isOwnerBarber(t.barber_id)) ownerTips += t.tip ?? 0;
     if (t.payment_method === "cash") cash += amt;
   }
 
@@ -167,6 +176,7 @@ export function collectedTotals(appts: RevAppt[], txs: RevTx[], byPi?: ByPi): Co
     const pi = t.payment_intent_id ?? null;
     if (pi && apptPis.has(pi)) continue; // booking tip — already in the appt net
     gross += tip; tips += tip;
+    if (isOwnerBarber(t.barber_id)) ownerTips += tip;
     const { net: n, fee: f } = lineNetFee(pi, tip, byPi);
     net += n; fees += f;
     if (t.payment_method === "cash") cash += tip;
@@ -187,5 +197,5 @@ export function collectedTotals(appts: RevAppt[], txs: RevTx[], byPi?: ByPi): Co
     if (t.payment_method === "cash") cash += amt;
   }
 
-  return { gross, fees, net, tax, cash, tips, preTax: Math.max(0, gross - tax) };
+  return { gross, fees, net, tax, cash, tips, ownerTips, preTax: Math.max(0, gross - tax) };
 }
