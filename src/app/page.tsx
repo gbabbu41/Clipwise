@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PLAN_MARKETING } from "@/lib/plan-marketing";
-import { HeroFilm } from "@/components/marketing/hero-film";
+import { HomeHero } from "@/components/marketing/home-hero";
 import { MarketingShell } from "@/components/marketing/shell";
 
 // Public marketing homepage. The DESIGN is the "new" black/emerald landing (ditto);
 // the SYSTEM + DATA are ours — real routes on every CTA, pricing rendered from the
 // PLAN_MARKETING single source of truth, and our real footer. The whole page is a
-// server component (indexable, copy in the initial HTML) with one client island
-// for the hero film. Theme CSS is scoped under `.mkt`, so the portals are untouched.
+// server component (indexable, copy in the initial HTML), including the product
+// hero. Theme CSS is scoped under `.mkt`, so the portals are untouched.
 //
 // Native app never reaches this: middleware redirects `/` → /dashboard for the app,
 // so none of the billing/pricing here leaks into the iOS shell (Apple IAP).
@@ -31,13 +31,7 @@ export const metadata: Metadata = {
 export default function HomePage() {
   return (
     <MarketingShell>
-      {/* Visually-hidden page title — the visible "headline" is baked into the hero
-          film, so this gives crawlers and screen readers a real h1 with no visual
-          change. */}
-      <h1 className="sr-only">ClipWise — barbershop management built for Canadian shops</h1>
-
-      {/* hero film (client island) */}
-      <HeroFilm />
+      <HomeHero />
 
       {/* proof strip */}
       <div className="proof">
