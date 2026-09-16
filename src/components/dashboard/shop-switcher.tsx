@@ -34,7 +34,7 @@ export function ShopSwitcher({ shop, shops, setActiveShop }: Props) {
     <div ref={ref} className="relative px-3 pt-3">
       <button
         onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center gap-2 px-3 py-2 rounded-xl bg-transparent border border-border hover:border-foreground/30 transition-colors text-left"
+        className="w-full flex items-center gap-2 px-3 py-2 rounded-xl bg-surface-sunken border border-border-strong hover:border-foreground/30 transition-colors text-left"
       >
         {badge(shop?.logo, shop?.name)}
         <span className="flex-1 text-sm text-foreground truncate">{shop?.name ? titleCase(shop.name) : "Select Shop"}</span>
