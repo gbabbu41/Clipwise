@@ -1,4 +1,4 @@
-const CACHE = 'clipwise-v3';
+const CACHE = 'clipwise-v4';
 const STATIC = [
   '/',
   '/dashboard',

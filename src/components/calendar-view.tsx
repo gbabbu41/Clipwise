@@ -2586,7 +2586,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
       return (
         <div className="flex flex-col h-full">
           {renderWeekStrip()}
-          <div className="overflow-auto flex-1">
+          <div className="overflow-auto flex-1 min-h-0">
             {soloBarber
               ? renderBarberGrid(soloBarber)
               : <p className="text-center text-sm text-grey-muted py-12">No barbers yet.</p>}
@@ -2645,7 +2645,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
             </button>
           );
         })()}
-        <div ref={attachScroll} className="overflow-y-auto overflow-x-hidden flex-1">
+        <div ref={attachScroll} className="overflow-y-auto overflow-x-hidden flex-1 min-h-0">
           <div>
             {!single && (
             <div className="grid sticky top-0 z-10 bg-background border-b border-border" style={{ gridTemplateColumns: `56px repeat(${cols.length}, minmax(0, 1fr))` }}>
@@ -2884,7 +2884,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
 
     return (
       <div className="flex flex-col h-full">
-        <div ref={attachScroll} className="overflow-auto flex-1">
+        <div ref={attachScroll} className="overflow-auto flex-1 min-h-0">
           {/* Day headers — tap a day to open it in your day-level view (re-anchors
               the 3-Day window to start on that day). */}
           <div className="grid sticky top-0 z-10 bg-background border-b border-border" style={{ gridTemplateColumns: gridCols }}>
@@ -3052,7 +3052,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
             })}
           </div>
           {/* Single-day timeline for the selected day */}
-          <div ref={scrollRef} className="overflow-auto flex-1">
+          <div ref={scrollRef} className="overflow-auto flex-1 min-h-0">
             <div className="relative">
               {hours.map(hour => (
                 <div key={hour} className="grid border-b border-border" style={{ gridTemplateColumns: `48px 1fr`, height: `${ROW_PX}px` }}>
@@ -3543,7 +3543,12 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
       )}
 
       <div
-        className={cn("relative flex-1 bg-background", embedded ? "overflow-y-auto" : "overflow-hidden")}
+        // min-h-0 is REQUIRED here: this is a flex-1 child of the calendar's
+        // flex column, and without it iOS Safari (esp. the home-screen PWA)
+        // leaves its min-height at `auto` (content-sized), which stops the inner
+        // timeline from becoming a real touch-scroll region until a tap forces a
+        // reflow — the "won't scroll until I tap it a few times" freeze.
+        className={cn("relative flex-1 min-h-0 bg-background", embedded ? "overflow-y-auto" : "overflow-hidden")}
         onTouchStart={onSwipeStart}
         onTouchEnd={onSwipeEnd}
       >
