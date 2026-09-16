@@ -427,26 +427,47 @@ export function makeApptActions(opts: {
       if (!shop) return;
       if (checkoutBlocked(appt)) return;
       setBusy("cash");
+      // Guard against acting on a STALE drawer: re-read the current payment state
+      // first. If it was already settled or refunded elsewhere (a paid link,
+      // another staffer), don't stamp cash-paid over the top of it.
+      const { data: fresh } = await supabase.from("appointments").select("payment_status, status").eq("id", appt.id).maybeSingle();
+      const ps = (fresh?.payment_status ?? appt.payment_status) as string | null;
+      if (ps === "paid" || ps === "captured" || ps === "refunded" || ps === "voided") {
+        patch(appt.id, { payment_status: fresh?.payment_status, status: fresh?.status } as Partial<AppointmentWithDetails>);
+        setBusy("");
+        toast("This booking was already settled elsewhere — refreshed it.");
+        onDone();
+        return;
+      }
       const p = { payment_status: "paid" as const, payment_method: "cash" as const, status: "completed" as const, paid_at: new Date().toISOString() };
       const { error } = await supabase.from("appointments").update(p).eq("id", appt.id);
       if (error) { setBusy(""); toast(`Failed: ${error.message}`); return; }
       patch(appt.id, p);
-      // Settled by cash → expire any open payment link so it can't be paid too,
-      // and ledger the cash sale so it shows in the barber Payments view.
+      // Settled by cash → expire any open payment link so it can't be paid too.
       if (accessToken) {
         fetch("/api/stripe/cancel-payment-link", {
           method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
           body: JSON.stringify({ appointment_id: appt.id }),
         }).catch(() => {});
-        fetch("/api/calendar/record-cash", {
-          method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ appointment_id: appt.id }),
-        }).catch(() => {});
       }
       await runCompletionEffects(supabase, appt, shop, accessToken);
+      // Ledger the cash sale (idempotent). Await it and tell the truth if it
+      // doesn't land — the barber Payments view reads the ledger, not the
+      // appointment — so a silent miss won't leave the sale invisible there.
+      let ledgerOk = true;
+      if (accessToken) {
+        try {
+          const lr = await fetch("/api/calendar/record-cash", {
+            method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ appointment_id: appt.id }),
+          });
+          const lj = await lr.json().catch(() => ({ ok: false }));
+          ledgerOk = !!(lr.ok && lj.ok);
+        } catch { ledgerOk = false; }
+      }
       setBusy("");
       onDone();
-      toast("Cash recorded · Completed");
+      toast(ledgerOk ? "Cash recorded · Completed" : "Completed — but the Payments ledger didn't update. Reopen and mark cash again to retry.");
     },
     sendLink: async (appt, email) => {
       if (!shop || !accessToken) return;
@@ -454,6 +475,8 @@ export function makeApptActions(opts: {
       const willEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
       const willSms = !!appt.client_phone;
       if (willEmail && email !== (appt.client_email ?? "")) patch(appt.id, { client_email: email });
+      // .catch(null) so a network REJECTION doesn't strand the "Sending…" state
+      // (same pattern as the balance-link handler).
       const res = await fetch("/api/stripe/payment-link", {
         method: "POST",
         headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
@@ -467,10 +490,10 @@ export function makeApptActions(opts: {
           phone: willSms ? appt.client_phone : undefined,
           complete_on_paid: true,
         }),
-      });
-      const data = await res.json().catch(() => ({}));
+      }).catch(() => null);
+      const data = res ? await res.json().catch(() => ({})) : {};
       setBusy("");
-      if (!res.ok) { toast(`Failed: ${data.error ?? "try again"}`); return; }
+      if (!res || !res.ok) { toast(`Failed: ${data.error ?? "try again"}`); return; }
       // Reflect that we're now waiting on the customer to pay (keeps the Check out
       // button visible; tag shows "Awaiting payment" until the webhook flips it).
       // Placeholder id is replaced by the real one via the realtime subscription.
@@ -536,6 +559,7 @@ export function makeApptActions(opts: {
       const hasHold = !!(appt.payment_intent_id && appt.payment_status === "held");
       if (!(await ask(`Reject this appointment? The customer will be notified${hasCharge ? " and refunded." : "."}`))) return;
       setBusy("reject");
+      let refundFailed = false;
       if (hasCharge && accessToken) {
         const refundRes = await fetch("/api/stripe/refund", {
           method: "POST",
@@ -555,30 +579,44 @@ export function makeApptActions(opts: {
           toast("Rejected · Refund issued");
           return;
         }
-        // fall through to a plain cancel if the refund call failed
+        // The refund did NOT go through. Still cancel the booking — but never
+        // pretend the money came back; flag it so the toast tells the truth.
+        refundFailed = true;
       }
-      // Uncaptured hold → release the authorization before cancelling.
+      // Uncaptured hold → release the authorization before cancelling. Only mark
+      // the row "voided" if the release actually SUCCEEDED; otherwise the hold is
+      // still live on the card, and calling it voided would hide a real
+      // authorization from reconciliation.
+      let holdReleased = false;
       if (hasHold && accessToken) {
-        await fetch("/api/stripe/release-hold", {
+        const relRes = await fetch("/api/stripe/release-hold", {
           method: "POST",
           headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
           body: JSON.stringify({ appointment_id: appt.id }),
         }).catch(() => null);
+        holdReleased = !!relRes?.ok;
       }
-      // Persist the voided state to the DB too (a held card being cancelled) — the
-      // old write set only `status`, leaving the row `held + cancelled` forever
-      // (it read as a frozen hold in reconciliation). Match the local patch below.
+      const voided = hasHold && holdReleased;
+      // Persist the state. A confirmed-released hold becomes voided; otherwise we
+      // only cancel and leave payment_status untouched so reconciliation can catch
+      // a hold that didn't release.
       const { error } = await supabase.from("appointments")
-        .update(hasHold ? { status: "cancelled", payment_status: "voided" } : { status: "cancelled" })
+        .update(voided ? { status: "cancelled", payment_status: "voided" } : { status: "cancelled" })
         .eq("id", appt.id);
       setBusy("");
       if (error) { toast(`Failed: ${error.message}`); return; }
-      patch(appt.id, hasHold ? { status: "cancelled", payment_status: "voided" } : { status: "cancelled" });
+      patch(appt.id, voided ? { status: "cancelled", payment_status: "voided" } : { status: "cancelled" });
       clearBookingNotif(appt.id);
       sendRejectionEmail(appt, shop, "");
       notifyFreedSlot(appt, shop, "Cancelled");
       onDone();
-      toast("Rejected" + (appt.client_email ? " · Email sent" : ""));
+      toast(
+        refundFailed
+          ? "Cancelled — but the refund FAILED. Issue it in Stripe or retry."
+          : (hasHold && !holdReleased)
+            ? "Cancelled — but the card hold couldn't be released. Check Stripe."
+            : "Rejected" + (appt.client_email ? " · Email sent" : ""),
+      );
     },
     // Manual no-show. amountCents > 0 AND a card on file → charge the no-show fee
     // (capture-appointment handles the money + receipt + owner alert); otherwise

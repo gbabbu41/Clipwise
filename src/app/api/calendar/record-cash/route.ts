@@ -69,9 +69,15 @@ export async function POST(request: NextRequest) {
       delete row.tax;
       row.amount = appt.total_amount ?? 0;
       const { error: e2 } = await supabaseAdmin.from("transactions").insert(row);
-      if (e2) console.warn("[record-cash] ledger insert failed:", e2.message);
+      if (e2) {
+        // Report the failure instead of a false ok — the caller can retry (this
+        // route is idempotent, so a retry never double-ledgers).
+        console.warn("[record-cash] ledger insert failed:", e2.message);
+        return NextResponse.json({ ok: false, error: "Ledger update failed" }, { status: 500 });
+      }
     } else {
       console.warn("[record-cash] ledger insert failed:", insErr.message);
+      return NextResponse.json({ ok: false, error: "Ledger update failed" }, { status: 500 });
     }
   }
 
