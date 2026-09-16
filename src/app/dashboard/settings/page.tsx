@@ -73,8 +73,8 @@ const PLAN_INFO: PlanInfo[] = [
   },
 ];
 
-type NewLocation = { name: string; address: string; city: string; province: string; phone: string };
-const BLANK_LOCATION: NewLocation = { name: "", address: "", city: "", province: "", phone: "" };
+type NewLocation = { name: string; address: string; city: string; province: string; postal_code: string; phone: string; description: string };
+const BLANK_LOCATION: NewLocation = { name: "", address: "", city: "", province: "", postal_code: "", phone: "", description: "" };
 
 // Snapshot keys for "unsaved changes" detection. allow_pay_in_person is edited on
 // the Booking tab (the Require-a-card toggle) and saved by saveBooking, so it's
@@ -634,7 +634,9 @@ export default function SettingsPage() {
         address: newLocation.address,
         city: newLocation.city,
         province: newLocation.province,
+        postal_code: newLocation.postal_code,
         phone: newLocation.phone,
+        description: newLocation.description.trim() || undefined,
         agree_addon: confirmingAddon, // true only after the $30/mo popup was agreed
       }),
     });
@@ -1532,7 +1534,17 @@ export default function SettingsPage() {
                     <Input label="City" value={newLocation.city} onChange={e => setNewLocation(p => ({ ...p, city: e.target.value }))} />
                     <Input label="Province" placeholder="NB" value={newLocation.province} onChange={e => setNewLocation(p => ({ ...p, province: e.target.value }))} />
                   </div>
-                  <Input label="Phone" value={newLocation.phone} onChange={e => setNewLocation(p => ({ ...p, phone: e.target.value }))} />
+                  <div className="grid grid-cols-2 gap-3">
+                    <Input label="Postal code" placeholder="E1C 1A1" value={newLocation.postal_code} onChange={e => setNewLocation(p => ({ ...p, postal_code: e.target.value }))} />
+                    <Input label="Phone" placeholder="(506) 555-0123" value={newLocation.phone} onChange={e => setNewLocation(p => ({ ...p, phone: e.target.value }))} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-grey">Description (optional)</label>
+                    <textarea value={newLocation.description} onChange={e => setNewLocation(p => ({ ...p, description: e.target.value.slice(0, 500) }))}
+                      placeholder="Tell clients what makes this location special..." rows={3} maxLength={500}
+                      className="w-full bg-card-raised border border-border rounded-xl px-3 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-foreground resize-none" />
+                  </div>
+                  <p className="text-xs text-grey">You can add this location&apos;s logo from its Shop Profile after it&apos;s created.</p>
                   <div className="flex gap-3 pt-2">
                     <Button variant="outline" className="flex-1" onClick={() => setShowAddLocation(false)}>Cancel</Button>
                     <Button className="flex-1" loading={addingLocation} onClick={addLocation}>{willCostAddon ? "Continue" : "Add Location"}</Button>

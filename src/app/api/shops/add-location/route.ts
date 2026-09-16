@@ -39,6 +39,7 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json().catch(() => ({})) as {
     name?: string; address?: string; city?: string; province?: string; postal_code?: string; phone?: string;
+    description?: string;
     agree_addon?: boolean;
   };
   if (!body.name?.trim()) return NextResponse.json({ error: "Location name is required" }, { status: 400 });
@@ -128,6 +129,7 @@ export async function POST(request: NextRequest) {
     timezone,
     postal_code: body.postal_code ?? null,
     phone: body.phone ?? null,
+    description: body.description?.trim() ? body.description.trim().slice(0, 500) : null,
     // Reuse the owner's account email — no new email / login for a location.
     email: user.email ?? paid.email ?? null,
     is_active: true,
