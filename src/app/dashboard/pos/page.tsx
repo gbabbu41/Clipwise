@@ -16,6 +16,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import type { Barber, Service, InventoryItem, PromoCode, AppointmentWithDetails } from "@/lib/database.types";
 import { clientMatchesQuery } from "@/lib/client-search";
+import { normPhone } from "@/lib/client-identity";
 import { ApptDetail, makeApptActions, Portal } from "@/components/calendar-view";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { safeTz } from "@/lib/timezone";
@@ -350,21 +351,26 @@ export default function POSPage() {
     if (!name || name.toLowerCase() === "walk-in") return;
     if (!phone && !email) return; // nothing to reach them by — don't save a bare name
 
-    let existing = null;
-    if (phone) {
-      const { data } = await supabase.from("clients").select("id").eq("shop_id", shop.id).eq("phone", phone).maybeSingle();
-      existing = data;
-    }
-    if (!existing && email) {
+    // Dedupe email → NORMALIZED phone (matches the rest of the app), so the same
+    // person typed "506-555-0000" one day and "5065550000" the next isn't saved
+    // twice.
+    let existing: { id: string } | null = null;
+    if (email) {
       const { data } = await supabase.from("clients").select("id").eq("shop_id", shop.id).ilike("email", email).maybeSingle();
       existing = data;
     }
+    const np = normPhone(phone);
+    if (!existing && np) {
+      const { data } = await supabase.from("clients").select("id").eq("shop_id", shop.id).eq("phone_normalized", np).limit(1);
+      existing = data?.[0] ?? null;
+    }
     if (existing) return;
 
-    await supabase.from("clients").insert({
+    const { error } = await supabase.from("clients").insert({
       shop_id: shop.id, name, phone, email,
       total_visits: 0, total_spent: 0, loyalty_points: 0, tag: "New",
     });
+    if (error) { showToast("Couldn't save to clients — please try again"); return; }
     showToast(`Added ${name} to clients`);
   }, [shop, client, custPhone, custEmail, selectedClientId]);
 
@@ -451,10 +457,11 @@ export default function POSPage() {
           .select("id, name, email, phone").eq("shop_id", shop.id).ilike("email", email).maybeSingle();
         if (existing) { setDupClient(existing as ClientLite); return; }
       }
-      if (phone) {
+      const np = normPhone(phone);
+      if (np) {
         const { data: existingP } = await supabase.from("clients")
-          .select("id, name, email, phone").eq("shop_id", shop.id).eq("phone", phone).maybeSingle();
-        if (existingP) { setDupClient(existingP as ClientLite); return; }
+          .select("id, name, email, phone").eq("shop_id", shop.id).eq("phone_normalized", np).limit(1);
+        if (existingP?.[0]) { setDupClient(existingP[0] as ClientLite); return; }
       }
       const { data: inserted, error } = await supabase.from("clients").insert({
         shop_id: shop.id, name, email, phone,

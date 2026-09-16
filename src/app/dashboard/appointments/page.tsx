@@ -897,16 +897,18 @@ export default function AppointmentsPage() {
       }
     }
 
-    // Resolve/create the client (by phone) so the appointment carries the
-    // permanent client_id link (phase 36). Best-effort; the public upsert route
-    // dedupes so it won't create a duplicate.
+    // Resolve/create the client so the appointment carries the permanent
+    // client_id link (phase 36) AND the guest is logged into the client book —
+    // for EVERY named guest, not just ones with a phone (the upsert route dedupes
+    // by email → phone → name, so a name-only walk-in is logged without spawning
+    // duplicates). Best-effort; a client hiccup never blocks the booking.
     let addClientId: string | null = null;
-    if (addForm.client_phone?.trim()) {
+    if (addForm.client_name?.trim()) {
       try {
         const r = await fetch("/api/clients/upsert", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ shop_id: shop.id, name: addForm.client_name, phone: addForm.client_phone }),
+          body: JSON.stringify({ shop_id: shop.id, name: addForm.client_name, phone: addForm.client_phone || undefined }),
         });
         const j = await r.json();
         if (j?.ok) addClientId = j.id;

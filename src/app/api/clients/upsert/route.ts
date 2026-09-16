@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { enforceRateLimit } from "@/lib/rate-limit";
-import { normPhone } from "@/lib/client-identity";
+import { ensureClientRow } from "@/lib/ensure-client";
 
-// Upsert a client for a shop, deduped by email → phone (case-insensitive email).
-// Runs with the service role so it works from the anonymous customer booking
-// flow. Idempotent: returns the existing client if one already matches.
+// Upsert a client for a shop, deduped by email → phone → name. Runs with the
+// service role so it works from the anonymous customer booking flow AND from the
+// barber portal (where RLS gives barbers no INSERT on clients). Idempotent:
+// returns the existing client if one already matches. The dedupe/create logic is
+// the shared ensureClientRow, so EVERY client-adding gate behaves identically —
+// including logging a name-only guest (deduped by name so no duplicates).
 export async function POST(request: NextRequest) {
   // Public (anon booking flow calls this) — rate-limit to blunt bulk PII
   // injection into a shop's client book.
@@ -24,33 +27,7 @@ export async function POST(request: NextRequest) {
     .from("shops").select("id").eq("id", shop_id).eq("status", "approved").maybeSingle();
   if (!shop) return NextResponse.json({ ok: false, error: "Shop not found" }, { status: 404 });
 
-  const e = (email ?? "").trim().slice(0, 120);
-  const p = (phone ?? "").trim().slice(0, 30);
-  const nm = name.trim().slice(0, 80);
-
-  try {
-    // Dedupe: match an existing client by email first, then phone.
-    let existing: { id: string } | null = null;
-    if (e) {
-      const { data } = await supabaseAdmin
-        .from("clients").select("id").eq("shop_id", shop_id).ilike("email", e).maybeSingle();
-      existing = data;
-    }
-    const np = normPhone(p);
-    if (!existing && np) {
-      const { data } = await supabaseAdmin
-        .from("clients").select("id").eq("shop_id", shop_id).eq("phone_normalized", np).limit(1);
-      existing = data?.[0] ?? null;
-    }
-    if (existing) return NextResponse.json({ ok: true, id: existing.id, created: false });
-
-    const { data, error } = await supabaseAdmin.from("clients").insert({
-      shop_id, name: nm, email: e, phone: p,
-      total_visits: 0, total_spent: 0, loyalty_points: 0, tag: "New",
-    }).select("id").single();
-    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-    return NextResponse.json({ ok: true, id: data.id, created: true });
-  } catch (err) {
-    return NextResponse.json({ ok: false, error: err instanceof Error ? err.message : "error" }, { status: 500 });
-  }
+  const id = await ensureClientRow(shop_id, { name, email, phone });
+  if (!id) return NextResponse.json({ ok: false, error: "Could not save client" }, { status: 500 });
+  return NextResponse.json({ ok: true, id });
 }
