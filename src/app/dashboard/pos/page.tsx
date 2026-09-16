@@ -16,7 +16,6 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import type { Barber, Service, InventoryItem, PromoCode, AppointmentWithDetails } from "@/lib/database.types";
 import { clientMatchesQuery } from "@/lib/client-search";
-import { normPhone } from "@/lib/client-identity";
 import { ApptDetail, makeApptActions, Portal } from "@/components/calendar-view";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { safeTz } from "@/lib/timezone";
@@ -351,28 +350,22 @@ export default function POSPage() {
     if (!name || name.toLowerCase() === "walk-in") return;
     if (!phone && !email) return; // nothing to reach them by — don't save a bare name
 
-    // Dedupe email → NORMALIZED phone (matches the rest of the app), so the same
-    // person typed "506-555-0000" one day and "5065550000" the next isn't saved
-    // twice.
-    let existing: { id: string } | null = null;
-    if (email) {
-      const { data } = await supabase.from("clients").select("id").eq("shop_id", shop.id).ilike("email", email).maybeSingle();
-      existing = data;
+    // Route through the ONE authenticated add-client door — it re-checks auth +
+    // shop ownership, dedupes (email → phone → name) and bounds the fields on the
+    // server, so this can never double-save the same person.
+    try {
+      const res = await fetch("/api/clients/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
+        body: JSON.stringify({ shop_id: shop.id, name, phone: phone || undefined, email: email || undefined }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || !j.ok) { showToast("Couldn't save to clients — please try again"); return; }
+      if (!j.duplicate) showToast(`Added ${name} to clients`);
+    } catch {
+      showToast("Couldn't save to clients — please try again");
     }
-    const np = normPhone(phone);
-    if (!existing && np) {
-      const { data } = await supabase.from("clients").select("id").eq("shop_id", shop.id).eq("phone_normalized", np).limit(1);
-      existing = data?.[0] ?? null;
-    }
-    if (existing) return;
-
-    const { error } = await supabase.from("clients").insert({
-      shop_id: shop.id, name, phone, email,
-      total_visits: 0, total_spent: 0, loyalty_points: 0, tag: "New",
-    });
-    if (error) { showToast("Couldn't save to clients — please try again"); return; }
-    showToast(`Added ${name} to clients`);
-  }, [shop, client, custPhone, custEmail, selectedClientId]);
+  }, [shop, client, custPhone, custEmail, selectedClientId, accessToken]);
 
   // Look up the selected customer's redeemable loyalty balance (by email/phone).
   // Server decides eligibility (on-plan + enabled + worth ≥ $5). Debounced; clears
@@ -452,23 +445,19 @@ export default function POSPage() {
     setAddingClient(true);
     setDupClient(null);
     try {
-      if (email) {
-        const { data: existing } = await supabase.from("clients")
-          .select("id, name, email, phone").eq("shop_id", shop.id).ilike("email", email).maybeSingle();
-        if (existing) { setDupClient(existing as ClientLite); return; }
-      }
-      const np = normPhone(phone);
-      if (np) {
-        const { data: existingP } = await supabase.from("clients")
-          .select("id, name, email, phone").eq("shop_id", shop.id).eq("phone_normalized", np).limit(1);
-        if (existingP?.[0]) { setDupClient(existingP[0] as ClientLite); return; }
-      }
-      const { data: inserted, error } = await supabase.from("clients").insert({
-        shop_id: shop.id, name, email, phone,
-        total_visits: 0, total_spent: 0, loyalty_points: 0, tag: "New",
-      }).select("id, name, email, phone").single();
-      if (error || !inserted) { showToast("Could not add client"); return; }
-      const savedClient = { ...(inserted as ClientLite), saved: true };
+      // The ONE authenticated add-client door: server-side auth + ownership +
+      // dedupe (email → phone → name) + field bounds. A live match (possibly
+      // saved under a different name) comes back as duplicate so we can offer it
+      // for reuse instead of creating a second record.
+      const res = await fetch("/api/clients/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
+        body: JSON.stringify({ shop_id: shop.id, name, email: email || undefined, phone: phone || undefined }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || !j.ok) { showToast(j.error ?? "Could not add client"); return; }
+      if (j.duplicate && j.client) { setDupClient(j.client as ClientLite); return; }
+      const savedClient = { ...(j.client as ClientLite), saved: true };
       setClientsList(prev => [savedClient, ...prev]);
       selectClient(savedClient);
       showToast(`Added ${name}`);

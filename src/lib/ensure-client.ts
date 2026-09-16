@@ -1,6 +1,34 @@
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { normPhone } from "@/lib/client-identity";
 
+// Find an existing client for a shop by the app's identity rule: email →
+// normalized phone → name (name only when there's no email/phone to key on, so
+// two different people who share a name but gave contact details never merge).
+// Shared by ensureClientRow and the authenticated /api/clients/create door, so
+// EVERY client-creating path dedupes exactly the same way. Returns the id or null.
+export async function findExistingClient(
+  shopId: string,
+  c: { name?: string | null; email?: string | null; phone?: string | null },
+): Promise<string | null> {
+  const email = (c.email ?? "").trim().slice(0, 120);
+  const phone = (c.phone ?? "").trim().slice(0, 30);
+  const name = (c.name ?? "").trim().slice(0, 80);
+  if (email) {
+    const { data } = await supabaseAdmin.from("clients").select("id").eq("shop_id", shopId).ilike("email", email).maybeSingle();
+    if (data) return data.id;
+  }
+  const np = normPhone(phone);
+  if (np) {
+    const { data } = await supabaseAdmin.from("clients").select("id").eq("shop_id", shopId).eq("phone_normalized", np).limit(1);
+    if (data?.[0]) return data[0].id;
+  }
+  if (!email && !np && name) {
+    const { data } = await supabaseAdmin.from("clients").select("id").eq("shop_id", shopId).ilike("name", name).limit(1);
+    if (data?.[0]) return data[0].id;
+  }
+  return null;
+}
+
 // Resolve a shop's client row for a booking, creating one if none exists, and
 // return its id — used by the booking paths to stamp appointments.client_id
 // (the permanent link). Deduped by email → phone → name, matching how the rest
@@ -17,27 +45,8 @@ export async function ensureClientRow(
   const phone = (c.phone ?? "").trim().slice(0, 30);
   if (!name) return null;
   try {
-    let existing: { id: string } | null = null;
-    if (email) {
-      const { data } = await supabaseAdmin.from("clients").select("id").eq("shop_id", shopId).ilike("email", email).maybeSingle();
-      existing = data;
-    }
-    const np = normPhone(phone);
-    if (!existing && np) {
-      // Match on the NORMALIZED phone (digits, last 10) so a returning customer
-      // whose number was typed in a different format is still recognized.
-      const { data } = await supabaseAdmin.from("clients").select("id").eq("shop_id", shopId).eq("phone_normalized", np).limit(1);
-      existing = data?.[0] ?? null;
-    }
-    // Name-only guest (no email/phone to key on): dedupe by the trimmed name
-    // (case-insensitive) so a repeat walk-in links to the SAME row instead of
-    // spawning a fresh "John" every visit — the app already groups by name, so
-    // this keeps the client book clean while still logging the guest.
-    if (!existing && !email && !np) {
-      const { data } = await supabaseAdmin.from("clients").select("id").eq("shop_id", shopId).ilike("name", name).limit(1);
-      existing = data?.[0] ?? null;
-    }
-    if (existing) return existing.id;
+    const existing = await findExistingClient(shopId, { name, email, phone });
+    if (existing) return existing;
     // Create the client — including a name-only walk-in. email/phone go in as
     // NULL (not "") when absent so the generated phone_normalized stays null and
     // the row reads cleanly. (phone_normalized is a GENERATED column — never set

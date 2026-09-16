@@ -905,9 +905,9 @@ export default function AppointmentsPage() {
     let addClientId: string | null = null;
     if (addForm.client_name?.trim()) {
       try {
-        const r = await fetch("/api/clients/upsert", {
+        const r = await fetch("/api/clients/create", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
           body: JSON.stringify({ shop_id: shop.id, name: addForm.client_name, phone: addForm.client_phone || undefined }),
         });
         const j = await r.json();

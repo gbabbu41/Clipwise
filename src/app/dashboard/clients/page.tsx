@@ -7,8 +7,8 @@ import { formatPhone } from "@/lib/validation";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input, Textarea } from "@/components/ui/input";
-import { Phone, MessageSquare, Mail, Users, Building2, Ban } from "lucide-react";
-import { groupClients, sameIdentity, clientToId, apptToId, normPhone } from "@/lib/client-identity";
+import { Phone, MessageSquare, Mail, Users, Building2, Ban, UserPlus } from "lucide-react";
+import { groupClients, sameIdentity, clientToId, apptToId } from "@/lib/client-identity";
 import type { Client, Appointment } from "@/lib/database.types";
 import { DashboardHeader } from "@/components/dashboard/page-header";
 import { clientMatchesQuery } from "@/lib/client-search";
@@ -352,42 +352,40 @@ export default function ClientsPage() {
   const addClient = async () => {
     if (!shop) return;
     // A contact needs a name and a phone (this is a call-first contacts list;
-    // phone is how you reach them and the key we dedupe on). Email is optional.
+    // phone is how you reach them). Email is optional.
     const name = newClient.name.trim();
     const phone = newClient.phone.trim();
     const email = newClient.email.trim();
     if (!name) { showToast("Name is required"); return; }
     if (!phone) { showToast("A phone number is required"); return; }
     setSaving(true);
-    // Don't create a duplicate if this phone/email is already on file.
-    let dupe: { id: string } | null = null;
-    // Abort on a lookup error — silently proceeding would let a duplicate client
-    // slip in when the check itself failed (RLS/network), not when it's clear.
-    const np = normPhone(phone);
-    const { data: byPhone, error: dupPhoneErr } = await supabase.from("clients").select("id").eq("shop_id", shop.id).eq("phone_normalized", np).limit(1);
-    if (dupPhoneErr) { setSaving(false); showToast("Couldn't verify — please try again."); return; }
-    dupe = byPhone?.[0] ?? null;
-    if (!dupe && email) {
-      const { data: byEmail, error: dupEmailErr } = await supabase.from("clients").select("id").eq("shop_id", shop.id).ilike("email", email).maybeSingle();
-      if (dupEmailErr) { setSaving(false); showToast("Couldn't verify — please try again."); return; }
-      dupe = byEmail;
+    // Route through the ONE authenticated add-client door: it re-checks auth +
+    // shop ownership on the server, dedupes (email → phone → name), and bounds
+    // every field — so no duplicate slips in and a barber (no direct DB write)
+    // could use the same path too.
+    try {
+      const res = await fetch("/api/clients/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
+        body: JSON.stringify({
+          shop_id: shop.id, name, phone,
+          email: email || undefined,
+          notes: newClient.notes || undefined,
+          birthday: newClient.birthday || undefined,
+        }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || !j.ok) { showToast(j.error ?? "Couldn't add the client — please try again."); return; }
+      if (j.duplicate) { showToast("A client with that phone or email already exists"); return; }
+      showToast("Client added!");
+      loadClients({ background: true });
+      setShowAddModal(false);
+      setNewClient(BLANK_CLIENT);
+    } catch {
+      showToast("Couldn't add the client — please try again.");
+    } finally {
+      setSaving(false);
     }
-    if (dupe) { setSaving(false); showToast("A client with that phone or email already exists"); return; }
-    const { error } = await supabase.from("clients").insert({
-      shop_id: shop.id,
-      name,
-      phone,
-      email,
-      notes: newClient.notes,
-      birthday: newClient.birthday || null,
-      total_visits: 0,
-      total_spent: 0,
-      loyalty_points: 0,
-      tag: "New",
-    });
-    if (!error) { showToast("Client added!"); loadClients({ background: true }); setShowAddModal(false); setNewClient(BLANK_CLIENT); }
-    else showToast("Error: " + error.message);
-    setSaving(false);
   };
 
   const stats = {
@@ -517,7 +515,12 @@ export default function ClientsPage() {
           ))}
         </div>
         <Input placeholder="Search clients..." value={search} onChange={e => setSearch(e.target.value)} className="w-56" />
-        <div className="flex gap-1 ml-auto">
+        {/* Clear, always-visible "Add client" button (the header also has a +). */}
+        <button onClick={() => setShowAddModal(true)}
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-foreground text-background text-sm font-semibold hover:opacity-90 transition-opacity ml-auto">
+          <UserPlus size={16} /> Add client
+        </button>
+        <div className="flex gap-1">
           <button onClick={() => setViewMode("grid")} className={cn("p-2 rounded-lg border", viewMode === "grid" ? "border-foreground text-foreground" : "border-border text-grey")}>⊞</button>
           <button onClick={() => setViewMode("list")} className={cn("p-2 rounded-lg border", viewMode === "list" ? "border-foreground text-foreground" : "border-border text-grey")}>☰</button>
         </div>
