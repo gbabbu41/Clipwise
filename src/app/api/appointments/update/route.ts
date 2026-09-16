@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { barberHasConflict, isDoubleBookError } from "@/lib/booking-conflict";
+import { barberHasConflict, isDoubleBookError, findAvailableBarber } from "@/lib/booking-conflict";
 import { scheduleBlockReason } from "@/lib/schedule-block";
 import { authorizeAppointment } from "@/lib/api-auth";
 import { timeToMinutes, prettyDate, formatCurrency } from "@/lib/utils";
@@ -47,6 +47,44 @@ export async function POST(request: NextRequest) {
     id: string; shop_id: string; barber_id: string | null; date: string;
     time_slot: string; duration_minutes: number | null; service_id: string | null; status: string;
   };
+
+  // "Any barber" (empty barber_id) on an EXISTING booking would UNASSIGN it — and
+  // an unassigned appointment renders in no barber column, so it vanishes from the
+  // day / 3-day / box calendar (it still exists; staff just can't see it). Resolve
+  // it to a real available barber the way booking creation does; if the day is
+  // full, keep the current barber rather than leaving it invisible. A freed row
+  // (cancelled / no-show) keeps its barber for history.
+  if ("barber_id" in fields && !fields.barber_id) {
+    const freedNow = appt.status === "cancelled" || appt.status === "no-show";
+    if (freedNow) {
+      fields.barber_id = appt.barber_id;
+    } else {
+      const rDate = (fields.date as string | undefined) ?? appt.date;
+      const rSlot = (fields.time_slot as string | undefined) ?? appt.time_slot;
+      let rDur = Number(fields.duration_minutes ?? 0);
+      if (!rDur || rDur <= 0) rDur = appt.duration_minutes && appt.duration_minutes > 0 ? appt.duration_minutes : 30;
+      const rStart = timeToMinutes(rSlot);
+      fields.barber_id = (await findAvailableBarber(appt.shop_id, rDate, rStart, rStart + rDur)) ?? appt.barber_id;
+    }
+  }
+
+  // Tenant-scope the replacement references: authorization only proved access to
+  // the ORIGINAL appointment, not to arbitrary ids. A supplied barber / service
+  // MUST belong to THIS appointment's shop — reject a foreign id instead of
+  // writing it (and, for a barber, sending this client's details to someone at
+  // another shop).
+  if (fields.barber_id) {
+    const { data: bRow } = await supabaseAdmin.from("barbers").select("shop_id").eq("id", fields.barber_id as string).maybeSingle();
+    if (!bRow || bRow.shop_id !== appt.shop_id) {
+      return NextResponse.json({ error: "That barber isn't part of this shop." }, { status: 400 });
+    }
+  }
+  if (fields.service_id) {
+    const { data: sRow } = await supabaseAdmin.from("services").select("shop_id").eq("id", fields.service_id as string).maybeSingle();
+    if (!sRow || sRow.shop_id !== appt.shop_id) {
+      return NextResponse.json({ error: "That service isn't part of this shop." }, { status: 400 });
+    }
+  }
 
   // Resolve the would-be window.
   const newBarber = (fields.barber_id !== undefined ? fields.barber_id : appt.barber_id) as string | null;

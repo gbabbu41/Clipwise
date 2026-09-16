@@ -126,7 +126,13 @@ function addDays(date: Date, n: number) {
 
 function addMonths(date: Date, n: number) {
   const d = new Date(date);
+  const day = d.getDate();
+  // Move on day 1 first so setMonth can't roll over (Jan 31 + 1mo would become
+  // Mar 3 and skip February), then clamp back to the target month's last day.
+  d.setDate(1);
   d.setMonth(d.getMonth() + n);
+  const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  d.setDate(Math.min(day, lastDay));
   return d;
 }
 
@@ -1573,16 +1579,19 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     if (scopeId) blocksQ = blocksQ.eq("barber_id", scopeId);
     else if (barberFilter !== "all") blocksQ = blocksQ.eq("barber_id", barberFilter);
 
-    const [{ data: appts }, { data: bs }, { data: blk }] = await Promise.all([
+    const [{ data: appts, error: apptsErr }, { data: bs }, { data: blk }] = await Promise.all([
       q,
       supabase.from("barbers").select("id, shop_id, user_id, name, bio, photo, is_active, rating, total_reviews, created_at").eq("shop_id", shop.id).eq("is_active", true).order("name"),
       blocksQ,
     ]);
 
     if (seq !== loadSeqRef.current) return; // a newer load started — discard this stale response
-    setAppointments((appts ?? []) as AppointmentWithDetails[]);
-    setBarbers((bs ?? []) as Barber[]);
-    setBlocks((blk ?? []) as BlockRow[]);
+    // A FAILED read must never masquerade as an empty day (staff would read a
+    // booked day as free). On error, keep the last good data instead of wiping to
+    // []. A genuinely empty result (no error) still clears correctly.
+    if (!apptsErr) setAppointments((appts ?? []) as AppointmentWithDetails[]);
+    if (bs) setBarbers(bs as Barber[]);
+    if (blk) setBlocks(blk as BlockRow[]);
     setLoading(false);
   }, [shop, currentDate, view, profile, myBarberId, barberFilter, forceBarberId]);
 
@@ -1970,28 +1979,34 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     if (!shop || !addCtx || !accessToken) return;
     if (!blockForm.start || !blockForm.end || blockForm.end <= blockForm.start) return;
     setBlockBusy(true);
-    const res = await fetch("/api/calendar/block", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        // addForm.date is set by openAdd (the tapped column's day in multi-day
-        // view); falls back to currentDate for the normal single-day tap.
-        action: "create", shop_id: shop.id, barber_id: addCtx.barberId,
-        date: addForm.date || formatDateForDb(currentDate), start_time: blockForm.start, end_time: blockForm.end,
-        reason: blockForm.reason || null,
-      }),
-    });
-    const data = await res.json().catch(() => ({ ok: false }));
-    setBlockBusy(false);
-    if (!res.ok || !data.ok) {
-      // Surface the failure — a silent return left the owner thinking time was
-      // blocked (e.g. lunch) when it never saved, risking a booking over it.
-      showToast(`Couldn't block that time: ${data.error ?? "please try again"}`);
-      return;
+    // try/finally so a network REJECTION can't leave the Block button stuck.
+    try {
+      const res = await fetch("/api/calendar/block", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          // addForm.date is set by openAdd (the tapped column's day in multi-day
+          // view); falls back to currentDate for the normal single-day tap.
+          action: "create", shop_id: shop.id, barber_id: addCtx.barberId,
+          date: addForm.date || formatDateForDb(currentDate), start_time: blockForm.start, end_time: blockForm.end,
+          reason: blockForm.reason || null,
+        }),
+      });
+      const data = await res.json().catch(() => ({ ok: false }));
+      if (!res.ok || !data.ok) {
+        // Surface the failure — a silent return left the owner thinking time was
+        // blocked (e.g. lunch) when it never saved, risking a booking over it.
+        showToast(`Couldn't block that time: ${data.error ?? "please try again"}`);
+        return;
+      }
+      setAddCtx(null);
+      showToast("Time blocked");
+      load();
+    } catch {
+      showToast("Network error — couldn't block that time. Check your connection and try again.");
+    } finally {
+      setBlockBusy(false);
     }
-    setAddCtx(null);
-    showToast("Time blocked");
-    load();
   };
 
   const removeBlock = async (b: BlockRow) => {
@@ -2047,25 +2062,32 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     });
 
     setSavingAdd(true);
-    let res = await send(false);
-    let data = await res.json().catch(() => ({}));
-    // A DELIBERATE break / lunch / time-off is respected with a warning: the
-    // staff can confirm to book over it. (A regular off-day isn't flagged and
-    // books straight through.) A double-booking has no `blocked` flag → hard stop.
-    if (!res.ok && data.blocked) {
+    // try/finally so a network REJECTION (offline mid-request) can't strand the
+    // Add button in its spinning "saving" state — the finally always clears it.
+    try {
+      let res = await send(false);
+      let data = await res.json().catch(() => ({}));
+      // A DELIBERATE break / lunch / time-off is respected with a warning: the
+      // staff can confirm to book over it. (A regular off-day isn't flagged and
+      // books straight through.) A double-booking has no `blocked` flag → hard stop.
+      if (!res.ok && data.blocked) {
+        setSavingAdd(false);
+        const ok = await confirm({ message: `${addCtx.barberName} has time off or a break during this slot. Book them in anyway?`, confirmText: "Book anyway" });
+        if (!ok) return;
+        setSavingAdd(true);
+        res = await send(true);
+        data = await res.json().catch(() => ({}));
+      }
+      if (!res.ok) { showToast(data.error ?? "Couldn't add the appointment"); return; }
+      setAddCtx(null);
+      setAddForm({ client_name: "", client_phone: "", client_email: "", service_ids: [], time: "", date: "" });
+      showToast(outside ? "Booked · outside working hours" : "Booked");
+      load();
+    } catch {
+      showToast("Network error — couldn't add the appointment. Check your connection and try again.");
+    } finally {
       setSavingAdd(false);
-      const ok = await confirm({ message: `${addCtx.barberName} has time off or a break during this slot. Book them in anyway?`, confirmText: "Book anyway" });
-      if (!ok) return;
-      setSavingAdd(true);
-      res = await send(true);
-      data = await res.json().catch(() => ({}));
     }
-    setSavingAdd(false);
-    if (!res.ok) { showToast(data.error ?? "Couldn't add the appointment"); return; }
-    setAddCtx(null);
-    setAddForm({ client_name: "", client_phone: "", client_email: "", service_ids: [], time: "", date: "" });
-    showToast(outside ? "Booked · outside working hours" : "Booked");
-    load();
   };
 
   // Authoritative busy list for the add modal's chosen barber + date. The
