@@ -505,22 +505,22 @@ export default function OnboardingPage() {
                     <div className="col-span-2 space-y-1">
                       <label className="text-xs text-[#8f8f8f]">Name</label>
                       <input value={svc.name} onChange={(e) => setServices(services.map((s, j) => j === i ? { ...s, name: e.target.value } : s))} placeholder="Haircut"
-                        className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-gold/50" />
+                        className="w-full bg-surface-raised border border-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-gold/50" />
                     </div>
                     <div className="space-y-1">
                       <label className="text-xs text-[#8f8f8f]">Price ($)</label>
                       <input type="number" value={svc.price} onChange={(e) => setServices(services.map((s, j) => j === i ? { ...s, price: e.target.value } : s))} placeholder="30"
-                        className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-gold/50" />
+                        className="w-full bg-surface-raised border border-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-gold/50" />
                     </div>
                     <div className="space-y-1">
                       <label className="text-xs text-[#8f8f8f]">Duration (min)</label>
                       <input type="number" value={svc.duration} onChange={(e) => setServices(services.map((s, j) => j === i ? { ...s, duration: e.target.value } : s))} placeholder="30"
-                        className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-gold/50" />
+                        className="w-full bg-surface-raised border border-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-gold/50" />
                     </div>
                     <div className="col-span-2 space-y-1">
                       <label className="text-xs text-[#8f8f8f]">Category</label>
                       <select value={svc.category} onChange={(e) => setServices(services.map((s, j) => j === i ? { ...s, category: e.target.value } : s))}
-                        className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-gold/50">
+                        className="w-full bg-surface-raised border border-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-gold/50">
                         {SERVICE_CATEGORIES.map((c) => <option key={c}>{c}</option>)}
                       </select>
                     </div>
@@ -555,12 +555,12 @@ export default function OnboardingPage() {
                   {hours[i].open && (
                     <div className="flex items-center gap-2 ml-12">
                       <select value={hours[i].start} onChange={(e) => setHours(hours.map((h, j) => j === i ? { ...h, start: e.target.value } : h))}
-                        className="flex-1 bg-background border border-border rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-gold/50">
+                        className="flex-1 bg-surface-raised border border-border rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-gold/50">
                         {TIME_SLOTS.map((t) => <option key={t}>{t}</option>)}
                       </select>
                       <span className="text-[#8f8f8f] text-xs">to</span>
                       <select value={hours[i].end} onChange={(e) => setHours(hours.map((h, j) => j === i ? { ...h, end: e.target.value } : h))}
-                        className="flex-1 bg-background border border-border rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-gold/50">
+                        className="flex-1 bg-surface-raised border border-border rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-gold/50">
                         {TIME_SLOTS.map((t) => <option key={t}>{t}</option>)}
                       </select>
                     </div>

@@ -1026,8 +1026,8 @@ export default function POSPage() {
             the fixed shell. */}
         <div className="shrink-0 sticky top-[calc(3.5rem+env(safe-area-inset-top))] z-20 bg-background lg:static lg:top-auto lg:z-auto flex gap-2 p-3 border-b border-white/[0.07]">
           <button type="button" onClick={() => { setAddOpen(false); setPickerOpen(true); }}
-            className={cn("flex-1 min-w-0 h-11 flex items-center gap-2 rounded-xl border bg-card-raised px-3 text-sm text-left transition-colors",
-              client ? "border-border" : needCustomer ? "border-red-500 bg-red-500/10 animate-pulse" : "border-[#00e5a0]/40")}>
+            className={cn("flex-1 min-w-0 h-11 flex items-center gap-2 rounded-xl border bg-surface-sunken px-3 text-sm text-left transition-colors",
+              client ? "border-border-strong" : needCustomer ? "border-red-500 bg-red-500/10 animate-pulse" : "border-[#00e5a0]/40")}>
             <User size={15} className={cn("shrink-0", needCustomer && !client ? "text-red-400" : "text-grey-muted")} />
             <span className="flex-1 min-w-0 leading-tight">
               <span className={cn("block truncate", client ? "text-foreground" : needCustomer ? "text-red-400 font-semibold" : "text-grey-muted")}>{client || "Select customer"}</span>
