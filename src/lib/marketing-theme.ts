@@ -90,7 +90,11 @@ html{scroll-behavior:smooth}
 .mkt .grain{position:absolute;inset:0;z-index:3;pointer-events:none;opacity:.075;mix-blend-mode:screen;
   background-image:var(--grain);background-size:200px 200px}
 .mkt .bar{position:absolute;left:0;right:0;height:clamp(26px,5.2vh,64px);z-index:4;pointer-events:none}
-.mkt .bar.t{top:0;background:linear-gradient(180deg,rgba(0,0,0,.85),transparent)}
+/* The top scrim must out-run the nav capsule (nav ends ~74px down), or its
+   lower half floats on raw footage and reads as "stuck onto the video". Taller
+   than the shared .bar height, and a gradient-to-transparent so it darkens
+   BEHIND the nav without eating the picture. */
+.mkt .bar.t{top:0;height:clamp(104px,16vh,180px);background:linear-gradient(180deg,rgba(0,0,0,.85),transparent)}
 .mkt .bar.b{bottom:0;background:linear-gradient(0deg,rgba(0,0,0,.85),transparent)}
 .mkt .foot{position:absolute;left:0;right:0;bottom:0;z-index:6;width:100%;max-width:var(--max);margin:0 auto;
   padding:0 26px clamp(52px,9vh,96px);display:flex;align-items:flex-end;justify-content:space-between;
