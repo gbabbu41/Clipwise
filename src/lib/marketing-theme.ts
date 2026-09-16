@@ -76,7 +76,12 @@ html{scroll-behavior:smooth}
 .mkt .stage{position:relative;width:100%;height:min(100svh,calc(100vw * 0.5625));min-height:460px;overflow:hidden;background:#000;isolation:isolate}
 .mkt .filmwrap{position:absolute;inset:0;overflow:hidden}
 .mkt .filmbg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;
-  transform:scale(1.14);filter:blur(64px) brightness(.30) saturate(.7);opacity:1;pointer-events:none}
+  /* A blurred poster sits UNDER the backdrop video, so the pillarbox gutters are
+     never pure black — even under prefers-reduced-motion (no video src), a slow
+     connection, or a failed request. brightness was .30 which, on already-graded-
+     dark footage, left the gutters looking empty; .58 makes the fill read. */
+  background:#0a0a0c url('/new/poster.jpg') center/cover;
+  transform:scale(1.14);filter:blur(64px) brightness(.58) saturate(.7);opacity:1;pointer-events:none}
 .mkt .film{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;z-index:1;background:transparent;
   filter:brightness(.84) contrast(1.04)}
 .mkt .scrim{position:absolute;inset:0;z-index:2;pointer-events:none;
@@ -92,7 +97,11 @@ html{scroll-behavior:smooth}
   gap:20px;flex-wrap:wrap}
 .mkt .cta{display:flex;gap:11px;flex-wrap:wrap}
 .mkt .micro{font-size:12.5px;color:var(--t2);margin:0}
-.mkt .ctl{position:absolute;right:16px;bottom:14px;z-index:6;width:40px;height:40px;
+/* Pin the replay control to the content column's right edge (like the CTAs),
+   not the raw viewport — otherwise on a wide window it floats alone in the black
+   gutter. Falls back to 16px from the edge once the window is narrower than the
+   column. */
+.mkt .ctl{position:absolute;right:max(16px,calc((100% - var(--max)) / 2 + 26px));bottom:14px;z-index:6;width:40px;height:40px;
   border-radius:999px;display:grid;place-items:center;cursor:pointer;background:rgba(0,0,0,.4);
   border:1px solid rgba(255,255,255,.18);backdrop-filter:blur(10px);color:rgba(255,255,255,.8);
   font-size:14px;font-family:var(--font)}
