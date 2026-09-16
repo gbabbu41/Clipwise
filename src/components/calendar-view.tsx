@@ -3708,7 +3708,12 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                   {clientMode === "existing" && <Check size={17} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-emerald-400" />}
                 </div>
                 {clientMode === "search" && addForm.client_name.trim() && (
-                  <div className="mt-1.5 bg-card border border-border rounded-xl overflow-hidden">
+                  // Bounded + independently scrollable (matches add-appointment-modal.tsx's
+                  // client list) so a long match list scrolls in place instead of growing
+                  // unbounded and pushing the whole sheet taller — that made the sheet
+                  // itself the only scroller, so a downward scroll gesture inside the list
+                  // could be misread as a pull-to-dismiss on the sheet.
+                  <div className="mt-1.5 bg-card border border-border rounded-xl overflow-y-auto overscroll-contain max-h-[min(45vh,320px)]">
                     {addClientMatches.map(c => (
                       <button key={c.id} type="button" onClick={() => pickAddClient(c)}
                         className="w-full flex items-center gap-3 px-3 py-2.5 text-left border-t border-border first:border-t-0 hover:bg-surface-overlay transition-colors">
