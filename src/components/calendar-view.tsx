@@ -1368,6 +1368,10 @@ function AgendaSheet({
 // A "blocked hours" row (time_off_requests, type blocked_hours). start_time /
 // end_time are 24h "HH:MM"; pending = awaiting owner approval, approved = firm.
 type BlockRow = { id: string; barber_id: string; start_date: string; start_time: string | null; end_time: string | null; status: string; reason: string | null };
+// Full-day unavailability (vacation / day-off / sick). barber_id null = shop-wide.
+type FullDayOff = { barber_id: string | null; start_date: string; end_date: string; type: string };
+// A recurring weekly break (e.g. lunch), per barber per weekday.
+type DayBreak = { barber_id: string; day_of_week: number; start_time: string; end_time: string; label?: string | null };
 
 export function CalendarView({ embedded = false, canManage = true, forceBarberId, defaultView, canBlock = false, pageTitle, initialDate, initialApptId, shopOverride }: { embedded?: boolean; canManage?: boolean; forceBarberId?: string | null; defaultView?: "year" | "month" | "day" | "multiday"; canBlock?: boolean; pageTitle?: string; initialDate?: string; initialApptId?: string; shopOverride?: Shop | null }) {
   const { shop: authShop, profile, accessToken, user } = useAuth();
@@ -1476,6 +1480,11 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   // Blocked-hours state. The tap modal carries an Appointment/Block toggle
   // (addMode); blockForm holds the block's time range + reason.
   const [blocks, setBlocks] = useState<BlockRow[]>([]);
+  // Display-only unavailability for Workflow 1 (see subdued bands on the grid):
+  // full-day time off + recurring breaks. Never gate the "+" bookable slots on
+  // these — staff can always book over them (the server warns + allows override).
+  const [fullDayOff, setFullDayOff] = useState<FullDayOff[]>([]);
+  const [dayBreaks, setDayBreaks] = useState<DayBreak[]>([]);
   const [addMode, setAddMode] = useState<"appt" | "block">("appt");
   const [blockForm, setBlockForm] = useState({ start: "", end: "", reason: "" });
   const [blockBusy, setBlockBusy] = useState(false);
@@ -1617,10 +1626,24 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     if (scopeId) blocksQ = blocksQ.eq("barber_id", scopeId);
     else if (barberFilter !== "all") blocksQ = blocksQ.eq("barber_id", barberFilter);
 
-    const [{ data: appts, error: apptsErr }, { data: bs }, { data: blk }] = await Promise.all([
+    // Full-day time off (vacation / day-off / sick) overlapping the visible range,
+    // approved only. barber_id null = a shop-wide closure. Rendered as a subdued
+    // full-column "unavailable" band so staff SEE it instead of empty space (they
+    // can still deliberately book over it — it's display-only, see unavailBandsFor).
+    let fullOffQ = supabase
+      .from("time_off_requests")
+      .select("barber_id, start_date, end_date, type")
+      .eq("shop_id", shop.id).eq("status", "approved")
+      .in("type", ["day_off", "vacation", "sick"])
+      .lte("start_date", formatDateForDb(rangeEnd))
+      .gte("end_date", formatDateForDb(rangeStart));
+    if (scopeId) fullOffQ = fullOffQ.or(`barber_id.eq.${scopeId},barber_id.is.null`);
+
+    const [{ data: appts, error: apptsErr }, { data: bs }, { data: blk }, { data: fdo }] = await Promise.all([
       q,
       supabase.from("barbers").select("id, shop_id, user_id, name, bio, photo, is_active, rating, total_reviews, created_at").eq("shop_id", shop.id).eq("is_active", true).order("name"),
       blocksQ,
+      fullOffQ,
     ]);
 
     if (seq !== loadSeqRef.current) return; // a newer load started — discard this stale response
@@ -1630,6 +1653,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     if (!apptsErr) setAppointments((appts ?? []) as AppointmentWithDetails[]);
     if (bs) setBarbers(bs as Barber[]);
     if (blk) setBlocks(blk as BlockRow[]);
+    if (fdo) setFullDayOff(fdo as FullDayOff[]);
     setLoading(false);
   }, [shop, currentDate, view, profile, myBarberId, barberFilter, forceBarberId]);
 
@@ -1661,6 +1685,12 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
         (data ?? []).forEach(s => m.set(s.barber_id as string, { start: s.start_time as string, end: s.end_time as string }));
         setSchedules(m);
       });
+    // Recurring breaks (all weekdays — a tiny table) so the day AND 3-day views
+    // can both draw a subdued "Break" band without a per-day refetch. Best-effort:
+    // a shop with no barber_breaks table/rows just shows no break bands.
+    supabase.from("barber_breaks").select("barber_id, day_of_week, start_time, end_time, label")
+      .in("barber_id", ids)
+      .then(({ data }) => { if (active) setDayBreaks((data ?? []) as DayBreak[]); }, () => { /* table may not exist — ignore */ });
     return () => { active = false; };
   }, [shop, barbers, currentDate]);
 
@@ -2011,6 +2041,24 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
       .map(b => ({ ...b, startMin: timeToMinutes(dbTimeToDisplay(b.start_time!)), endMin: timeToMinutes(dbTimeToDisplay(b.end_time!)) }))
       .sort((x, y) => x.startMin - y.startMin),
   [blocks]);
+
+  // Workflow 1 — DISPLAY-ONLY unavailability bands for a barber on a day: a
+  // full-day off (vacation / sick / day-off / shop-wide closure) or recurring
+  // breaks. Kept SEPARATE from blocksFor so it never gates the bookable "+" slots
+  // — staff can still deliberately book over any of it (the server warns + allows
+  // the override). A full day off supersedes breaks.
+  const unavailBandsFor = useCallback((barberId: string, dateStr: string): { startMin: number; endMin: number; label: string; fullDay: boolean }[] => {
+    const off = fullDayOff.find(o => (o.barber_id === barberId || o.barber_id === null) && o.start_date <= dateStr && o.end_date >= dateStr);
+    if (off) {
+      const label = off.type === "vacation" ? "Vacation" : off.type === "sick" ? "Sick" : off.barber_id === null ? "Closed" : "Off";
+      return [{ startMin: 0, endMin: 24 * 60, label, fullDay: true }];
+    }
+    const dow = new Date(dateStr + "T00:00:00").getDay();
+    return dayBreaks
+      .filter(b => b.barber_id === barberId && b.day_of_week === dow && b.start_time && b.end_time)
+      .map(b => ({ startMin: timeToMinutes(dbTimeToDisplay(b.start_time)), endMin: timeToMinutes(dbTimeToDisplay(b.end_time)), label: b.label?.trim() || "Break", fullDay: false }))
+      .sort((x, y) => x.startMin - y.startMin);
+  }, [fullDayOff, dayBreaks]);
 
   // Submit a block (from the tap modal's Block tab). Uses the addCtx slot.
   const submitBlock = async () => {
@@ -2799,6 +2847,22 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                           onClick={() => openAdd(b.id, b.name, slot, minutes)} />
                       );
                     })}
+                    {/* Unavailability (display-only) — full-day off or recurring
+                        breaks. Painted OVER the free slots so staff SEE them, but
+                        pointer-events-none so a tap falls through to the "+" below
+                        (booking over it stays allowed; the server warns). */}
+                    {unavailBandsFor(b.id, dateStr).map((u, i) => {
+                      const top = u.fullDay ? 0 : (u.startMin / 60 - winStart) * rowH;
+                      const height = u.fullDay ? hours.length * rowH : Math.max(14, ((u.endMin - u.startMin) / 60) * rowH - 4);
+                      return (
+                        <div key={`u${i}`} aria-hidden
+                          style={{ top: `${top}px`, height: `${height}px`, left: "4px", right: "4px", position: "absolute",
+                            backgroundImage: "repeating-linear-gradient(45deg, rgba(130,130,140,0.11), rgba(130,130,140,0.11) 7px, rgba(130,130,140,0.03) 7px, rgba(130,130,140,0.03) 14px)" }}
+                          className="rounded-lg pointer-events-none overflow-hidden px-1.5 py-0.5">
+                          <p className="text-[9px] font-semibold text-grey-muted flex items-center gap-0.5 leading-tight"><Ban size={9} /> {u.label}</p>
+                        </div>
+                      );
+                    })}
                     {/* Blocked-hours bands — hatched; tap to remove (if allowed) */}
                     {colBlocks.map(bl => {
                       const top = (bl.startMin / 60 - winStart) * rowH;
@@ -3025,6 +3089,20 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                           style={{ top: `${top + 2}px`, height: `${height}px`, left: "2px", right: "2px", position: "absolute" }}
                           className="rounded-lg transition-colors pointer-events-auto overflow-hidden bg-card-raised hover:bg-surface-overlay"
                           onClick={() => openAdd(barber.id, barber.name, slot, minutes, false, ds)} />
+                      );
+                    })}
+                    {/* Unavailability (display-only) — full-day off or breaks;
+                        pointer-events-none so booking over it stays possible. */}
+                    {unavailBandsFor(barber.id, ds).map((u, i) => {
+                      const top = u.fullDay ? 0 : (u.startMin / 60 - winStart) * ROW_PX;
+                      const height = u.fullDay ? hours.length * ROW_PX : Math.max(12, ((u.endMin - u.startMin) / 60) * ROW_PX - 3);
+                      return (
+                        <div key={`u${i}`} aria-hidden
+                          style={{ top: `${top}px`, height: `${height}px`, left: "2px", right: "2px", position: "absolute",
+                            backgroundImage: "repeating-linear-gradient(45deg, rgba(130,130,140,0.11), rgba(130,130,140,0.11) 7px, rgba(130,130,140,0.03) 7px, rgba(130,130,140,0.03) 14px)" }}
+                          className="rounded-lg pointer-events-none overflow-hidden px-1">
+                          <p className="text-[9px] font-semibold text-grey-muted flex items-center gap-0.5 leading-tight"><Ban size={9} /> {u.label}</p>
+                        </div>
                       );
                     })}
                     {/* Blocked-hours bands */}
