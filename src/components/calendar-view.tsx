@@ -1133,9 +1133,6 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
                       <DAction tile icon="↗" label="Send payment link" onClick={() => setShowEmail(true)} />
                     )}
                     <DAction tile icon="💵" label={busy === "cash" ? "Saving…" : "Pay cash · Complete"} disabled={!!busy} onClick={() => actions.cashComplete(appt)} />
-                    {appt.status !== "completed" && (
-                      <DAction tile icon="○" label={busy === "complete" ? "Completing…" : "Complete · leave unpaid"} disabled={!!busy} onClick={() => actions.complete(appt)} />
-                    )}
                   </div>
                   {isHeld && heldBalance > 0 && (
                     <p className="text-[11px] text-grey-muted text-center px-2">
