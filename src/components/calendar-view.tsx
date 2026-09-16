@@ -3350,7 +3350,17 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
       : [];
   // Day view: hide barbers with no hours today by default; the "off today" chip
   // reveals them. If NOBODY is scheduled, fall back to everyone (never blank).
-  const scheduledBarbers = orderedBarbers.filter(b => schedules.has(b.id));
+  // BUT a barber with an actual appointment or block today ALWAYS gets a column,
+  // even with no hours set — otherwise a booking made outside their schedule is
+  // hidden until you click "show off today" (a booking that reads as missing).
+  const dayColStr = formatDateForDb(currentDate);
+  const barbersWithWorkToday = (() => {
+    const s = new Set<string>();
+    appointments.forEach(a => { if (a.date === dayColStr && a.barber_id && a.status !== "cancelled") s.add(a.barber_id as string); });
+    blocks.forEach(b => { if (b.start_date === dayColStr && b.barber_id) s.add(b.barber_id as string); });
+    return s;
+  })();
+  const scheduledBarbers = orderedBarbers.filter(b => schedules.has(b.id) || barbersWithWorkToday.has(b.id));
   const unscheduledCount = orderedBarbers.length - scheduledBarbers.length;
   const dayCols = (showUnscheduled || scheduledBarbers.length === 0) ? orderedBarbers : scheduledBarbers;
   const dayAllCols = dayCols.length > 0
