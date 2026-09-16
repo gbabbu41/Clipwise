@@ -82,7 +82,12 @@ html{scroll-behavior:smooth}
      dark footage, left the gutters looking empty; .58 makes the fill read. */
   background:#0a0a0c url('/new/poster.jpg') center/cover;
   transform:scale(1.14);filter:blur(64px) brightness(.58) saturate(.7);opacity:1;pointer-events:none}
-.mkt .film{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;z-index:1;background:transparent;
+/* Drop the sharp film below the nav so it isn't crammed up under it. The gap
+   above it isn't empty — the full-bleed blurred .filmbg still fills it (and the
+   sides), so the film reads as floating on its own atmosphere instead of being
+   pinned to the top edge. inset (not width/height:100%) sizes the box, so the
+   top offset actually takes effect. */
+.mkt .film{position:absolute;inset:clamp(96px,12vh,128px) 0 0;object-fit:contain;z-index:1;background:transparent;
   filter:brightness(.84) contrast(1.04)}
 .mkt .scrim{position:absolute;inset:0;z-index:2;pointer-events:none;
   background:radial-gradient(125% 78% at 50% 48%,transparent 40%,rgba(0,0,0,.55) 100%),
