@@ -296,6 +296,11 @@ export async function POST(request: NextRequest) {
     payment_method: b.pay_in_person ? "cash" : null,
     payment_status: b.pay_in_person ? "unpaid" : null,
     notes: clampLen(noteParts.length ? noteParts.join(" · ") : null, FIELD_CAPS.notes),
+    // Origin of the booking. "staff" = a barber/owner added it from inside the
+    // portal (they typed the client's details, so those stay editable). Anything
+    // else is the customer's own booking, where their name/email/phone belong to
+    // them and the portal edit screen locks those fields.
+    source: callerIsStaff ? "staff" : "online",
   };
 
   // Insert with duration_minutes; if the column doesn't exist yet (pre-phase14),

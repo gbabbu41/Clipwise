@@ -827,16 +827,32 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
   const addServiceRow = () => setEditForm(f => ({ ...f, service_ids: [...f.service_ids, ""] }));
   const removeServiceRow = (idx: number) => setEditForm(f => ({ ...f, service_ids: f.service_ids.filter((_, i) => i !== idx) }));
 
+  // A customer's OWN online booking carries the customer's name/email/phone —
+  // staff may reschedule/reassign it but must not rewrite the customer's contact
+  // details from the portal. Staff-created walk-ins (source "staff") stay fully
+  // editable. Legacy rows (source not yet stamped) fall back to an online signal
+  // — an online payment method or a Stripe intent — so existing staff walk-ins
+  // stay editable and existing online bookings are protected.
+  const apptSource = (appt as { source?: string | null }).source ?? null;
+  const contactLocked = apptSource
+    ? apptSource !== "staff"
+    : ((appt as { payment_method?: string | null }).payment_method === "online"
+      || !!(appt as { payment_intent_id?: string | null }).payment_intent_id
+      || !!(appt as { stripe_checkout_session_id?: string | null }).stripe_checkout_session_id);
+
   const saveEdit = () => {
     if (!editForm.client_name.trim() || !editForm.date || !editForm.time) return;
     const fields: ApptEditFields = {
-      client_name: editForm.client_name.trim(),
-      client_phone: editForm.client_phone.trim() || null,
-      client_email: editForm.client_email.trim() || null,
       date: editForm.date,
       time_slot: editForm.time,
       barber_id: editForm.barber_id || null,
     };
+    // Only staff-created bookings let the contact details be rewritten here.
+    if (!contactLocked) {
+      fields.client_name = editForm.client_name.trim();
+      fields.client_phone = editForm.client_phone.trim() || null;
+      fields.client_email = editForm.client_email.trim() || null;
+    }
     const ids = editForm.service_ids.filter(Boolean);
     // Only touch the service / price / duration when the owner ACTUALLY changed
     // the service selection. Moving the date, time, or barber must NOT silently
@@ -1047,12 +1063,20 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
           {/* Actions — same logic/handlers as before, restyled as stacked rows. */}
           {editMode ? (
             <div className="px-[18px] pt-3.5 flex flex-col gap-3">
-              <Input label="Client name *" value={editForm.client_name}
+              <Input label="Client name *" value={editForm.client_name} disabled={contactLocked}
+                className={contactLocked ? "opacity-60 cursor-not-allowed" : undefined}
                 onChange={e => setEditForm(f => ({ ...f, client_name: e.target.value }))} placeholder="Client name" />
-              <Input label="Phone" value={editForm.client_phone}
+              <Input label="Phone" value={editForm.client_phone} disabled={contactLocked}
+                className={contactLocked ? "opacity-60 cursor-not-allowed" : undefined}
                 onChange={e => setEditForm(f => ({ ...f, client_phone: e.target.value }))} placeholder="506-555-0000" />
-              <Input label="Email" type="email" value={editForm.client_email}
+              <Input label="Email" type="email" value={editForm.client_email} disabled={contactLocked}
+                className={contactLocked ? "opacity-60 cursor-not-allowed" : undefined}
                 onChange={e => setEditForm(f => ({ ...f, client_email: e.target.value }))} placeholder="name@email.com" />
+              {contactLocked && (
+                <p className="-mt-1 text-[11px] text-grey-muted">
+                  This is the customer&apos;s own online booking — their contact details can&apos;t be changed here. You can still reschedule, reassign the barber, or edit the service.
+                </p>
+              )}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-[10px] uppercase tracking-wide text-grey">Day</label>

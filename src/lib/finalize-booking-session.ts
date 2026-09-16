@@ -171,6 +171,8 @@ export async function finalizeBookingFromSession(params: {
     payment_intent_id: paymentIntentId,
     stripe_customer_id: savedCustomerId,
     stripe_payment_method_id: savedPaymentMethodId,
+    // Customer's own online booking — the edit screen locks name/email/phone.
+    source: "online",
   };
   // Include tip/tax (phase30) + gift_applied (phase50) when those columns exist;
   // drop whichever lags on prod and retry so a booking is NEVER lost after the
