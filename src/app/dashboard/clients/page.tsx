@@ -7,7 +7,8 @@ import { formatPhone } from "@/lib/validation";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input, Textarea } from "@/components/ui/input";
-import { Phone, MessageSquare, Mail, Users, Building2, Ban, UserPlus } from "lucide-react";
+import { Phone, MessageSquare, Mail, Users, Building2, Ban, UserPlus, CalendarPlus } from "lucide-react";
+import type { NewAppointmentDetail } from "@/components/dashboard/add-appointment-modal";
 import { groupClients, sameIdentity, clientToId, apptToId } from "@/lib/client-identity";
 import type { Client, Appointment } from "@/lib/database.types";
 import { DashboardHeader } from "@/components/dashboard/page-header";
@@ -671,6 +672,24 @@ export default function ClientsPage() {
                   )}
                 </div>
               </div>
+            </div>
+            <div className="space-y-2">
+              <Button className="w-full gap-2" disabled={!shop || selectedClient.shop_id !== shop.id}
+                onClick={() => {
+                  if (!shop || selectedClient.shop_id !== shop.id) return;
+                  window.dispatchEvent(new CustomEvent<NewAppointmentDetail>("cw-open-newappt", {
+                    detail: {
+                      shopId: shop.id,
+                      client: {
+                        id: selectedClient.id, name: selectedClient.name,
+                        phone: selectedClient.phone ?? null, email: selectedClient.email ?? null,
+                      },
+                    },
+                  }));
+                }}>
+                <CalendarPlus size={16} aria-hidden="true" /> Book next visit
+              </Button>
+              <p className="text-xs text-grey text-center">Client details filled in. Choose the service, date and time.</p>
             </div>
             {/* Tabs */}
             <div className="flex gap-1 bg-card-raised border border-border rounded-xl p-1">

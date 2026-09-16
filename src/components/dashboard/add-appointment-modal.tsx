@@ -24,6 +24,12 @@ type BarberLite = { id: string; name: string; user_id?: string | null };
 type ServiceLite = { id: string; name: string; price: number | null; duration_minutes: number | null };
 type ClientLite = { id: string; name: string; phone: string | null; email: string | null; total_visits: number | null };
 
+// In-memory handoff only: no client details in URLs or browser storage.
+export type NewAppointmentDetail = {
+  shopId: string;
+  client: Pick<ClientLite, "id" | "name" | "phone" | "email">;
+};
+
 // Time options in the SAME display format the booking API expects ("9:00 AM").
 const TIME_OPTIONS: string[] = (() => {
   const out: string[] = [];
@@ -105,12 +111,26 @@ export function AddAppointmentModal({
     window.setTimeout(() => setOpen(false), 240);
   }, []);
 
-  // Open on the global quick-add event (bottom-nav +).
+  // Both quick-add and client-profile rebooking use this same sheet/API.
   useEffect(() => {
-    const openIt = () => { reset(); setOpen(true); };
+    const openIt = (event: Event) => {
+      if (open || saving) return;
+      const detail = (event as CustomEvent<NewAppointmentDetail | undefined>).detail;
+      // A stale profile from another location must not prefill this shop's form.
+      if (detail && (!shop || detail.shopId !== shop.id)) return;
+      reset();
+      if (detail?.client) {
+        setQuery(detail.client.name);
+        setSelectedClientId(detail.client.id);
+        setPhone(detail.client.phone ?? "");
+        setEmail(detail.client.email ?? "");
+        setMode("existing");
+      }
+      setOpen(true);
+    };
     window.addEventListener("cw-open-newappt", openIt);
     return () => window.removeEventListener("cw-open-newappt", openIt);
-  }, [reset]);
+  }, [reset, shop?.id, open, saving]);
 
   // Slide up on the frame after mount (so the transform animates from off-screen).
   useEffect(() => {
@@ -173,7 +193,11 @@ export function AddAppointmentModal({
   }, [clients, query]);
   const showResults = mode === "search" && query.trim().length > 0;
 
-  const onQueryChange = (v: string) => { setQuery(v); setSelectedClientId(null); setMode("search"); };
+  const onQueryChange = (v: string) => {
+    // Abandoning an existing client must also discard their hidden contact data.
+    if (mode === "existing") { setPhone(""); setEmail(""); }
+    setQuery(v); setSelectedClientId(null); setMode("search");
+  };
   const pickExisting = (c: ClientLite) => {
     setQuery(c.name ?? ""); setSelectedClientId(c.id); setPhone(c.phone ?? ""); setEmail(c.email ?? ""); setMode("existing");
   };
