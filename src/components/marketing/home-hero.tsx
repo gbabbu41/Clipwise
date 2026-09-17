@@ -7,19 +7,19 @@ const FEATURES = [
   { label: "Overview", title: "More time cutting.", accent: "Less time managing.",
     description: "Bookings, payments and your team, together in ClipWise. Run the business behind the chair without losing time for the people in it.",
     heading: "Your shop, at a glance", caption: "From the first booking to the last checkout.",
-    images: [["cal.png", "ClipWise calendar showing demo appointments and payment status", 1206, 1430], ["money.png", "ClipWise dashboard showing example shop revenue and performance", 1125, 1230]] },
+    images: [["app-cal.jpg", "ClipWise calendar showing appointments and payment status"], ["app-home.jpg", "ClipWise dashboard showing shop revenue and performance"]] },
   { label: "Bookings", title: "Fill your chairs.", accent: "Not your inbox.",
     description: "Give clients their own booking link. Bring online appointments and walk-ins into one calendar, so you can focus on the next cut.",
     heading: "A clearer day, chair by chair", caption: "Your booking link. Your calendar. All connected.",
-    images: [["cal.png", "ClipWise calendar with scheduled demo appointments", 1206, 1430], ["book3.png", "Client booking page with available appointment times", 1206, 2472]] },
+    images: [["app-cal.jpg", "ClipWise calendar with scheduled client appointments"], ["book-time.jpg", "Client booking page with available appointment times"]] },
   { label: "Payments", title: "Finish the cut.", accent: "Simplify checkout.",
     description: "Bring cash, card and online payments together. Keep track of tips, sales tax and what the shop has collected, without the end-of-day guesswork.",
     heading: "From the chair to checkout", caption: "Payments and the numbers behind them, together.",
-    images: [["pos.png", "ClipWise checkout showing tax and card, cash or payment-link options", 1150, 1485], ["pay.png", "ClipWise payments summary with example monthly takings", 1125, 580]] },
+    images: [["app-pay.jpg", "ClipWise payments screen with collected revenue, tax and processing fees"], ["app-checkout.jpg", "ClipWise appointment checkout screen"]] },
   { label: "Insights", title: "Know your numbers.", accent: "Know your shop.",
     description: "See revenue, average ticket and booking activity in one place. Understand how the shop is doing and make your next decision with a clearer picture.",
     heading: "The business behind the chair", caption: "A clear view of how your shop is performing.",
-    images: [["money.png", "ClipWise dashboard with example revenue and average ticket", 1125, 1230], ["alerts.png", "ClipWise activity feed showing demo bookings and collected payments", 1120, 830]] },
+    images: [["app-home.jpg", "ClipWise dashboard with revenue and average ticket"], ["app-donut.jpg", "ClipWise booking breakdown by appointment status"]] },
 ] as const;
 
 // The initial overview is server-rendered. All layers share grid cells to reserve
@@ -107,9 +107,9 @@ export function HomeHero() {
           <div className="hh-stack">
             {FEATURES.map((feature, index) => (
               <div key={feature.label} className={`hh-screens hh-slide${active === index ? " is-active" : ""}`} aria-hidden={active !== index}>
-                {feature.images.map(([src, alt, width, height], imageIndex) => (
+                {feature.images.map(([src, alt], imageIndex) => (
                   <div key={src} className={`hh-phone ${imageIndex === 0 ? "hh-calendar" : "hh-dashboard"}`}>
-                    <img src={`/marketing/${src}`} alt={alt} width={width} height={height} loading="eager" />
+                    <img src={`/new/${src}`} alt={alt} width={640} height={1280} loading="eager" />
                   </div>
                 ))}
               </div>
@@ -125,6 +125,12 @@ export function HomeHero() {
 // Homepage-only selectors: shared marketing pages and app portals are untouched.
 const HERO_CSS = `
 .mkt .home-hero{padding:142px 0 64px;background:#000}
+/* Homepage navigation stays black while scrolling; other marketing pages are unchanged. */
+.mkt:has(.home-hero) .navbar{background:#000;backdrop-filter:none;-webkit-backdrop-filter:none;border-color:#29292f;box-shadow:none}
+.mkt:has(.home-hero) .navbar ul,.mkt:has(.home-hero) .navbar .login{color:#e4e4e9}
+.mkt:has(.home-hero) .navbar .burger{background:#000}
+.mkt:has(.home-hero) .mobmenu{background:#000;backdrop-filter:none;border-color:#29292f}
+.mkt:has(.home-hero) .mobmenu a{color:#e4e4e9}
 .mkt .hh-grid{display:grid;grid-template-columns:1.08fr 1fr;gap:48px;align-items:center}
 .mkt .hh-copy{min-width:0}
 .mkt .hh-copy .eyebrow{color:#b8b8c0;font-size:10px;letter-spacing:.15em;margin-bottom:22px}
@@ -138,13 +144,13 @@ const HERO_CSS = `
 .mkt .hh-benefits{display:grid;grid-template-columns:1fr 1fr;gap:18px;border-top:1px solid #29292f;margin-top:24px;padding-top:22px}
 .mkt .hh-benefits p{margin:0;font-size:12px;line-height:1.7;color:#a5a5ae}
 .mkt .hh-benefits b{display:block;font-weight:600;font-size:14px;color:#f5f4f7}
-.mkt .hh-preview{min-width:0;margin:0;padding:24px 20px 20px;border:1px solid #3b3c43;border-radius:26px;background:linear-gradient(145deg,#222327,#101113 70%);box-shadow:inset 0 1px 0 #ffffff0a,0 24px 64px #0006}
+.mkt .hh-preview{min-width:0;margin:0;padding:24px 20px 20px;border:0;border-radius:0;background:transparent;box-shadow:none}
 .mkt .hh-preview-heading{display:flex;justify-content:space-between;gap:12px;font-size:9px;font-weight:600;letter-spacing:.14em;color:#b8b8c0;margin-bottom:22px}
 .mkt .hh-preview-heading{text-transform:uppercase;min-height:15px}
 .mkt .hh-preview-heading>span:last-child{color:#f5f4f7;letter-spacing:-.03em}
-.mkt .hh-screens{display:flex;align-items:center;justify-content:center;gap:12px;aspect-ratio:1/1.08}
+.mkt .hh-screens{display:flex;align-items:center;justify-content:center;gap:12px}
 .mkt .hh-phone{overflow:hidden;min-width:0;padding:5px;border-radius:23px;border:1px solid #46474e;background:#0c0c0e;box-shadow:0 18px 35px #0007}
-.mkt .hh-phone img{display:block;width:100%;height:auto;border-radius:18px}
+.mkt .hh-phone img{display:block;width:100%;height:auto;aspect-ratio:1/2;object-fit:cover;object-position:top;border-radius:18px}
 .mkt .hh-calendar{width:56%}
 .mkt .hh-dashboard{width:44%;margin-top:36px}
 .mkt .hh-preview figcaption{font-size:12px;line-height:1.6;color:#e4e4e9;margin-top:22px}
