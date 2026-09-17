@@ -62,7 +62,8 @@ export function HomeHero() {
       onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
       onFocusCapture={() => setFocused(true)}
       onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setFocused(false); }}>
-      <style>{HERO_CSS}</style>
+      {/* Trusted static CSS: raw style text must match during hydration. */}
+      <style dangerouslySetInnerHTML={{ __html: HERO_CSS }} />
       <div className="wrap hh-grid">
         <div className="hh-copy">
           <p className="eyebrow">Barbershop software · Built in Canada</p>
