@@ -28,12 +28,10 @@ export function HomeHero() {
   const [active, setActive] = useState(0);
   const [paused, setPaused] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(true);
-  const [hovered, setHovered] = useState(false);
-  const [focused, setFocused] = useState(false);
   const [visible, setVisible] = useState(false);
   const [pageVisible, setPageVisible] = useState(true);
   const heroRef = useRef<HTMLElement>(null);
-  const running = !paused && !reducedMotion && !hovered && !focused && visible && pageVisible;
+  const running = !paused && !reducedMotion && visible && pageVisible;
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -53,15 +51,12 @@ export function HomeHero() {
 
   useEffect(() => {
     if (!running) return;
-    const timer = window.setTimeout(() => setActive(index => (index + 1) % FEATURES.length), 7000);
+    const timer = window.setTimeout(() => setActive(index => (index + 1) % FEATURES.length), 1000);
     return () => window.clearTimeout(timer);
   }, [active, running]);
 
   return (
-    <section className="home-hero" aria-labelledby="home-title" ref={heroRef}
-      onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
-      onFocusCapture={() => setFocused(true)}
-      onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setFocused(false); }}>
+    <section className="home-hero" aria-labelledby="home-title" ref={heroRef}>
       {/* Trusted static CSS: raw style text must match during hydration. */}
       <style dangerouslySetInnerHTML={{ __html: HERO_CSS }} />
       <div className="wrap hh-grid">
@@ -89,7 +84,7 @@ export function HomeHero() {
               {FEATURES.map((feature, index) => (
                 <button key={feature.label} type="button" className={`hh-selector${active === index ? " is-active" : ""}`}
                   aria-pressed={active === index} aria-controls="hh-feature-preview"
-                  onClick={() => { setActive(index); setPaused(true); }}>
+                  onClick={() => setActive(index)}>
                   {feature.label}
                   <span className="hh-track" aria-hidden="true"><span style={{ transform: active === index ? "scaleX(1)" : "scaleX(0)" }} /></span>
                 </button>
