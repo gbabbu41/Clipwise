@@ -17,11 +17,13 @@ import { stripe } from "./stripe";
 import { supabaseAdmin } from "./supabase-admin";
 
 export async function reconcileSubscriptions(): Promise<{ checked: number; downgraded: number; corrected: number }> {
-  const { data: rows } = await supabaseAdmin
+  const { data: rows, error: readError } = await supabaseAdmin
     .from("shops")
     .select("id, stripe_subscription_id, subscription_status")
     .not("stripe_subscription_id", "is", null);
-  if (!rows?.length) return { checked: 0, downgraded: 0, corrected: 0 };
+  if (readError) throw readError;
+  if (!rows) throw new Error("Subscription reconciliation returned no data");
+  if (!rows.length) return { checked: 0, downgraded: 0, corrected: 0 };
 
   // subId -> [shopId, …]
   const bySub = new Map<string, string[]>();
@@ -35,12 +37,16 @@ export async function reconcileSubscriptions(): Promise<{ checked: number; downg
   let corrected = 0;
   const DEAD = new Set(["canceled", "incomplete_expired"]);
 
-  const markCancelled = async (shopIds: string[]) => {
-    const { error } = await supabaseAdmin.from("shops")
-      .update({ subscription_status: "cancelled", subscription_plan: "starter" })
+  const markCancelled = async (subId: string, shopIds: string[]) => {
+    const { data, error } = await supabaseAdmin.from("shops")
+      .update({ subscription_status: "cancelled", subscription_plan: "starter",
+        stripe_subscription_id: null, trial_ends_at: null })
       .in("id", shopIds)
-      .neq("subscription_status", "cancelled");
-    if (!error) downgraded += shopIds.length;
+      .eq("stripe_subscription_id", subId)
+      .select("id");
+    if (error) throw error;
+    if (!data) throw new Error("Subscription downgrade was not confirmed");
+    downgraded += data.length;
   };
 
   for (const [subId, shopIds] of Array.from(bySub.entries())) {
@@ -55,27 +61,35 @@ export async function reconcileSubscriptions(): Promise<{ checked: number; downg
         e.statusCode === 404 || e.raw?.statusCode === 404;
       // Only a definitive "it's gone" downgrades; every other error is skipped so
       // a Stripe hiccup can never wrongly strip a paying shop of its plan.
-      if (missing) await markCancelled(shopIds);
+      if (missing) await markCancelled(subId, shopIds);
       continue;
     }
 
     if (DEAD.has(status)) {
-      await markCancelled(shopIds);
+      await markCancelled(subId, shopIds);
     } else if (status === "past_due" || status === "unpaid") {
-      const { error } = await supabaseAdmin.from("shops")
+      const { data, error } = await supabaseAdmin.from("shops")
         .update({ subscription_status: "past_due" })
         .in("id", shopIds)
-        .neq("subscription_status", "past_due");
-      if (!error) corrected += shopIds.length;
+        .eq("stripe_subscription_id", subId)
+        .neq("subscription_status", "past_due")
+        .select("id");
+      if (error) throw error;
+      if (!data) throw new Error("Subscription correction was not confirmed");
+      corrected += data.length;
     } else if (status === "active" || status === "trialing") {
       // Self-heal a shop that a missed event left flagged past_due but that has
       // since recovered. (We don't resurrect a cancelled row here — restoring the
       // right plan needs the sub's price; that's out of this safety-net's scope.)
-      const { error } = await supabaseAdmin.from("shops")
+      const { data, error } = await supabaseAdmin.from("shops")
         .update({ subscription_status: "active" })
         .in("id", shopIds)
-        .eq("subscription_status", "past_due");
-      if (!error) corrected += shopIds.length;
+        .eq("stripe_subscription_id", subId)
+        .eq("subscription_status", "past_due")
+        .select("id");
+      if (error) throw error;
+      if (!data) throw new Error("Subscription correction was not confirmed");
+      corrected += data.length;
     }
     // Any other status (incomplete, paused, …) → leave as-is (uncertain).
   }

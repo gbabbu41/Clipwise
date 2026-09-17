@@ -20,12 +20,13 @@ const planName = (p?: string | null) => (p ? p.charAt(0).toUpperCase() + p.slice
  * cadence, and downgrade clears trial_ends_at so a shop is processed once.
  */
 export async function processTrials(nowMs: number): Promise<{ reminded: number; expired: number; scanned: number }> {
-  const { data: shops } = await supabaseAdmin
+  const { data: shops, error: readError } = await supabaseAdmin
     .from("shops")
     .select("id, name, email, owner_id, subscription_plan, trial_ends_at")
     .not("trial_ends_at", "is", null)
     .is("stripe_subscription_id", null)
     .eq("subscription_status", "active");
+  if (readError) throw new Error("Could not read trial accounts");
 
   let reminded = 0;
   let expired = 0;
@@ -40,13 +41,17 @@ export async function processTrials(nowMs: number): Promise<{ reminded: number; 
     if (daysLeft <= 0) {
       // Trial expired with no card → downgrade to Starter. The extra guards keep
       // us from racing a shop that just subscribed between the SELECT and here.
-      await supabaseAdmin.from("shops")
+      const { data: changed, error: updateError } = await supabaseAdmin.from("shops")
         // Keep a permanent record of when the trial ended (the scheduled end that
         // just passed) — trial_ends_at itself is nulled because a set value means
         // "currently trialing" in the UI.
         .update({ subscription_status: "inactive", trial_ends_at: null, trial_ended_at: shop.trial_ends_at })
         .eq("id", shop.id).eq("subscription_status", "active").is("stripe_subscription_id", null)
-        .then(null, () => null);
+        .eq("trial_ends_at", shop.trial_ends_at).select("id");
+      if (updateError) throw new Error("Could not expire trial account");
+      // Checkout, cancellation, or another cron won the race. Do not send an
+      // incorrect 'trial ended' email or count a transition that did not happen.
+      if (!changed?.length) continue;
       if (shop.owner_id) {
         await insertNotifications({
           user_id: shop.owner_id, shop_id: shop.id,

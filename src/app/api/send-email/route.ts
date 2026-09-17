@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { sendAppEmail, PRIVILEGED_EMAIL_TYPES } from "@/lib/emailer";
+import { sendAppEmail, PRIVILEGED_EMAIL_TYPES, SERVER_ONLY_EMAIL_TYPES } from "@/lib/emailer";
 import { effectivePlan, isPaidPlan } from "@/lib/validation";
 import { ensurePlansHydrated } from "@/lib/plans-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
@@ -23,6 +23,11 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { type, data } = body as { type: string; data: Record<string, string> };
+    // Subscription notices are generated only by verified server workflows.
+    // Even a valid staff account must not fabricate billing notices/recipients.
+    if (SERVER_ONLY_EMAIL_TYPES.has(type)) {
+      return NextResponse.json({ error: "This notification is sent automatically." }, { status: 403 });
+    }
 
     // Marketing blasts are a PAID feature (Pro + Premium) — being logged in isn't
     // enough. Require the caller to own an active paid shop (internal cron/webhook

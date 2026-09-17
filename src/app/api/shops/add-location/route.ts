@@ -37,21 +37,36 @@ export async function POST(request: NextRequest) {
   const { data: { user }, error: authErr } = await supabaseAdmin.auth.getUser(token);
   if (authErr || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const body = await request.json().catch(() => ({})) as {
+  const rawBody = await request.json().catch(() => null);
+  if (!rawBody || typeof rawBody !== "object" || Array.isArray(rawBody)) {
+    return NextResponse.json({ error: "Invalid location details" }, { status: 400 });
+  }
+  const body = rawBody as {
     name?: string; address?: string; city?: string; province?: string; postal_code?: string; phone?: string;
     description?: string;
     agree_addon?: boolean;
   };
-  if (!body.name?.trim()) return NextResponse.json({ error: "Location name is required" }, { status: 400 });
+  if (typeof body.name !== "string" || !body.name.trim()) return NextResponse.json({ error: "Location name is required" }, { status: 400 });
+  for (const field of ["address", "city", "province", "postal_code", "phone", "description"] as const) {
+    if (body[field] != null && typeof body[field] !== "string") {
+      return NextResponse.json({ error: "Invalid location details" }, { status: 400 });
+    }
+  }
+  if (body.agree_addon !== undefined && typeof body.agree_addon !== "boolean") {
+    return NextResponse.json({ error: "Invalid add-on confirmation" }, { status: 400 });
+  }
 
   // The owner's existing shops carry the shared subscription + entitlement.
-  const { data: existingShops } = await supabaseAdmin
+  const { data: existingShops, error: shopsError } = await supabaseAdmin
     .from("shops")
-    .select("id, email, subscription_plan, subscription_status, stripe_subscription_id, stripe_customer_id, booking_settings, created_at")
+    .select("id, email, subscription_plan, subscription_status, stripe_subscription_id, stripe_customer_id, trial_ends_at, trial_used, trial_ended_at, booking_settings, created_at")
     .eq("owner_id", user.id)
     .order("created_at", { ascending: true });
 
-  if (!existingShops || existingShops.length === 0) {
+  if (shopsError || !existingShops) {
+    return NextResponse.json({ error: "Couldn't check your locations. Please try again." }, { status: 503 });
+  }
+  if (existingShops.length === 0) {
     return NextResponse.json({ error: "Create your first shop before adding a location." }, { status: 400 });
   }
 
@@ -62,6 +77,9 @@ export async function POST(request: NextRequest) {
   await ensurePlansHydrated();
   const paid = existingShops.find(s =>
     s.subscription_status === "active" &&
+    // Daily expiry processing may not have run yet. An expired (or invalid)
+    // no-card trial cannot grant a fresh location in that gap.
+    (s.stripe_subscription_id || !s.trial_ends_at || Date.parse(s.trial_ends_at) > Date.now()) &&
     planAllowsMultiLocation(effectivePlan(s.subscription_plan ?? undefined, s.subscription_status ?? undefined)),
   );
   if (!paid) {
@@ -140,6 +158,12 @@ export async function POST(request: NextRequest) {
     subscription_status: "active",
     stripe_subscription_id: paid.stripe_subscription_id ?? null,
     stripe_customer_id: paid.stripe_customer_id ?? null,
+    // Included locations share the SAME trial, never a fresh or unlimited one.
+    // Keep used/history flags after upgrading too, so another location cannot
+    // restart the owner's already-used trial later.
+    trial_ends_at: paid.stripe_subscription_id ? null : paid.trial_ends_at ?? null,
+    trial_used: !!(paid.trial_used || paid.trial_ends_at || paid.trial_ended_at),
+    trial_ended_at: paid.trial_ended_at ?? null,
     // stripe_account_id intentionally omitted → NULL → its OWN Connect account,
     // so each location's balance/payouts stay separate. No cross-shop leakage.
     ...(inheritedBooking ? { booking_settings: inheritedBooking } : {}),

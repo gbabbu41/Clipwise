@@ -407,15 +407,24 @@ async function run() {
 
 export async function POST(req: NextRequest) {
   if (!authorized(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  await processTrials(Date.now()).catch(() => null);      // trial reminders + downgrades (same daily cron)
-  await reconcileSubscriptions().catch(() => null);       // safety-net for a missed subscription webhook
+  const lifecycleOk = await runSubscriptionMaintenance();
   await backfillMissingStripeFees().catch(() => null);    // fill stripe_fee that wasn't ready at charge time
   await backfillTerminalLocations().catch(() => null);    // ensure a Terminal Location for already-onboarded shops
-  return run();
+  const result = await run();
+  return lifecycleOk ? result : NextResponse.json({ error: "Reminders processed, but subscription maintenance needs retry." }, { status: 503 });
 }
 export async function GET(req: NextRequest) {
   if (!authorized(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  await processTrials(Date.now()).catch(() => null);
-  await reconcileSubscriptions().catch(() => null);
-  return run();
+  const lifecycleOk = await runSubscriptionMaintenance();
+  const result = await run();
+  return lifecycleOk ? result : NextResponse.json({ error: "Reminders processed, but subscription maintenance needs retry." }, { status: 503 });
+}
+
+async function runSubscriptionMaintenance(): Promise<boolean> {
+  // Keep independent jobs running, but expose failures to the scheduler instead
+  // of returning a misleading successful run after silently swallowing them.
+  const results = await Promise.allSettled([processTrials(Date.now()), reconcileSubscriptions()]);
+  const ok = results.every(result => result.status === "fulfilled");
+  if (!ok) console.error("[reminders] subscription maintenance incomplete");
+  return ok;
 }

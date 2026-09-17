@@ -15,8 +15,13 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 // Types that carry attacker-controllable content or links (arbitrary HTML,
 // recipient, or a login/invite URL). Only the HTTP route enforces this — a
 // direct in-process caller is already trusted server code.
+// Billing notices describe verified provider events, never staff-submitted text.
+export const SERVER_ONLY_EMAIL_TYPES = new Set([
+  "subscription_started", "subscription_cancelled", "subscription_payment_failed", "subscription_renewal_reminder",
+]);
 export const PRIVILEGED_EMAIL_TYPES = new Set([
   "schedule_updated", "time_off_request", "time_off_decision",
+  "subscription_started", "subscription_cancelled", "subscription_payment_failed", "subscription_renewal_reminder",
   "marketing_campaign", "direct_message", "barber_invite", "barber_password_reset", "password_reset",
   // Link-bearing / customer-recipient types — gated so the HTTP endpoint can't
   // be an open phishing/spam relay (attacker sets the recipient + a payment/

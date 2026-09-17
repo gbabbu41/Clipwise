@@ -210,6 +210,7 @@ export default function SettingsPage() {
   const [showAddLocation, setShowAddLocation] = useState(false);
   const [newLocation, setNewLocation] = useState<NewLocation>(BLANK_LOCATION);
   const [addingLocation, setAddingLocation] = useState(false);
+  const addingLocationRef = useRef(false);
   const [confirmingAddon, setConfirmingAddon] = useState(false);
 
   // AI phone / ClipWise Business Number state.
@@ -613,42 +614,58 @@ export default function SettingsPage() {
   }, []);
 
   const addLocation = async () => {
+    if (addingLocationRef.current) return;
     if (!newLocation.name.trim() || !accessToken) return;
     if (!canMultiLocation) { showToast("Multiple locations are available on the Premium plan."); setShowAddLocation(false); return; }
     // A paid add-on (beyond the included 2) needs explicit agreement to the
     // $30/mo charge — pop a confirmation before we bill anything.
     if (willCostAddon && !confirmingAddon) { setConfirmingAddon(true); return; }
+    addingLocationRef.current = true;
     setAddingLocation(true);
-    // Trusted server route: auto-approves for a paying owner, reuses the owner's
-    // email, shares the one subscription (no second charge), and leaves Stripe
-    // Connect empty so the new location gets its own account.
-    const res = await fetch("/api/shops/add-location", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
-      body: JSON.stringify({
-        name: newLocation.name.trim(),
-        address: newLocation.address,
-        city: newLocation.city,
-        province: newLocation.province,
-        postal_code: newLocation.postal_code,
-        phone: newLocation.phone,
-        description: newLocation.description.trim() || undefined,
-        agree_addon: confirmingAddon, // true only after the $30/mo popup was agreed
-      }),
-    });
-    const data = await res.json().catch(() => ({}));
-    setAddingLocation(false);
-    if (!res.ok) {
-      // Server says this is a paid add-on that wasn't agreed to → show the popup.
-      if (data.needsConfirm) { setConfirmingAddon(true); return; }
-      showToast(data.error ?? "Failed to add location."); return;
+    let locationCreated = false;
+    try {
+      // Trusted server route: auto-approves for a paying owner, reuses the owner's
+      // email, shares the one subscription (no second charge), and leaves Stripe
+      // Connect empty so the new location gets its own account.
+      const res = await fetch("/api/shops/add-location", {
+        method: "POST",
+        signal: AbortSignal.timeout(20000),
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({
+          name: newLocation.name.trim(),
+          address: newLocation.address,
+          city: newLocation.city,
+          province: newLocation.province,
+          postal_code: newLocation.postal_code,
+          phone: newLocation.phone,
+          description: newLocation.description.trim() || undefined,
+          agree_addon: confirmingAddon, // true only after the $30/mo popup was agreed
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        // Server says this is a paid add-on that wasn't agreed to → show the popup.
+        if (data.needsConfirm) { setConfirmingAddon(true); return; }
+        showToast(data.error ?? "Failed to add location."); return;
+      }
+      if (!data.shop?.id) throw new Error("Missing location confirmation");
+      locationCreated = true;
+      showToast(willCostAddon ? "Location added — $30/mo added to your subscription." : "Location added! Connect its Stripe next to take payments.");
+      setConfirmingAddon(false);
+      setShowAddLocation(false);
+      setNewLocation(BLANK_LOCATION);
+      await refreshShop();
+      if (data.shop) setActiveShop(data.shop); // jump straight into the new location
+    } catch {
+      // A lost response may still have created/billed the location. Do not
+      // encourage a blind retry until the owner has checked the refreshed list.
+      showToast(locationCreated
+        ? "Location added, but the list couldn't refresh. Reload Settings to see it."
+        : "Couldn't confirm the new location. Reload Settings and check your locations before trying again.");
+    } finally {
+      addingLocationRef.current = false;
+      setAddingLocation(false);
     }
-    showToast(willCostAddon ? "Location added — $30/mo added to your subscription." : "Location added! Connect its Stripe next to take payments.");
-    setConfirmingAddon(false);
-    setShowAddLocation(false);
-    setNewLocation(BLANK_LOCATION);
-    await refreshShop();
-    if (data.shop) setActiveShop(data.shop); // jump straight into the new location
   };
 
   // "subscription" is a ClipWise-billing surface — dropped entirely in the native app.

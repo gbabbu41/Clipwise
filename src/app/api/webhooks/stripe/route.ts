@@ -15,6 +15,7 @@ import { reconcileLocationAddon, reconcileAiPhoneAddon } from "@/lib/stripe-addo
 import { cancelDuplicateSubscriptions } from "@/lib/stripe-subscription";
 import { finalizeGiftFromSession } from "@/lib/finalize-gift-session";
 import type { TaxConfig } from "@/lib/pricing";
+import { sendAppEmail } from "@/lib/emailer";
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://clipwise.ca";
 
@@ -377,48 +378,64 @@ export async function POST(request: NextRequest) {
 
         if (session.mode === "subscription") {
           const userId = session.metadata?.user_id;
-          const plan = session.metadata?.plan;
           const oldSubId = session.metadata?.old_subscription_id;
           const newSubId = typeof session.subscription === "string" ? session.subscription : null;
-          if (userId) {
-            {
-              const subUpd = {
-                stripe_customer_id: typeof session.customer === "string" ? session.customer : null,
-                stripe_subscription_id: newSubId,
-                subscription_status: "active",
-                trial_ends_at: null,   // subscribed with a card — no longer a trial
-                ...(plan ? { subscription_plan: plan } : {}),
-              };
-              const r = await supabaseAdmin.from("shops").update(subUpd).eq("owner_id", userId);
-              // Resilient to phase34 not being run yet — retry without trial_ends_at.
-              if (r.error && /trial_ends_at/.test(r.error.message) && /column|does not exist|schema cache/i.test(r.error.message)) {
-                const { trial_ends_at: _t, ...noTrial } = subUpd;
-                await supabaseAdmin.from("shops").update(noTrial).eq("owner_id", userId).then(null, () => null);
-              }
+          const customerId = typeof session.customer === "string" ? session.customer : session.customer?.id;
+          // Checkout events may arrive days late or out of order. Never let an
+          // old checkout reactivate a cancelled plan or cancel its replacement.
+          if (event.account || !userId || !newSubId || !customerId) break;
+          const currentSub = await stripe.subscriptions.retrieve(newSubId);
+          const subCustomer = typeof currentSub.customer === "string" ? currentSub.customer : currentSub.customer.id;
+          if (currentSub.metadata?.user_id !== userId || subCustomer !== customerId) break;
+          if (!["active", "trialing"].includes(currentSub.status) || !currentSub.metadata?.plan) break;
+          const plan = currentSub.metadata.plan;
+          const { data: shops, error: shopsError } = await supabaseAdmin.from("shops")
+            .select("id, stripe_subscription_id, stripe_customer_id, ai_phone_plan_active")
+            .eq("owner_id", userId);
+          if (shopsError) throw shopsError;
+          if (!shops?.length) throw new Error("Subscription owner has no shop yet");
+          if (shops.some(s => s.stripe_customer_id && s.stripe_customer_id !== customerId)) break;
+          const otherIds = Array.from(new Set(shops.map(s => s.stripe_subscription_id)
+            .filter((id): id is string => !!id && id !== newSubId)));
+          let conflicting = false;
+          for (const id of otherIds) {
+            if (id === oldSubId) continue;
+            const other = await stripe.subscriptions.retrieve(id);
+            if (!["canceled", "incomplete_expired"].includes(other.status)) conflicting = true;
+          }
+          if (conflicting) break;
+          {
+            const subUpd = {
+              stripe_customer_id: customerId,
+              stripe_subscription_id: newSubId,
+              subscription_status: "active",
+              trial_ends_at: null,   // subscribed with a card — no longer a trial
+              subscription_plan: plan,
+            };
+            let r = await supabaseAdmin.from("shops").update(subUpd).eq("owner_id", userId);
+            // Resilient to phase34 not being run yet — retry without trial_ends_at.
+            if (r.error && /trial_ends_at/.test(r.error.message) && /column|does not exist|schema cache/i.test(r.error.message)) {
+              const { trial_ends_at: _t, ...noTrial } = subUpd;
+              r = await supabaseAdmin.from("shops").update(noTrial).eq("owner_id", userId);
             }
+            if (r.error) throw r.error;
           }
           // On upgrade, cancel the previous subscription(s) so they aren't billed
           // twice. Sweep ALL other active subs on the customer (not just the
           // captured old id) — this is the safety net for an owner who completes
           // checkout but never returns to the Billing page (so confirm-subscription
           // never runs). Shared helper logs any cancel it can't complete.
-          {
-            const custId = typeof session.customer === "string" ? session.customer : null;
-            await cancelDuplicateSubscriptions(custId, newSubId, oldSubId);
-          }
+          await cancelDuplicateSubscriptions(customerId, newSubId, oldSubId);
           // Re-attach the add-ons onto the new subscription (a plan change makes a
           // fresh sub, so add-on items don't carry over). Without this the owner
           // keeps the feature but stops being billed — a silent revenue leak.
           if (newSubId && userId && plan) {
             await ensurePlansHydrated();
-            const { count } = await supabaseAdmin.from("shops").select("id", { count: "exact", head: true }).eq("owner_id", userId);
             const included = getLocationLimit(plan);
-            await reconcileLocationAddon(newSubId, Math.max(0, (count ?? 0) - included)).catch(() => {});
+            await reconcileLocationAddon(newSubId, Math.max(0, shops.length - included));
             // $15/mo AI-phone add-on: re-attach if any of the owner's shops still
             // has the phone active.
-            const { data: aiRow } = await supabaseAdmin
-              .from("shops").select("id").eq("owner_id", userId).eq("ai_phone_plan_active", true).limit(1).maybeSingle();
-            if (aiRow) await reconcileAiPhoneAddon(newSubId, true).catch(() => {});
+            if (shops.some(s => s.ai_phone_plan_active)) await reconcileAiPhoneAddon(newSubId, true);
           }
         } else if (session.metadata?.shop_id && session.metadata?.date && session.metadata?.time_slot) {
           // ── New online booking, FALLBACK creation ────────────────────────────
@@ -444,7 +461,9 @@ export async function POST(request: NextRequest) {
 
       // ── Subscription changed (plan switch, renewal, past_due) ────────────────
       case "customer.subscription.updated": {
-        const sub = event.data.object as Stripe.Subscription;
+        if (event.account) break; // connected-account subscriptions are not ClipWise billing
+        const snapshot = event.data.object as Stripe.Subscription;
+        const sub = await stripe.subscriptions.retrieve(snapshot.id);
         const statusMap: Record<string, string> = {
           active: "active", trialing: "active",
           past_due: "past_due", unpaid: "past_due",
@@ -464,26 +483,24 @@ export async function POST(request: NextRequest) {
       // lead time is configured in Stripe billing settings). Requires this event to
       // be enabled on the webhook. Best-effort email; never blocks.
       case "invoice.upcoming": {
+        if (event.account) break;
         const inv = event.data.object as Stripe.Invoice;
         // Map by customer id (on the Invoice type across SDK versions, and stored on
         // every one of an owner's shops) — reliably resolves to the owner's shop.
         const custId = typeof inv.customer === "string" ? inv.customer : null;
         if ((inv.amount_due ?? 0) <= 0 || !custId) break; // nothing to charge / can't map
-        const { data: shop } = await supabaseAdmin.from("shops")
+        const { data: shop, error: shopError } = await supabaseAdmin.from("shops")
           .select("name, email, subscription_plan")
           .eq("stripe_customer_id", custId)
           .limit(1).maybeSingle();
+        if (shopError) throw shopError;
         if (shop?.email) {
           const renewsOn = inv.next_payment_attempt
             ? new Date(inv.next_payment_attempt * 1000).toLocaleDateString("en-CA", { year: "numeric", month: "long", day: "numeric" })
             : "soon";
-          fetch(`${BASE_URL}/api/send-email`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ type: "subscription_renewal_reminder", data: {
-              shopName: shop.name, ownerEmail: shop.email, plan: shop.subscription_plan,
-              amount: ((inv.amount_due ?? 0) / 100).toFixed(2), renewsOn,
-            } }),
+          await sendAppEmail("subscription_renewal_reminder", {
+            shopName: shop.name, ownerEmail: shop.email, plan: shop.subscription_plan,
+            amount: ((inv.amount_due ?? 0) / 100).toFixed(2), renewsOn,
           }).catch(() => null);
         }
         break;
@@ -494,21 +511,19 @@ export async function POST(request: NextRequest) {
       // the owner needs a nudge to update the card BEFORE Stripe gives up and
       // cancels — a dunning email that saves the subscription. Best-effort.
       case "invoice.payment_failed": {
+        if (event.account) break;
         const inv = event.data.object as Stripe.Invoice;
         const custId = typeof inv.customer === "string" ? inv.customer : null;
         if (!custId) break;
-        const { data: shop } = await supabaseAdmin.from("shops")
+        const { data: shop, error: shopError } = await supabaseAdmin.from("shops")
           .select("name, email, subscription_plan")
           .eq("stripe_customer_id", custId)
           .limit(1).maybeSingle();
+        if (shopError) throw shopError;
         if (shop?.email) {
-          fetch(`${BASE_URL}/api/send-email`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ type: "subscription_payment_failed", data: {
-              shopName: shop.name, ownerEmail: shop.email, plan: shop.subscription_plan,
-              amount: ((inv.amount_due ?? 0) / 100).toFixed(2),
-            } }),
+          await sendAppEmail("subscription_payment_failed", {
+            shopName: shop.name, ownerEmail: shop.email, plan: shop.subscription_plan,
+            amount: ((inv.amount_due ?? 0) / 100).toFixed(2),
           }).catch(() => null);
         }
         break;
@@ -516,24 +531,23 @@ export async function POST(request: NextRequest) {
 
       // ── Subscription cancelled → downgrade to starter + email ────────────────
       case "customer.subscription.deleted": {
+        if (event.account) break;
         const sub = event.data.object as Stripe.Subscription;
-        const { data: shop } = await supabaseAdmin.from("shops")
-          .select("id, name, email, subscription_status").eq("stripe_subscription_id", sub.id).maybeSingle();
-        // Gate on the CURRENT status so a duplicate delete delivery doesn't
-        // re-downgrade + re-send the cancellation email.
-        if (shop && shop.subscription_status !== "cancelled") {
-          const { error: delErr } = await supabaseAdmin.from("shops")
-            .update({ subscription_status: "cancelled", subscription_plan: "starter" })
-            .eq("id", shop.id);
-          // Throw so Stripe retries — a missed downgrade = free premium forever.
-          if (delErr) throw delErr;
-          if (shop.email) {
-            fetch(`${BASE_URL}/api/send-email`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ type: "subscription_cancelled", data: { shopName: shop.name, ownerEmail: shop.email } }),
-            }).catch(() => null);
-          }
+        // One subscription covers every location. The ID filter is also the
+        // race guard: an old deletion must never downgrade a replacement plan.
+        const { data: shops, error: delErr } = await supabaseAdmin.from("shops")
+          .update({ subscription_status: "cancelled", subscription_plan: "starter",
+            stripe_subscription_id: null, trial_ends_at: null })
+          .eq("stripe_subscription_id", sub.id).select("id, name, email");
+        // Throw so Stripe retries — a missed downgrade = free premium forever.
+        if (delErr) throw delErr;
+        // The returning rows are the transition claim. A retried delivery gets
+        // none, so it cannot re-send cancellation notices.
+        const notified = new Set<string>();
+        for (const shop of shops ?? []) {
+          if (!shop.email || notified.has(shop.email)) continue;
+          notified.add(shop.email);
+          await sendAppEmail("subscription_cancelled", { shopName: shop.name, ownerEmail: shop.email }).catch(() => null);
         }
         break;
       }

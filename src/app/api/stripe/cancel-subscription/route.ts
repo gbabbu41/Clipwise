@@ -25,14 +25,20 @@ export async function POST(request: NextRequest) {
   const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
   if (error || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { immediate = false, shop_id } = await request.json().catch(() => ({})) as { immediate?: boolean; shop_id?: string };
+  const body = await request.json().catch(() => null);
+  if (!body || typeof body !== "object" || Array.isArray(body)
+    || (body.immediate !== undefined && typeof body.immediate !== "boolean")
+    || (body.shop_id !== undefined && (typeof body.shop_id !== "string" || !body.shop_id || body.shop_id.length > 100))) {
+    return NextResponse.json({ error: "Invalid cancellation request." }, { status: 400 });
+  }
+  const { immediate = false, shop_id } = body as { immediate?: boolean; shop_id?: string };
 
-  // Scope to the shop the owner is VIEWING (billing is per-active-shop) so a
-  // multi-location owner cancels the right one — not always the newest. Still
-  // constrained to shops they own, so a bad shop_id can't touch another account.
-  let shopQ = supabaseAdmin.from("shops").select("*").eq("owner_id", user.id);
+  // The selected shop identifies the owner's shared subscription. Mutations
+  // must cover every location still attached to that subscription, not just it.
+  let shopQ = supabaseAdmin.from("shops").select("id, subscription_plan, subscription_status, trial_ends_at, stripe_subscription_id").eq("owner_id", user.id);
   shopQ = shop_id ? shopQ.eq("id", shop_id) : shopQ.order("created_at", { ascending: false });
-  const { data: shops } = await shopQ.limit(1);
+  const { data: shops, error: readError } = await shopQ.limit(1);
+  if (readError) return NextResponse.json({ error: "Couldn't check your subscription. Please try again." }, { status: 503 });
   const shop = shops?.[0];
   if (!shop) return NextResponse.json({ error: "No shop found" }, { status: 404 });
 
@@ -59,18 +65,30 @@ export async function POST(request: NextRequest) {
       // Clear the (now dead) subscription id so a re-subscribe / start-trial isn't
       // blocked by a stale id, and a stray future event can't map back to this row.
       // Keep stripe_customer_id so a re-subscribe reuses the same Stripe customer.
-      const { error: upErr } = await supabaseAdmin.from("shops")
+      let downgrade = supabaseAdmin.from("shops")
         .update({
           subscription_status: "inactive", subscription_plan: "starter", trial_ends_at: null, stripe_subscription_id: null,
           // If this cancel ended a running trial, record when — permanent history
           // (trial_ends_at is cleared because a set value reads as "on trial").
           ...(shop.trial_ends_at ? { trial_ended_at: new Date().toISOString() } : {}),
         })
-        .eq("id", shop.id);
+        .eq("owner_id", user.id);
+      if (hasPaidSub) downgrade = downgrade.eq("stripe_subscription_id", shop.stripe_subscription_id);
+      else {
+        downgrade = downgrade.is("stripe_subscription_id", null)
+          .eq("subscription_plan", planOnRecord).eq("subscription_status", shop.subscription_status);
+        // Included locations inherit the same trial clock. End that shared trial
+        // together, but never overwrite a location activated by paid checkout.
+        downgrade = onTrial ? downgrade.eq("trial_ends_at", shop.trial_ends_at)
+          : downgrade.eq("id", shop.id).is("trial_ends_at", null);
+      }
+      // A concurrent checkout must not be overwritten with Starter.
+      const { error: upErr, data: updated } = await downgrade.select("id");
       if (upErr) {
         console.error("[cancel-subscription] immediate downgrade write failed", upErr);
         return NextResponse.json({ error: "Cancelled with Stripe but couldn't update your account — please contact support." }, { status: 500 });
       }
+      if (!updated?.length && !hasPaidSub) return NextResponse.json({ error: "Your subscription changed. Refresh Billing before trying again." }, { status: 409 });
       return NextResponse.json({ ok: true, immediate: true });
     }
 
@@ -92,13 +110,16 @@ export async function POST(request: NextRequest) {
 
     // ── Admin-comped plan (active, no Stripe sub, no trial clock): nothing to
     //    "keep until", so just move them to the free Starter plan now. ─────────
-    const { error: compErr } = await supabaseAdmin.from("shops")
+    const { error: compErr, data: compRows } = await supabaseAdmin.from("shops")
       .update({ subscription_status: "inactive", subscription_plan: "starter", trial_ends_at: null })
-      .eq("id", shop.id);
+      .eq("id", shop.id).eq("owner_id", user.id).is("stripe_subscription_id", null)
+      .eq("subscription_plan", planOnRecord).eq("subscription_status", shop.subscription_status)
+      .is("trial_ends_at", null).select("id");
     if (compErr) {
       console.error("[cancel-subscription] comped downgrade write failed", compErr);
       return NextResponse.json({ error: "Couldn't update your account — please try again." }, { status: 500 });
     }
+    if (!compRows?.length) return NextResponse.json({ error: "Your subscription changed. Refresh Billing before trying again." }, { status: 409 });
     return NextResponse.json({ ok: true, immediate: true });
   } catch (err) {
     // Generic message to the client; real detail stays in the server logs.
