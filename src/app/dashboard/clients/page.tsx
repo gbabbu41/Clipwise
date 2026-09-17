@@ -785,11 +785,31 @@ export default function ClientsPage() {
                       className="flex-1 bg-card-raised border border-border rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-foreground/20 [color-scheme:dark]" />
                     <Button size="sm" variant="outline" loading={savingBirthday} onClick={saveBirthday}>Save</Button>
                   </div>
-                  {selectedClient.email && birthday && (
-                    <Button size="sm" variant="outline" className="w-full text-foreground border-border hover:bg-card-raised" loading={sendingBirthday} onClick={sendBirthdayEmail}>
-                      Send Birthday Email
-                    </Button>
-                  )}
+                  {/* Birthday email only ever LANDS on the actual birthday: the
+                      send button shows only on the day itself; during the run-up
+                      week it's just a heads-up so nothing goes out early. */}
+                  {birthday && (() => {
+                    const m = /^\d{4}-(\d{2})-(\d{2})$/.exec(birthday.trim());
+                    if (!m) return null;
+                    const now = new Date();
+                    const todayMid = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                    let next = new Date(now.getFullYear(), Number(m[1]) - 1, Number(m[2]));
+                    if (next < todayMid) next = new Date(now.getFullYear() + 1, Number(m[1]) - 1, Number(m[2]));
+                    const days = Math.round((next.getTime() - todayMid.getTime()) / 86_400_000);
+                    if (days === 0) {
+                      return selectedClient.email ? (
+                        <Button size="sm" variant="outline" className="w-full text-foreground border-border hover:bg-card-raised" loading={sendingBirthday} onClick={sendBirthdayEmail}>
+                          🎂 Send birthday email — it&apos;s today
+                        </Button>
+                      ) : (
+                        <p className="text-xs text-grey">🎂 Birthday is today — add an email to send them a wish.</p>
+                      );
+                    }
+                    if (days <= 7) {
+                      return <p className="text-xs text-grey">🎂 Birthday in {days} day{days === 1 ? "" : "s"} — the wish sends on the day itself, not before.</p>;
+                    }
+                    return null;
+                  })()}
                 </div>
 
                 <Textarea label="Notes" value={notes} onChange={e => setNotes(e.target.value)} rows={3} placeholder="Add client notes..." />
