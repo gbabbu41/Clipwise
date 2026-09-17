@@ -16,6 +16,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 // recipient, or a login/invite URL). Only the HTTP route enforces this — a
 // direct in-process caller is already trusted server code.
 export const PRIVILEGED_EMAIL_TYPES = new Set([
+  "schedule_updated", "time_off_request", "time_off_decision",
   "marketing_campaign", "direct_message", "barber_invite", "barber_password_reset", "password_reset",
   // Link-bearing / customer-recipient types — gated so the HTTP endpoint can't
   // be an open phishing/spam relay (attacker sets the recipient + a payment/

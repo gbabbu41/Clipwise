@@ -9,6 +9,7 @@ import { ApptDetail, Portal, makeApptActions } from "@/components/calendar-view"
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import type { AppointmentWithDetails } from "@/lib/database.types";
 import { safeCommission } from "@/lib/barber-earnings";
+import { earningsBuckets } from "@/lib/earnings-chart";
 
 interface Tx {
   id: string;
@@ -26,23 +27,20 @@ interface Tx {
 const grossOf = (t: Tx) => t.amount + (t.tip ?? 0);
 
 // Mini CSS-bar sparkline for an earnings period card — same look as the owner
-// Payments page (blue gradient bars, tallest highlighted). Faint placeholder
-// bars when the period has no earnings.
-function Spark({ data }: { data: { val: number }[] }) {
-  if (!data.length) {
-    return (
-      <div className="cwp-spark">
-        {Array.from({ length: 7 }).map((_, i) => <i key={i} className="cwp-ph" style={{ height: `${28 + (i % 3) * 14}%` }} />)}
-      </div>
-    );
-  }
-  const bars = data.slice(-14);
+// Payments page. Zero calendar buckets stay flat; exact values are available below.
+function Spark({ data }: { data: { label: string; val: number }[] }) {
+  const bars = data;
   const max = Math.max(...bars.map(d => d.val), 1);
   let peak = 0;
   bars.forEach((d, i) => { if (d.val > bars[peak].val) peak = i; });
   return (
-    <div className="cwp-spark">
-      {bars.map((d, i) => <i key={i} className={i === peak ? "cwp-peak" : ""} style={{ height: `${Math.max(8, (d.val / max) * 100)}%` }} />)}
+    <div>
+      <div className="cwp-spark" role="img" aria-label="Take-home earnings over the full period; exact values in chart data below">
+        {bars.map((d, i) => <i key={d.label} title={`${d.label}: ${formatCurrency(d.val)}`} className={i === peak ? "cwp-peak" : ""} style={{ height: `${(d.val / max) * 100}%`, minHeight: 0, minWidth: 0 }} />)}
+      </div>
+      <details className="text-xs text-grey"><summary>Chart data</summary>
+        <div className="max-h-40 overflow-auto"><table className="w-full"><caption className="sr-only">Take-home by calendar period</caption><thead><tr><th scope="col">Period</th><th scope="col">Take-home</th></tr></thead><tbody>{bars.map(d => <tr key={d.label}><th scope="row">{d.label}</th><td>{formatCurrency(d.val)}</td></tr>)}</tbody></table></div>
+      </details>
     </div>
   );
 }
@@ -52,12 +50,14 @@ export default function BarberPaymentsPage() {
   const { shop, barber } = useBarber();
   const canManage = profile?.role === "shop_owner" || barber?.permissions?.manage_appointments === true;
   // The owner can hide this page per-barber (view_earnings). Undefined = allowed.
-  const notPermitted = barber?.permissions?.view_earnings === false;
+  const notPermitted = profile?.role !== "shop_owner" && barber?.permissions?.view_earnings === false;
 
   const [txs, setTxs] = useState<Tx[]>([]);
   const [pct, setPct] = useState(0);
   const [isOwner, setIsOwner] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const earningsRequest = useRef(0);
 
   // Earnings window: the periods are the swipeable carousel cards (this week →
   // month → all → custom); the last card opens a from→to date picker.
@@ -80,15 +80,25 @@ export default function BarberPaymentsPage() {
 
   // ── All-time transactions in one call; the window is applied client-side ──
   const loadEarnings = useCallback(async () => {
-    if (!accessToken || notPermitted) { setLoading(false); return; }
-    const shopParam = shop?.id ? `&shop_id=${shop.id}` : "";
-    const r = await fetch(`/api/barber/earnings?period=all${shopParam}`, { headers: { Authorization: `Bearer ${accessToken}` } });
-    const d = r.ok ? await r.json() : null;
-    if (d) { setTxs((d.transactions ?? []) as Tx[]); setPct(d.summary?.commissionPercent ?? 0); setIsOwner(d.summary?.isOwner ?? false); }
-    setLoading(false);
+    const request = ++earningsRequest.current;
+    if (!accessToken || !shop?.id || notPermitted) { setTxs([]); setLoading(false); return; }
+    setLoading(true);
+    setLoadError("");
+    try {
+      const r = await fetch(`/api/barber/earnings?period=all&shop_id=${shop.id}`, { headers: { Authorization: `Bearer ${accessToken}` } });
+      if (!r.ok) throw new Error("Unable to load earnings");
+      const d = await r.json();
+      if (!Array.isArray(d.transactions) || !d.summary) throw new Error("Invalid earnings response");
+      if (request !== earningsRequest.current) return;
+      setTxs(d.transactions as Tx[]); setPct(d.summary.commissionPercent ?? 0); setIsOwner(d.summary.isOwner ?? false);
+    } catch {
+      if (request === earningsRequest.current) setLoadError("Unable to load earnings. Please try again.");
+    } finally {
+      if (request === earningsRequest.current) setLoading(false);
+    }
   }, [accessToken, shop?.id, notPermitted]);
 
-  useEffect(() => { loadEarnings(); }, [loadEarnings]);
+  useEffect(() => { setTxs([]); loadEarnings(); return () => { earningsRequest.current++; }; }, [loadEarnings]);
 
   const earnedOf = useCallback((t: Tx) => {
     const tipAmt = t.tip ?? 0;
@@ -111,8 +121,8 @@ export default function BarberPaymentsPage() {
   const fmtDay = (ts: number) => new Date(ts).toLocaleDateString("en-CA", { month: "short", day: "numeric" });
   const rangeFor = (key: "week" | "month" | "all") => {
     const ws = startOf("week");
-    if (key === "week") return `${fmtDay(ws)} – ${fmtDay(ws + 6 * 86400000)}`;
-    if (key === "month") { const d = new Date(); return `${fmtDay(startOf("month"))} – ${fmtDay(new Date(d.getFullYear(), d.getMonth() + 1, 0).getTime())}`; }
+    if (key === "week") return `${fmtDay(ws)} – ${fmtDay(Date.now())}`;
+    if (key === "month") return `${fmtDay(startOf("month"))} – ${fmtDay(Date.now())}`;
     return ""; // all time
   };
 
@@ -127,17 +137,7 @@ export default function BarberPaymentsPage() {
     const count = inP.length;
     // Sparkline buckets = COLLECTED per day (card + cash), so the chart reflects
     // the same take-home the headline shows (a cash-only week still draws bars).
-    const m = new Map<string, { order: number; val: number }>();
-    inP.forEach(t => {
-      const dt = new Date(t.created_at);
-      const order = monthly ? dt.getFullYear() * 12 + dt.getMonth() : Math.floor(dt.getTime() / 86400000);
-      const label = monthly
-        ? dt.toLocaleDateString("en-CA", { month: "short" })
-        : dt.toLocaleDateString("en-CA", { month: "short", day: "numeric" });
-      const cur = m.get(label) ?? { order, val: 0 };
-      cur.val += earnedOf(t); m.set(label, cur);
-    });
-    const data = Array.from(m, ([label, v]) => ({ label, val: v.val, order: v.order })).sort((a, b) => a.order - b.order);
+    const data = earningsBuckets(inP, from, to, monthly, earnedOf);
     return { earned, cardEarned, gross, tips, cash, count, data, avg: count ? gross / count : 0, shopCut: Math.max(0, gross - earned) };
   }, [txs, earnedOf]);
 
@@ -167,6 +167,8 @@ export default function BarberPaymentsPage() {
 
   // ── Outstanding (unpaid) appointments — chargeable here if permitted ──
   const [unpaid, setUnpaid] = useState<AppointmentWithDetails[]>([]);
+  const [unpaidError, setUnpaidError] = useState("");
+  const unpaidRequest = useRef(0);
   // Dismissed outstanding rows — hidden from the list, remembered per device so
   // they don't reappear (uncollectable no-shows/freebies the barber clears out).
   const [dismissedOut, setDismissedOut] = useState<Set<string>>(new Set());
@@ -186,20 +188,26 @@ export default function BarberPaymentsPage() {
   const showToast = useCallback((m: string) => { setToast(m); setTimeout(() => setToast(""), 3000); }, []);
 
   const loadUnpaid = useCallback(async () => {
-    if (!shop?.id || !barber?.id) return;
-    const { data } = await supabase
+    const request = ++unpaidRequest.current;
+    if (!shop?.id || !barber?.id) { setUnpaid([]); return; }
+    try {
+    const { data, error } = await supabase
       .from("appointments")
       .select("*, services(name), barbers(name)")
       .eq("shop_id", shop.id).eq("barber_id", barber.id)
       .gt("total_amount", 0)
       .order("date", { ascending: false }).limit(100);
+    if (error) throw error;
+    if (request !== unpaidRequest.current) return;
     const rows = ((data ?? []) as AppointmentWithDetails[]).filter(a => {
       const s = a.payment_status;
       return s !== "paid" && s !== "captured" && s !== "refunded" && a.status !== "cancelled";
     });
     setUnpaid(rows);
+    setUnpaidError("");
+    } catch { if (request === unpaidRequest.current) setUnpaidError("Outstanding payments could not be loaded."); }
   }, [shop?.id, barber?.id]);
-  useEffect(() => { loadUnpaid(); }, [loadUnpaid]);
+  useEffect(() => { setUnpaid([]); loadUnpaid(); return () => { unpaidRequest.current++; }; }, [loadUnpaid]);
 
   // Realtime + refresh — a charge/no-show fee shows up without a manual reload.
   // (Also re-check on focus + interval, since some money-moves don't fire a DB event.)
@@ -281,8 +289,11 @@ export default function BarberPaymentsPage() {
     );
   }
 
+  if (loadError) return <div className="p-6" role="alert"><p>{loadError}</p><button className="mt-3 underline" onClick={() => loadEarnings()}>Retry</button></div>;
+
   return (
     <div className="p-4 sm:p-6 max-w-2xl mx-auto pb-28">
+      {unpaidError && <div role="alert" className="my-3 text-sm">{unpaidError} <button className="underline" onClick={() => loadUnpaid()}>Retry</button></div>}
       {toast && (
         <div className="fixed bottom-24 right-4 z-[200] bg-card-raised border border-border rounded-xl px-5 py-3 text-sm text-foreground shadow-xl">
           <span className="text-emerald-400">✓</span> {toast}

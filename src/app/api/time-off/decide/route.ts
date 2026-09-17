@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { insertNotifications } from "@/lib/notify-server";
 import { prettyDate } from "@/lib/utils";
+import { validId } from "@/lib/schedule-access";
+import { sendAppEmail } from "@/lib/emailer";
 
 // Owner-side approve/deny. Uses the service role so the in-app notification
 // to the barber goes through despite the notifications RLS (which only lets
@@ -21,20 +23,20 @@ export async function POST(request: NextRequest) {
   const { data: { user }, error: authErr } = await supabaseAdmin.auth.getUser(token);
   if (authErr || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { request_id, decision } = await request.json() as {
-    request_id: string;
-    decision: "approved" | "denied";
-  };
+  const body = await request.json().catch(() => null);
+  if (!validId(body?.request_id)) return NextResponse.json({ error: "Invalid request_id" }, { status: 400 });
+  const { request_id, decision } = body;
   if (decision !== "approved" && decision !== "denied") {
     return NextResponse.json({ error: "Invalid decision" }, { status: 400 });
   }
 
   // Pull the request + the shop so we can verify the caller owns the shop.
-  const { data: req } = await supabaseAdmin
+  const { data: req, error: readError } = await supabaseAdmin
     .from("time_off_requests")
     .select("*, barbers(id, name, email, user_id), shops(id, name, owner_id, email)")
     .eq("id", request_id)
     .single();
+  if (readError) return NextResponse.json({ error: "Unable to load request" }, { status: 503 });
   if (!req) return NextResponse.json({ error: "Request not found" }, { status: 404 });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const shop = (req as any).shops as { id: string; name: string; owner_id: string; email?: string | null } | null;
@@ -49,7 +51,7 @@ export async function POST(request: NextRequest) {
     .from("time_off_requests")
     .update({ status: decision, decided_by: user.id, decided_at: new Date().toISOString() })
     .eq("id", request_id);
-  if (updErr) return NextResponse.json({ error: updErr.message }, { status: 500 });
+  if (updErr) return NextResponse.json({ error: "Unable to update time off" }, { status: 500 });
 
   const dateRange = prettyDate(req.start_date) + (req.end_date !== req.start_date ? ` → ${prettyDate(req.end_date)}` : "");
   const timeRange = req.type === "blocked_hours" && req.start_time && req.end_time
@@ -68,13 +70,7 @@ export async function POST(request: NextRequest) {
 
   // 3) Email the barber
   if (barber?.email) {
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://clipwise.ca";
-    await fetch(`${baseUrl}/api/send-email`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        type: "time_off_decision",
-        data: {
+    await sendAppEmail("time_off_decision", {
           barberEmail: barber.email,
           barberName: barber.name,
           shopName: shop.name,
@@ -83,8 +79,6 @@ export async function POST(request: NextRequest) {
           requestType: TYPE_LABELS[req.type],
           dateRange,
           timeRange,
-        },
-      }),
     }).catch(() => null);
   }
 

@@ -491,7 +491,7 @@ export function getDateRange(
     }
     case "this-week": {
       const s = startOf(new Date(now));
-      s.setDate(now.getDate() - now.getDay());
+      s.setDate(now.getDate() - ((now.getDay() + 6) % 7));
       return [formatDateForDb(s), today];
     }
     case "this-month": {

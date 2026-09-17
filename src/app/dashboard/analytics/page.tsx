@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { BarChart3, Building2 } from "lucide-react";
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
@@ -8,12 +8,14 @@ import {
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { AvatarImage } from "@/components/ui/avatar-image";
-import { cn, formatCurrency, formatDateForDb } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { effectivePlan, isPaidPlan } from "@/lib/validation";
 import { FeatureLock } from "@/components/dashboard/feature-lock";
 import { collectedTotals, countablePosTxs, isNoShowTx, isPaid, type RevAppt, type RevTx, type ByPi } from "@/lib/revenue";
+import { analyticsPeriod, analyticsRevenueBuckets, analyticsFeesKnown, timestampInPeriod, topServicesWithOther } from "@/lib/analytics-period";
+import { readAllRows } from "@/lib/read-all-rows";
 import { safeCommission } from "@/lib/barber-earnings";
 import type { Transaction, Appointment, Barber } from "@/lib/database.types";
 
@@ -55,7 +57,16 @@ function SkeletonCard() {
   return <div className="h-28 rounded-2xl bg-card-raised animate-pulse" />;
 }
 
-type DayRevenue = { date: string; label: string; day: string; revenue: number; appointments: number };
+
+
+function ChartDataTable({ caption, rows }: { caption: string; rows: { label: string; value: number }[] }) {
+  return <details className="mt-3 text-xs text-grey"><summary className="cursor-pointer">View data table</summary>
+    <div className="max-h-64 overflow-auto mt-2"><table className="w-full text-left"><caption className="sr-only">{caption}</caption>
+      <thead><tr><th scope="col" className="py-2">Category</th><th scope="col" className="py-2 text-right">Amount (CAD)</th></tr></thead>
+      <tbody>{rows.map((row, index) => <tr key={index}><th scope="row" className="py-1 font-normal">{row.label}</th><td className="text-right font-mono">{formatCurrency(row.value)}</td></tr>)}</tbody>
+    </table></div>
+  </details>;
+}
 
 export default function AnalyticsPage() {
   const { shop, accessToken } = useAuth();
@@ -63,6 +74,11 @@ export default function AnalyticsPage() {
   const [barberFilter, setBarberFilter] = useState("all");
   const [toast, setToast] = useState("");
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [loadedKey, setLoadedKey] = useState("");
+  const requestVersion = useRef(0);
+  const range = useMemo(() => analyticsPeriod(period), [period]);
+  const dataKey = `${shop?.id ?? ""}:${period}`;
   // Real Stripe fees per charge (paymentIntent → {gross, fee, net}) — same source
   // the Dashboard/Payments use, so the "− Stripe fee" line here is the actual fee,
   // not a guess, and the waterfall reconciles to the Collected number.
@@ -82,137 +98,68 @@ export default function AnalyticsPage() {
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
   const loadData = useCallback(async () => {
-    if (!shop) { setLoading(false); return; }
+    const version = ++requestVersion.current;
     setLoading(true);
-    // Only pull the rows the selected period actually needs (every KPI/chart
-    // already filters by period client-side) instead of the shop's ENTIRE
-    // history on every load. `since` is the earliest date the current period can
-    // reference; the client memos still apply the exact period bound on top, so
-    // fetching a hair extra is harmless. Refetches when the period changes.
-    const now = new Date();
-    const iso = (d: Date) => d.toISOString().split("T")[0];
-    let since: string;
-    if (period === "today") since = iso(now);
-    else if (period === "week") { const w = new Date(now); w.setDate(w.getDate() - 7); since = iso(w); }
-    else if (period === "year") since = `${iso(now).slice(0, 4)}-01-01`;
-    else if (period === "last") since = iso(new Date(now.getFullYear(), now.getMonth() - 1, 1));
-    else /* month (default) */ since = `${iso(now).slice(0, 7)}-01`;
+    setLoadError("");
+    setLoadedKey("");
+    setByPi({});
+    if (!shop?.id || !accessToken) {
+      if (shop?.id) setLoadError("Analytics needs an active session. Please try again.");
+      setLoading(false); return;
+    }
+    try {
+      const [txRes, apptRes, barberRes, svcRes, revApptRes, feeResponse] = await Promise.all([
+        readAllRows<Transaction>((from, to) => supabase.from("transactions").select("*").eq("shop_id", shop.id).gte("created_at", range.startIso).lt("created_at", range.endIso).order("created_at").order("id").range(from, to)),
+        readAllRows<Appointment>((from, to) => supabase.from("appointments").select("*").eq("shop_id", shop.id).gte("date", range.startDate).lt("date", range.endDate).order("date").order("id").range(from, to)),
+        // Historical payments still owe commission/tips to inactive barbers.
+        readAllRows<Barber>((from, to) => supabase.from("barbers").select("*").eq("shop_id", shop.id).order("name").order("id").range(from, to)),
+        readAllRows<{ id: string; name: string }>((from, to) => supabase.from("services").select("id, name").eq("shop_id", shop.id).order("id").range(from, to)),
+        readAllRows<Appointment>((from, to) => supabase.from("appointments").select("*").eq("shop_id", shop.id).in("payment_status", ["paid", "captured"]).or(`and(paid_at.gte.${range.startIso},paid_at.lt.${range.endIso}),and(paid_at.is.null,created_at.gte.${range.startIso},created_at.lt.${range.endIso})`).order("created_at").order("id").range(from, to)),
+        fetch("/api/stripe/payments-summary", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ shop_id: shop.id }),
+          signal: AbortSignal.timeout(15000),
+        }),
+      ]);
+      if (!feeResponse.ok) throw new Error("Fees unavailable");
+      const fees = await feeResponse.json();
+      if (fees.error || !fees.byPi) throw new Error("Fees unavailable");
+      if (version !== requestVersion.current) return;
+      setTransactions(txRes);
+      setAppointments(apptRes);
+      setRevenueAppts(revApptRes);
+      setBarbers(barberRes);
+      setBarberFilter(current => current === "all" || barberRes.some(b => b.id === current) ? current : "all");
+      setServiceNames(Object.fromEntries(svcRes.map(service => [service.id, service.name])));
+      setByPi(fees.byPi);
+      setLoadedKey(`${shop.id}:${period}`);
+    } catch {
+      if (version === requestVersion.current) setLoadError("Analytics could not be loaded. Revenue and fees are unavailable. Please try again.");
+    } finally {
+      if (version === requestVersion.current) setLoading(false);
+    }
+  }, [shop?.id, accessToken, period, range]);
 
-    const [txRes, apptRes, barberRes, svcRes, revApptRes] = await Promise.all([
-      // Limits raised 5000 → 10000 as a stopgap; these are already period-scoped, so
-      // only a very high-volume "This Year" view would approach the cap.
-      supabase.from("transactions").select("*").eq("shop_id", shop.id).gte("created_at", since).order("created_at", { ascending: true }).limit(10000),
-      supabase.from("appointments").select("*").eq("shop_id", shop.id).gte("date", since),
-      supabase.from("barbers").select("*").eq("shop_id", shop.id).eq("is_active", true).order("name"),
-      supabase.from("services").select("id, name").eq("shop_id", shop.id),
-      // Paid/captured appointments (broad — filtered to the period by paid_at at
-      // compute time), so revenue counts on the day money moved, not booked date.
-      supabase.from("appointments").select("*").eq("shop_id", shop.id).in("payment_status", ["paid", "captured"]).order("created_at", { ascending: false }).limit(10000),
-    ]);
-    if (txRes.data) setTransactions(txRes.data);
-    if (apptRes.data) setAppointments(apptRes.data);
-    if (revApptRes.data) setRevenueAppts(revApptRes.data);
-    if (barberRes.data) setBarbers(barberRes.data);
-    if (svcRes.data) setServiceNames(Object.fromEntries(svcRes.data.map((s: { id: string; name: string }) => [s.id, s.name])));
-    setLoading(false);
-  }, [shop, period]);
-
-  useEffect(() => { loadData(); }, [loadData]);
-
-  // Pull the real Stripe fee/net map (gated by a bearer token). If it doesn't
-  // load (offline / not connected), the waterfall degrades to fee = 0 rather
-  // than breaking — never a wrong-but-confident number.
   useEffect(() => {
-    if (!accessToken || !shop?.id) return;
-    let active = true;
-    fetch("/api/stripe/payments-summary", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ shop_id: shop.id }),
-    })
-      .then(r => (r.ok ? r.json() : null))
-      .then(d => { if (active && d && !d.error) setByPi(d.byPi ?? {}); })
-      .catch(() => {});
-    return () => { active = false; };
-  }, [accessToken, shop?.id]);
+    void loadData();
+    return () => { requestVersion.current += 1; };
+  }, [loadData]);
 
-  // LOCAL calendar day/month/year (not UTC). A transaction's created_at is a UTC
-  // timestamp, so bucketing by its UTC date filed every evening Atlantic-time sale
-  // a day late; the Dashboard + Payments use formatDateForDb (local) — match them.
-  const today = formatDateForDb(new Date());
-  const thisMonth = today.slice(0, 7);
-  const thisYear = today.slice(0, 4);
-  const lastMonth = (() => { const d = new Date(); return formatDateForDb(new Date(d.getFullYear(), d.getMonth() - 1, 1)).slice(0, 7); })();
-
-  const filteredTx = useMemo(() => {
-    // Drop refunded transactions everywhere — a refunded charge must not keep
-    // inflating revenue / tips / per-barber / per-service totals (the barber
-    // earnings API already excludes these; analytics was the odd one out).
-    let list = transactions.filter(t => !t.refunded);
-    if (barberFilter !== "all") list = list.filter(t => t.barber_id === barberFilter);
-    // Bucket each tx by its LOCAL calendar day (created_at is UTC) so an evening
-    // sale isn't filed on the next day.
-    const ld = (t: Transaction) => formatDateForDb(new Date(t.created_at));
-    if (period === "today") list = list.filter(t => ld(t) === today);
-    else if (period === "week") {
-      const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7); weekAgo.setHours(0, 0, 0, 0);
-      list = list.filter(t => new Date(t.created_at) >= weekAgo);
-    } else if (period === "month") list = list.filter(t => ld(t).startsWith(thisMonth));
-    else if (period === "year") list = list.filter(t => ld(t).startsWith(thisYear));
-    else if (period === "last") list = list.filter(t => ld(t).startsWith(lastMonth));
-    return list;
-  }, [transactions, barberFilter, period, today, thisMonth, thisYear, lastMonth]);
-
-  const filteredAppts = useMemo(() => {
-    let list = appointments;
-    if (barberFilter !== "all") list = list.filter(a => a.barber_id === barberFilter);
-    if (period === "today") list = list.filter(a => a.date === today);
-    else if (period === "week") {
-      const weekAgo = new Date(today); weekAgo.setDate(weekAgo.getDate() - 7);
-      list = list.filter(a => new Date(a.date) >= weekAgo);
-    } else if (period === "month") list = list.filter(a => a.date.startsWith(thisMonth));
-    else if (period === "year") list = list.filter(a => a.date.startsWith(thisYear));
-    else if (period === "last") list = list.filter(a => a.date.startsWith(lastMonth));
-    return list;
-  }, [appointments, barberFilter, period, today, thisMonth, thisYear, lastMonth]);
-
-  // Revenue appointments in the period, dated by WHEN THE MONEY MOVED (paid_at,
-  // else created_at) — mirrors filteredTx's period logic so the money waterfall
-  // counts a sale on the day it was paid, not the day booked.
-  const revenueApptsInRange = useMemo(() => {
-    let list = revenueAppts;
-    if (barberFilter !== "all") list = list.filter(a => a.barber_id === barberFilter);
-    const paidTs = (a: Appointment) => (a.paid_at ?? a.created_at ?? "");
-    if (period === "today") list = list.filter(a => paidTs(a).startsWith(today));
-    else if (period === "week") { const weekAgo = new Date(today); weekAgo.setDate(weekAgo.getDate() - 7); list = list.filter(a => new Date(paidTs(a)) >= weekAgo); }
-    else if (period === "month") list = list.filter(a => paidTs(a).startsWith(thisMonth));
-    else if (period === "year") list = list.filter(a => paidTs(a).startsWith(thisYear));
-    else if (period === "last") list = list.filter(a => paidTs(a).startsWith(lastMonth));
-    return list;
-  }, [revenueAppts, barberFilter, period, today, thisMonth, thisYear, lastMonth]);
-
-  // Revenue over time (from transactions)
-  const revenueByDay = useMemo<DayRevenue[]>(() => {
-    const map: Record<string, { revenue: number; appointments: number }> = {};
-    for (const tx of filteredTx) {
-      const d = formatDateForDb(new Date(tx.created_at)); // local day, matches the filter
-      if (!map[d]) map[d] = { revenue: 0, appointments: 0 };
-      map[d].revenue += tx.amount + tx.tip;
-      map[d].appointments += 1;
-    }
-    // If no transactions, build date range from appointments
-    if (Object.keys(map).length === 0) {
-      for (const a of filteredAppts.filter(a => a.status === "completed" && a.payment_status !== "refunded")) {
-        if (!map[a.date]) map[a.date] = { revenue: 0, appointments: 0 };
-        map[a.date].revenue += Math.max(0, (a.total_amount ?? 0) - (a.tax_amount ?? 0));
-        map[a.date].appointments += 1;
-      }
-    }
-    return Object.entries(map).sort(([a], [b]) => a.localeCompare(b)).map(([date, v]) => {
-      const d = new Date(date);
-      return { date, label: d.toLocaleDateString("en-CA", { month: "short", day: "numeric" }), day: d.toLocaleDateString("en-CA", { weekday: "short" }), ...v };
-    });
-  }, [filteredTx, filteredAppts]);
+  const filteredTx = useMemo(() => transactions.filter(t =>
+    !t.refunded && (barberFilter === "all" || t.barber_id === barberFilter) && timestampInPeriod(t.created_at, range)
+  ), [transactions, barberFilter, range]);
+  const filteredAppts = useMemo(() => appointments.filter(a =>
+    (barberFilter === "all" || a.barber_id === barberFilter) && a.date >= range.startDate && a.date < range.endDate
+  ), [appointments, barberFilter, range]);
+  const revenueApptsInRange = useMemo(() => revenueAppts.filter(a =>
+    (barberFilter === "all" || a.barber_id === barberFilter) && timestampInPeriod(a.paid_at ?? a.created_at, range)
+  ), [revenueAppts, barberFilter, range]);
+  const buckets = useMemo(() => analyticsRevenueBuckets(revenueApptsInRange, filteredTx as RevTx[], range), [revenueApptsInRange, filteredTx, range]);
+  const revenueByDay = buckets.daily;
+  const hourlyRevenue = buckets.hourly;
+  const dataReady = !loading && !loadError && loadedKey === dataKey;
+  const feesKnown = useMemo(() => analyticsFeesKnown(revenueApptsInRange, filteredTx as RevTx[], byPi), [revenueApptsInRange, filteredTx, byPi]);
 
   // KPIs — the money waterfall, all from the SAME shared calculator the Dashboard
   // + Payments use (so no screen can show a different number):
@@ -249,7 +196,7 @@ export default function AnalyticsPage() {
     // price raised above the held card) instead of hiding it behind a clamp.
     const paidOutTips = Math.max(0, t.tips - t.ownerTips);
     const netRevenue = t.net - t.tax - paidOutTips - commission;
-    return { gross: t.gross, fees: t.fees, collected: t.net, tax: t.tax, tips: paidOutTips, commission, netRevenue };
+    return { gross: t.gross, fees: t.fees, collected: t.net, tax: t.tax, tips: paidOutTips, totalTips: t.tips, commission, netRevenue };
   }, [revenueApptsInRange, filteredTx, byPi, barbers, shop?.owner_id]);
   const totalRevenue = money.gross;
   const totalAppts = filteredAppts.length;
@@ -282,7 +229,7 @@ export default function AnalyticsPage() {
       if (t.refunded || !t.barber_id || isNoShowTx(t) || t.source === "completion") continue;
       map[t.barber_id] = (map[t.barber_id] ?? 0) + Math.max(0, t.amount ?? 0);
     }
-    return barbers.map(b => ({ name: b.name.split(" ")[0], revenue: Math.round(map[b.id] ?? 0) })).filter(b => b.revenue > 0);
+    return barbers.map(b => ({ name: b.name, revenue: map[b.id] ?? 0 })).filter(b => b.revenue > 0);
   }, [revenueApptsInRange, filteredTx, barbers]);
 
   // Revenue by service name — same collected basis: paid appointments (by service)
@@ -300,10 +247,8 @@ export default function AnalyticsPage() {
       const key = t.service_name || "Sale";
       map[key] = (map[key] ?? 0) + Math.max(0, t.amount ?? 0);
     }
-    return Object.entries(map)
-      .sort(([,a], [,b]) => b - a)
-      .slice(0, 6)
-      .map(([name, value], i) => ({ name, value, color: GOLD_PALETTE[i] ?? "#666" }));
+    return topServicesWithOther(map)
+      .map(({ name, value }, i) => ({ name, value, color: GOLD_PALETTE[i] ?? "#666" }));
   }, [revenueApptsInRange, filteredTx, serviceNames]);
 
   // Appointment status breakdown
@@ -319,22 +264,6 @@ export default function AnalyticsPage() {
     }));
   }, [filteredAppts, totalAppts]);
 
-  // Busiest hours (from transactions)
-  const hourlyRevenue = useMemo(() => {
-    const map: Record<number, { revenue: number; appointments: number }> = {};
-    for (const tx of filteredTx) {
-      const hour = new Date(tx.created_at).getHours();
-      if (!map[hour]) map[hour] = { revenue: 0, appointments: 0 };
-      map[hour].revenue += tx.amount + tx.tip;
-      map[hour].appointments += 1;
-    }
-    return Object.entries(map).sort(([a], [b]) => Number(a) - Number(b)).map(([h, v]) => {
-      const hr = Number(h);
-      const label = hr === 0 ? "12 AM" : hr < 12 ? `${hr} AM` : hr === 12 ? "12 PM" : `${hr-12} PM`;
-      return { hour: label, ...v };
-    });
-  }, [filteredTx]);
-
   // Top barber
   const topBarber = barberRevenue.length > 0 ? barberRevenue.reduce((a, b) => a.revenue > b.revenue ? a : b) : null;
   // Top service
@@ -344,11 +273,11 @@ export default function AnalyticsPage() {
     { label: "Gross sales", value: formatCurrency(totalRevenue), sub: `before Stripe fees`, color: "text-foreground" },
     { label: "Total Appointments", value: String(totalAppts), sub: `${completedAppts} completed`, color: "text-foreground" },
     { label: "Avg Ticket Size", value: formatCurrency(avgTicket), sub: "Per completed appt", color: "text-foreground" },
-    { label: "No-Show Rate", value: `${noShowRate}%`, sub: "Industry avg 12%", color: "text-orange-400" },
+    { label: "No-Show Rate", value: `${noShowRate}%`, sub: "Excludes cancelled appointments", color: "text-orange-400" },
     { label: "Top Barber", value: topBarber?.name ?? "—", sub: topBarber ? formatCurrency(topBarber.revenue) : "No data", color: "text-foreground" },
     { label: "Top Service", value: topService?.name ?? "—", sub: topService ? formatCurrency(topService.value) : "No data", color: "text-foreground" },
     { label: "Transactions", value: String(filteredTx.length), sub: "POS + walk-ins", color: "text-emerald-400" },
-    { label: "Tips Collected", value: formatCurrency(money.tips), sub: "Bookings + POS", color: "text-foreground" },
+    { label: "Tips Collected", value: formatCurrency(money.totalTips), sub: "Includes owner tips", color: "text-foreground" },
     { label: "Tax Collected", value: formatCurrency(money.tax), sub: "GST/HST + PST to remit", color: "text-foreground" },
   ];
 
@@ -372,9 +301,9 @@ export default function AnalyticsPage() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground uppercase tracking-wide">Analytics</h1>
-          <p className="text-sm text-grey mt-0.5">Business performance overview</p>
+          <p className="text-sm text-grey mt-0.5">Business performance overview · Browser-local dates, current periods through today (weeks start Monday)</p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => {
+        <Button variant="outline" size="sm" disabled={!dataReady} onClick={() => {
           const rows = [
             ["Date", "Client", "Service", "Barber", "Status", "Amount"],
             ...filteredAppts.map(a => [
@@ -399,25 +328,26 @@ export default function AnalyticsPage() {
       <div className="flex flex-wrap gap-3">
         <div className="flex rounded-xl border border-border overflow-x-auto max-w-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {[["today","Today"],["week","This Week"],["month","This Month"],["year","This Year"],["last","Last Month"]].map(([v,l]) => (
-            <button key={v} onClick={() => setPeriod(v)}
+            <button key={v} aria-pressed={period === v} onClick={() => setPeriod(v)}
               className={cn("px-3 py-2 text-xs font-medium whitespace-nowrap shrink-0 transition-colors", period === v ? "bg-foreground text-background" : "text-grey hover:text-foreground bg-card-raised")}>
               {l}
             </button>
           ))}
         </div>
-        <select value={barberFilter} onChange={e => setBarberFilter(e.target.value)}
+        <select aria-label="Filter by barber" value={barberFilter} onChange={e => setBarberFilter(e.target.value)}
           className="rounded-xl border border-border bg-card-raised px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-black/20">
           <option value="all">Shop (all barbers)</option>
           {barbers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
         </select>
       </div>
 
+      {loadError && <Card><CardContent className="py-6"><p role="alert" className="text-sm text-grey">{loadError}</p><Button variant="outline" size="sm" className="mt-3" onClick={() => void loadData()}>Retry analytics</Button></CardContent></Card>}
       {/* KPI Cards */}
-      {loading ? (
+      {!dataReady && !loadError ? (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)}
         </div>
-      ) : (
+      ) : dataReady ? (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {kpis.map(k => (
             <Card key={k.label} className="py-4 px-5">
@@ -427,49 +357,52 @@ export default function AnalyticsPage() {
             </Card>
           ))}
         </div>
-      )}
+      ) : null}
 
       {/* Money waterfall — Gross → fees → tax → tips → barber → what the shop keeps.
           Uses the same numbers as the Dashboard/Payments (Collected = gross − fees). */}
-      {!loading && money.gross > 0 && (
+      {dataReady && money.gross > 0 && (
         <Card>
           <CardHeader><CardTitle>Where the money goes</CardTitle></CardHeader>
           <CardContent>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between"><span className="text-grey">Gross sales</span><span className="font-mono tabular-nums text-foreground">{formatCurrency(money.gross)}</span></div>
-              <div className="flex justify-between"><span className="text-grey">− Stripe fees</span><span className="font-mono tabular-nums text-foreground">−{formatCurrency(money.fees)}</span></div>
-              <div className="flex justify-between border-t border-dashed border-border pt-2"><span className="text-grey">Collected <span className="text-grey-muted">(hits your account)</span></span><span className="font-mono tabular-nums text-foreground">{formatCurrency(money.collected)}</span></div>
+              <div className="flex justify-between"><span className="text-grey">− Stripe fees</span><span className="font-mono tabular-nums text-foreground">{feesKnown ? `−${formatCurrency(money.fees)}` : "Unavailable"}</span></div>
+              <div className="flex justify-between border-t border-dashed border-border pt-2"><span className="text-grey">Collected <span className="text-grey-muted">(after Stripe fees)</span></span><span className="font-mono tabular-nums text-foreground">{feesKnown ? formatCurrency(money.collected) : "Unavailable"}</span></div>
               <div className="flex justify-between"><span className="text-grey">− Sales tax <span className="text-grey-muted">(owed to gov&apos;t)</span></span><span className="font-mono tabular-nums text-foreground">−{formatCurrency(money.tax)}</span></div>
-              <div className="flex justify-between"><span className="text-grey">− Tips <span className="text-grey-muted">(barber&apos;s)</span></span><span className="font-mono tabular-nums text-foreground">−{formatCurrency(money.tips)}</span></div>
+              <div className="flex justify-between"><span className="text-grey">− Staff tips <span className="text-grey-muted">(excludes owner tips)</span></span><span className="font-mono tabular-nums text-foreground">−{formatCurrency(money.tips)}</span></div>
               <div className="flex justify-between"><span className="text-grey">− Barber commission</span><span className="font-mono tabular-nums text-foreground">−{formatCurrency(money.commission)}</span></div>
-              <div className="flex justify-between border-t border-border pt-2"><span className="text-foreground font-semibold">Net revenue <span className="text-grey-muted font-normal">(you keep)</span></span><span className="font-mono tabular-nums font-bold text-emerald-400 text-base">{formatCurrency(money.netRevenue)}</span></div>
+              <div className="flex justify-between border-t border-border pt-2"><span className="text-foreground font-semibold">Net revenue <span className="text-grey-muted font-normal">(you keep)</span></span><span className="font-mono tabular-nums font-bold text-emerald-400 text-base">{feesKnown ? formatCurrency(money.netRevenue) : "Unavailable"}</span></div>
             </div>
+            {!feesKnown && <p role="status" className="text-xs text-grey mt-3">Stripe fee details are still missing for some payments. Fees and net totals will appear when available. <button className="underline" onClick={() => void loadData()}>Retry</button></p>}
             <p className="text-[11px] text-grey mt-3 leading-relaxed">
-              Gross sales is your revenue for taxes; the Stripe fee is a deductible expense. Tips &amp; commission are the barber&apos;s (see the barber breakdown for who got what) — for a one-chair shop that&apos;s still your money.
+              Gross sales includes sales tax and all collected tips. Staff tips and commission are deducted here; owner tips remain in net revenue.
             </p>
           </CardContent>
         </Card>
       )}
 
       {/* Revenue Over Time */}
-      {revenueByDay.length > 0 && (
+      {dataReady && (
         <Card>
-          <CardHeader><CardTitle>Revenue Over Time</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Gross Sales Over Time</CardTitle></CardHeader>
           <CardContent>
+            <p className="text-xs text-grey mb-3">{formatCurrency(money.gross)} CAD collected in this period, including tax and tips. Payment dates use your browser&apos;s local time; bookings without a payment timestamp use their creation time.</p>
             <ResponsiveContainer width="100%" height={220}>
-              <LineChart data={revenueByDay} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+              <LineChart accessibilityLayer data={revenueByDay} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                 <XAxis dataKey="label" tick={{ fill: "var(--grey)", fontSize: 11 }} tickLine={false} axisLine={false} />
                 <YAxis tick={{ fill: "var(--grey)", fontSize: 11 }} tickLine={false} axisLine={false} tickFormatter={v => `$${v}`} />
                 <Tooltip {...DARK_TOOLTIP} formatter={(v) => [`$${v}`, "Revenue"]} />
-                <Line type="monotone" dataKey="revenue" stroke="#4a86d8" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="revenue" stroke="#4a86d8" strokeWidth={2} dot={revenueByDay.length === 1} />
               </LineChart>
             </ResponsiveContainer>
+            <ChartDataTable caption="Gross sales by payment date in CAD" rows={revenueByDay.map(d => ({ label: d.date, value: d.revenue }))} />
           </CardContent>
         </Card>
       )}
 
-      {revenueByDay.length === 0 && !loading && (
+      {dataReady && money.gross === 0 && (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
             <div className="w-12 h-12 rounded-full bg-card-raised flex items-center justify-center mx-auto mb-3 text-grey"><BarChart3 size={22} /></div>
@@ -478,14 +411,14 @@ export default function AnalyticsPage() {
         </Card>
       )}
 
-      {(barberRevenue.length > 0 || serviceRevenue.length > 0) && (
+      {dataReady && (barberRevenue.length > 0 || serviceRevenue.length > 0 || totalAppts > 0 || money.gross > 0) && (
         <div className="grid md:grid-cols-2 gap-6">
           {barberRevenue.length > 0 && (
             <Card>
-              <CardHeader><CardTitle>Revenue by Barber</CardTitle></CardHeader>
+              <CardHeader><CardTitle>Collected Service Sales by Barber</CardTitle></CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={200}>
-                  <BarChart data={barberRevenue} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                  <BarChart accessibilityLayer data={barberRevenue} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                     <XAxis dataKey="name" tick={{ fill: "var(--grey)", fontSize: 12 }} tickLine={false} axisLine={false} />
                     <YAxis tick={{ fill: "var(--grey)", fontSize: 11 }} tickLine={false} axisLine={false} tickFormatter={v => `$${v}`} />
@@ -493,13 +426,14 @@ export default function AnalyticsPage() {
                     <Bar dataKey="revenue" fill="#4a86d8" radius={[6, 6, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
+                <ChartDataTable caption="Collected service sales by barber in CAD" rows={barberRevenue.map(b => ({ label: b.name, value: b.revenue }))} />
               </CardContent>
             </Card>
           )}
 
           {serviceRevenue.length > 0 && (
             <Card>
-              <CardHeader><CardTitle>Revenue by Service</CardTitle></CardHeader>
+              <CardHeader><CardTitle>Collected Sales by Service</CardTitle></CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={200}>
                   <PieChart>
@@ -511,6 +445,7 @@ export default function AnalyticsPage() {
                     <Tooltip {...DARK_TOOLTIP} formatter={(v) => [`$${v}`, "Revenue"]} />
                   </PieChart>
                 </ResponsiveContainer>
+                <ChartDataTable caption="Collected sales by service in CAD" rows={serviceRevenue.map(s => ({ label: s.name, value: s.value }))} />
               </CardContent>
             </Card>
           )}
@@ -542,12 +477,12 @@ export default function AnalyticsPage() {
             </Card>
           )}
 
-          {hourlyRevenue.length > 0 && (
+          {money.gross > 0 && (
             <Card>
-              <CardHeader><CardTitle>Busiest Hours</CardTitle></CardHeader>
-              <CardContent>
+              <CardHeader><CardTitle>Gross Sales by Payment Hour</CardTitle></CardHeader>
+              <CardContent><p className="text-xs text-grey mb-3">CAD collected across each hour in browser-local time; includes tax and tips.</p>
                 <ResponsiveContainer width="100%" height={180}>
-                  <BarChart data={hourlyRevenue} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                  <BarChart accessibilityLayer data={hourlyRevenue} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                     <XAxis dataKey="hour" tick={{ fill: "var(--grey)", fontSize: 11 }} tickLine={false} axisLine={false} />
                     <YAxis tick={{ fill: "var(--grey)", fontSize: 11 }} tickLine={false} axisLine={false} tickFormatter={v => `$${v}`} />
@@ -555,6 +490,7 @@ export default function AnalyticsPage() {
                     <Bar dataKey="revenue" fill="#94a3b8" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
+                <ChartDataTable caption="Gross sales by payment hour in CAD" rows={hourlyRevenue.map(h => ({ label: h.hour, value: h.revenue }))} />
               </CardContent>
             </Card>
           )}
@@ -562,7 +498,7 @@ export default function AnalyticsPage() {
       )}
 
       {/* Staff Performance Table */}
-      {barbers.length > 0 && (
+      {dataReady && barbers.length > 0 && (
         <Card>
           <CardHeader><CardTitle>Staff Performance</CardTitle></CardHeader>
           <CardContent>
@@ -570,7 +506,7 @@ export default function AnalyticsPage() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-border">
-                    {["Barber", "Appointments", "Completed", "No-Shows", "Revenue", "Avg Ticket", "Completion Rate"].map(h => (
+                    {["Barber", "Appointments", "Completed", "No-Shows", "Completed Service Value", "Avg Ticket", "Completion Rate"].map(h => (
                       <th key={h} className="text-left text-xs font-medium text-grey px-3 py-2">{h}</th>
                     ))}
                   </tr>

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { insertNotifications } from "@/lib/notify-server";
 import { prettyDate } from "@/lib/utils";
+import { validId } from "@/lib/schedule-access";
+import { sendAppEmail } from "@/lib/emailer";
 
 // Owner-side cancellation of an already-approved time-off. Same server-side
 // pattern as the approve/deny route: admin client + notification + email,
@@ -21,13 +23,16 @@ export async function POST(request: NextRequest) {
   const { data: { user }, error: authErr } = await supabaseAdmin.auth.getUser(token);
   if (authErr || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { request_id } = await request.json() as { request_id: string };
+  const body = await request.json().catch(() => null);
+  if (!validId(body?.request_id)) return NextResponse.json({ error: "Invalid request_id" }, { status: 400 });
+  const { request_id } = body;
 
-  const { data: req } = await supabaseAdmin
+  const { data: req, error: readError } = await supabaseAdmin
     .from("time_off_requests")
     .select("*, barbers(id, name, email, user_id), shops(id, name, owner_id, email)")
     .eq("id", request_id)
     .single();
+  if (readError) return NextResponse.json({ error: "Unable to load request" }, { status: 503 });
   if (!req) return NextResponse.json({ error: "Request not found" }, { status: 404 });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -43,7 +48,7 @@ export async function POST(request: NextRequest) {
     .from("time_off_requests")
     .delete()
     .eq("id", request_id);
-  if (delErr) return NextResponse.json({ error: delErr.message }, { status: 500 });
+  if (delErr) return NextResponse.json({ error: "Unable to cancel time off" }, { status: 500 });
 
   const dateRange = prettyDate(req.start_date) + (req.end_date !== req.start_date ? ` → ${prettyDate(req.end_date)}` : "");
   const timeRange = req.type === "blocked_hours" && req.start_time && req.end_time
@@ -62,13 +67,7 @@ export async function POST(request: NextRequest) {
 
   // Email the barber
   if (barber?.email) {
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://clipwise.ca";
-    await fetch(`${baseUrl}/api/send-email`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        type: "time_off_decision",
-        data: {
+    await sendAppEmail("time_off_decision", {
           barberEmail: barber.email,
           barberName: barber.name,
           shopName: shop.name,
@@ -77,8 +76,6 @@ export async function POST(request: NextRequest) {
           requestType: TYPE_LABELS[req.type],
           dateRange,
           timeRange,
-        },
-      }),
     }).catch(() => null);
   }
 

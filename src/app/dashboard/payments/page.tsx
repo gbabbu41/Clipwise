@@ -8,8 +8,10 @@ import { DashboardHeader } from "@/components/dashboard/page-header";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { supabase } from "@/lib/supabase";
 import { formatCurrency, cn, timeToMinutes, timeAgo } from "@/lib/utils";
-import { countablePosTxs, isNoShowTx, isPaid, lineNetFee } from "@/lib/revenue";
+import { countablePosTxs, isNoShowTx, isPaid, lineNetFee, transactionCollectedAmount } from "@/lib/revenue";
 import { computeBarberEarnings, barberRowCut } from "@/lib/barber-earnings";
+import { readAllRows } from "@/lib/read-all-rows";
+import { earningsBuckets } from "@/lib/earnings-chart";
 
 // ── Row shapes ────────────────────────────────────────────────────────────────
 interface ApptRow {
@@ -81,10 +83,8 @@ const fmtDate = (iso: string | null) => {
 // Mini CSS-bar sparkline for an earnings period card (green gradient bars,
 // tallest highlighted). Renders only when there's a real trend to show.
 function Spark({ data }: { data: { net: number }[] }) {
-  // Buckets are per active day. One or two active days would render as a single
-  // fat slab (or two lonely bars) that says nothing — so only draw the chart
-  // once there are at least 3 active days. Fewer than that → clean card, no graph.
-  const bars = data.slice(-14);
+  // Calendar buckets include zero days; show a trend after three earning periods.
+  const bars = data;
   const active = bars.filter(d => d.net > 0);
   if (active.length < 3) return null;
   const max = Math.max(...bars.map(d => d.net), 1);
@@ -92,7 +92,7 @@ function Spark({ data }: { data: { net: number }[] }) {
   bars.forEach((d, i) => { if (d.net > bars[peak].net) peak = i; });
   return (
     <div className="cwp-spark">
-      {bars.map((d, i) => <i key={i} className={i === peak ? "cwp-peak" : ""} style={{ height: `${Math.max(8, (d.net / max) * 100)}%` }} />)}
+      {bars.map((d, i) => <i key={i} className={i === peak ? "cwp-peak" : ""} style={{ height: `${(d.net / max) * 100}%`, minHeight: 0, minWidth: 0 }} />)}
     </div>
   );
 }
@@ -101,12 +101,14 @@ export default function PaymentsPage() {
   const { shop, accessToken, user } = useAuth();
   const { confirm } = useConfirm();
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [loadedShop, setLoadedShop] = useState<string | null>(null);
+  const loadSequence = useRef(0);
+  const stripeSequence = useRef(0);
   const [appts, setAppts] = useState<ApptRow[]>([]);
   const [txs, setTxs] = useState<TxRow[]>([]);
   const [stripeNet, setStripeNet] = useState<{ connected: boolean; byPi: Record<string, { gross: number; fee: number; net: number }>; available: number; pending: number; inTransit?: number; nextPayoutDate?: number | null; nextPayoutAmount?: number | null; lastPayout?: { amount: number; date: number } | null } | null>(null);
-  // Whether the live Stripe fee map has loaded. Until it does (or if it fails),
-  // netOf() falls back to gross → Net reads HIGH. Surface that instead of showing
-  // a confident, fee-free number as if it were final.
+  // Fee coverage is checked for each period and charge, even after Stripe loads.
   const [feesStatus, setFeesStatus] = useState<"loading" | "ready" | "error">("loading");
   const [netSlide, setNetSlide] = useState(0);
   const netRef = useRef<HTMLDivElement>(null);
@@ -173,66 +175,64 @@ export default function PaymentsPage() {
   const showToast = (msg: string, ok = true) => { setToast({ msg, ok }); setTimeout(() => setToast(null), 3500); };
 
   useEffect(() => {
-    if (!shop) return;
+    let cancelled = false;
+    setBarbers([]); setSelectedBarber("all");
+    if (!shop?.id) return;
     supabase.from("barbers").select("id, name, commission_percent, user_id, email").eq("shop_id", shop.id).eq("is_active", true).order("name")
-      .then(({ data }) => setBarbers((data ?? []) as { id: string; name: string; commission_percent?: number; user_id?: string | null; email?: string | null }[]));
+      .then(({ data, error }) => { if (!cancelled && !error) setBarbers((data ?? []) as { id: string; name: string; commission_percent?: number; user_id?: string | null; email?: string | null }[]); });
+    return () => { cancelled = true; };
   }, [shop]);
 
   // Live Stripe figures (payout balance, exact net/fees). Pulled separately so we
   // can re-sync it on its own cadence (Stripe state doesn't fire Supabase events).
   const syncStripe = useCallback(async () => {
-    if (!shop || !accessToken) return;
+    const sequence = ++stripeSequence.current;
+    if (!shop?.id || !accessToken) return;
     try {
-      // payments-summary is gated by authorizeShop (Bearer token). Without this
-      // header it 401s, stripeNet stays null, and net/fees/payout silently vanish
-      // (net falls back to gross, the Stripe-fee row never renders).
       const r = await fetch("/api/stripe/payments-summary", {
         method: "POST",
         headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
         body: JSON.stringify({ shop_id: shop.id }),
+        signal: AbortSignal.timeout(15000),
       });
       const d = r.ok ? await r.json() : null;
+      if (sequence !== stripeSequence.current) return;
       if (d && !d.error) { setStripeNet(d); setFeesStatus("ready"); }
-      // A shop with no Stripe connection has no fees to load — that's "ready", not
-      // an error (Net = gross is correct there). A real failure (or connected but
-      // errored) leaves fees unknown → flag it so Net isn't trusted as final.
       else if (d && d.connected === false) setFeesStatus("ready");
-      else setFeesStatus(prev => (prev === "ready" ? "ready" : "error"));
+      else setFeesStatus("error");
     } catch {
       // transient/offline — keep last known figures; only flag if we never loaded.
-      setFeesStatus(prev => (prev === "ready" ? "ready" : "error"));
+      if (sequence === stripeSequence.current) setFeesStatus("error");
     }
   }, [shop, accessToken]);
 
   const loadData = useCallback(async () => {
-    if (!shop) return;
+    const sequence = ++loadSequence.current;
+    if (!shop?.id || !accessToken) { setLoading(true); return; }
     setLoading(true);
-    // `client_email` is a newer transactions column — try it, but fall back to a
-    // select without it so a shop that hasn't run the migration yet still loads its
-    // transaction feed (the email row just doesn't show for POS until then).
+    setLoadError(false);
+    try {
     const TX_COLS = "id, client_name, service_name, amount, tip, tax, payment_method, type, barber_id, commission_amount, stripe_fee, created_at, stripe_session_id, appointment_id, payment_intent_id, refunded, source";
-    // Limit raised 2000 → 10000: at ~30 sales/day a 3-chair shop crossed 2000 in
-    // ~10 weeks, and (ordered desc) the OLDEST rows silently dropped, so "All time"
-    // under-reported. 10000 buys ~11 months; the real fix is windowing the query to
-    // the selected period + paginating (tracked, bigger change).
-    const ROW_CAP = 10000;
-    const fetchTx = async (): Promise<{ data: unknown[] | null }> => {
-      const run = (cols: string) => supabase.from("transactions").select(cols).eq("shop_id", shop.id).order("created_at", { ascending: false }).limit(ROW_CAP);
-      const withEmail = await run(`${TX_COLS}, client_email`);
-      return withEmail.error ? await run(TX_COLS) : withEmail;
-    };
-    const [{ data: a }, { data: t }] = await Promise.all([
-      supabase.from("appointments")
+    // Read every page before publishing totals.
+    const [a, t] = await Promise.all([
+      readAllRows((from, to) => supabase.from("appointments")
         .select("*, services(name), barbers(name)")
-        .eq("shop_id", shop.id).or("total_amount.gt.0,status.eq.completed").order("date", { ascending: false }).limit(ROW_CAP),
-      fetchTx(),
+        .eq("shop_id", shop.id).or("total_amount.gt.0,status.eq.completed").order("date", { ascending: false }).order("id").range(from, to)),
+      readAllRows((from, to) => supabase.from("transactions").select(`${TX_COLS}, client_email`).eq("shop_id", shop.id).order("created_at", { ascending: false }).order("id").range(from, to)),
     ]);
+    if (sequence !== loadSequence.current) return;
     setAppts((a ?? []) as unknown as ApptRow[]);
     setTxs((t ?? []) as unknown as TxRow[]);
-    setLoading(false);
+    setLoadedShop(shop.id);
     syncStripe();
-  }, [shop, syncStripe]);
-  useEffect(() => { loadData(); }, [loadData]);
+    } catch {
+      if (sequence === loadSequence.current) setLoadError(true);
+    } finally {
+      if (sequence === loadSequence.current) setLoading(false);
+    }
+  }, [shop, accessToken, syncStripe]);
+  useEffect(() => { loadData(); return () => { loadSequence.current++; }; }, [loadData]);
+  useEffect(() => { setStripeNet(null); setFeesStatus("loading"); setDetailItem(null); return () => { stripeSequence.current++; }; }, [shop?.id, accessToken]);
 
   // Keep the Stripe payout/balance figures live. A payout landing or the balance
   // moving never fires a Supabase change, so re-sync from Stripe when the tab
@@ -376,7 +376,7 @@ export default function PaymentsPage() {
       return {
         key: `t${t.id}`, name: t.client_name || "Walk-in",
         sub: noShow ? (t.service_name ?? "No-show fee") : `${t.service_name || "Sale"}${barberName ? ` · ${barberName}` : ""} · POS`,
-        amount: (t.amount ?? 0) + (t.tip ?? 0), tax: t.tax ?? 0,
+        amount: transactionCollectedAmount(t), tax: t.tax ?? 0,
         statusLabel: refunded ? "Refunded" : (noShow ? "No-show · Paid" : (t.payment_method === "cash" ? "Paid · Cash" : "Paid · Card")),
         tone: refunded ? "muted" : "good",
         settled: !refunded, tsIso: t.created_at,
@@ -446,6 +446,9 @@ export default function PaymentsPage() {
   const counted = (i: FeedItem) => Math.max(0, i.amount + (i.tipExtra ?? 0) - (i.giftApplied ?? 0) - balanceOf(i));
   const netOf = (i: FeedItem) => lineNetFee(i.pi, counted(i), stripeNet?.byPi).net;
   const feeOf = (i: FeedItem) => lineNetFee(i.pi, counted(i), stripeNet?.byPi).fee;
+  const feeKnown = (i: FeedItem) => i.earn || i.method === "cash" || counted(i) === 0 ||
+    (!!i.pi && !!stripeNet?.byPi?.[i.pi] && Number.isFinite(stripeNet.byPi[i.pi].fee) && Number.isFinite(stripeNet.byPi[i.pi].net));
+  const statementAmount = (i: FeedItem) => i.earn ? i.amount : feeKnown(i) ? netOf(i) : counted(i);
 
   // Barber name — used to scope the appointment-based bits still shown in barber
   // mode (the Outstanding / On-file tiles). The earnings cards + statement below
@@ -484,17 +487,7 @@ export default function PaymentsPage() {
   const earnScope = (from: number, to: number, monthly: boolean) => {
     const inWin = barberEarnTx.filter(t => t.ts >= from && t.ts <= to);
     const e = computeBarberEarnings(inWin, selPct, selIsOwner);
-    const m = new Map<string, { order: number; net: number }>();
-    inWin.forEach(t => {
-      const dt = new Date(t.ts);
-      const order = monthly ? dt.getFullYear() * 12 + dt.getMonth() : Math.floor(t.ts / 86400000);
-      const label = monthly
-        ? dt.toLocaleDateString("en-CA", { month: "short" })
-        : dt.toLocaleDateString("en-CA", { month: "short", day: "numeric" });
-      const cur = m.get(label) ?? { order, net: 0 };
-      cur.net += barberRowCut(t, selPct, selIsOwner); m.set(label, cur);
-    });
-    const data = Array.from(m, ([label, v]) => ({ label, net: v.net, order: v.order })).sort((a, b) => a.order - b.order);
+    const data = earningsBuckets(inWin, from, to, monthly, t => barberRowCut(t, selPct, selIsOwner)).map(d => ({ label: d.label, net: d.val }));
     return { take: e.youKeep, commission: e.commission, tips: e.tips, count: e.count, avg: e.avgTicket, data };
   };
   // Statement rows for barber mode — one per transaction, showing that barber's
@@ -518,9 +511,8 @@ export default function PaymentsPage() {
 
   const startOf = (kind: "today" | "week" | "biweekly" | "month") => {
     const d = new Date(); d.setHours(0, 0, 0, 0);
-    // Sunday-start week, to match the Dashboard/Analytics shared getDateRange
-    // (was Monday-start here, so "This Week" totals disagreed across screens).
-    if (kind === "week") d.setDate(d.getDate() - d.getDay());
+    // Monday-start reporting week, matching Dashboard, Analytics and barber pay.
+    if (kind === "week") d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
     else if (kind === "biweekly") d.setDate(d.getDate() - 13);   // trailing 14 days
     else if (kind === "month") d.setDate(1);
     return d.getTime();
@@ -529,10 +521,10 @@ export default function PaymentsPage() {
   const fmtDay = (ts: number) => new Date(ts).toLocaleDateString("en-CA", { month: "short", day: "numeric" });
   const rangeFor = (key: "week" | "month" | "all" | "biweekly" | "lastweek") => {
     const ws = startOf("week");
-    if (key === "week") return `${fmtDay(ws)} – ${fmtDay(ws + 6 * 86400000)}`;
+    if (key === "week") return `${fmtDay(ws)} – ${fmtDay(Date.now())}`;
     if (key === "biweekly") return `${fmtDay(startOf("biweekly"))} – ${fmtDay(Date.now())}`;
     if (key === "lastweek") return `${fmtDay(ws - 7 * 86400000)} – ${fmtDay(ws - 86400000)}`;
-    if (key === "month") { const d = new Date(); return `${fmtDay(startOf("month"))} – ${fmtDay(new Date(d.getFullYear(), d.getMonth() + 1, 0).getTime())}`; }
+    if (key === "month") return `${fmtDay(startOf("month"))} – ${fmtDay(Date.now())}`;
     return ""; // all time — no fixed range
   };
 
@@ -544,27 +536,16 @@ export default function PaymentsPage() {
     const within = (i: FeedItem) => i.ts >= from && i.ts <= to;
     const cardIn = cardSettled.filter(within);
     const cashIn = cashSettled.filter(within);
+    const feesKnown = cardIn.every(feeKnown);
     const net = cardIn.reduce((s, i) => s + netOf(i), 0);
     const cash = cashIn.reduce((s, i) => s + counted(i), 0);
     const gross = cardIn.reduce((s, i) => s + counted(i), 0);
     const fees = cardIn.reduce((s, i) => s + feeOf(i), 0);
     const tax = [...cardIn, ...cashIn].reduce((s, i) => s + (i.tax ?? 0), 0);
     const count = cardIn.length + cashIn.length;
-    const m = new Map<string, { order: number; net: number }>();
-    // Chart the NET COLLECTED per bucket — card net (after fees) + cash — so the
-    // sparkline matches the card's net headline. netOf() returns gross for cash
-    // (no fee), so cash-only periods still draw bars.
-    [...cardIn, ...cashIn].forEach(i => {
-      const dt = new Date(i.ts);
-      const order = monthly ? dt.getFullYear() * 12 + dt.getMonth() : Math.floor(i.ts / 86400000);
-      const label = monthly
-        ? dt.toLocaleDateString("en-CA", { month: "short" })
-        : dt.toLocaleDateString("en-CA", { month: "short", day: "numeric" });
-      const cur = m.get(label) ?? { order, net: 0 };
-      cur.net += netOf(i); m.set(label, cur);
-    });
-    const data = Array.from(m, ([label, v]) => ({ label, net: v.net, order: v.order })).sort((a, b) => a.order - b.order);
-    return { net, cash, gross, fees, tax, count, data, avg: count ? (gross + cash) / count : 0 };
+    // Chart complete net figures only. Cash-only periods need no Stripe fee data.
+    const data = earningsBuckets([...cardIn, ...cashIn].map(i => ({ ...i, created_at: new Date(i.ts).toISOString() })), from, to, monthly, netOf).map(d => ({ label: d.label, net: d.val }));
+    return { net, cash, gross, fees, feesKnown, tax, count, data: feesKnown ? data : [], avg: count ? (gross + cash) / count : 0 };
   };
   // The extra window picked from the dropdown (overrides the shown card). null = pure swipe.
   const nowTs = Date.now();
@@ -591,6 +572,7 @@ export default function PaymentsPage() {
   type PeriodCard = {
     mode: "shop" | "barber"; label: string; range: string;
     headline: number;        // the big number (collected, or take-home)
+    feesKnown: boolean; gross: number;
     commission: number; tips: number;        // barber-mode ledger
     fees: number; tax: number; cash: number; // shop-mode ledger
     count: number; avg: number; data: { label: string; net: number }[];
@@ -598,10 +580,10 @@ export default function PaymentsPage() {
   const mkCard = (from: number, to: number, monthly: boolean, label: string, range: string): PeriodCard => {
     if (barberMode) {
       const e = earnScope(from, to, monthly);
-      return { mode: "barber", label, range, headline: e.take, commission: e.commission, tips: e.tips, fees: 0, tax: 0, cash: 0, count: e.count, avg: e.avg, data: e.data };
+      return { mode: "barber", label, range, headline: e.take, feesKnown: true, gross: e.take, commission: e.commission, tips: e.tips, fees: 0, tax: 0, cash: 0, count: e.count, avg: e.avg, data: e.data };
     }
     const s = computeScope(from, to, monthly);
-    return { mode: "shop", label, range, headline: s.net + s.cash, commission: 0, tips: 0, fees: s.fees, tax: s.tax, cash: s.cash, count: s.count, avg: s.avg, data: s.data };
+    return { mode: "shop", label, range, headline: s.net + s.cash, feesKnown: s.feesKnown, gross: s.gross + s.cash, commission: 0, tips: 0, fees: s.fees, tax: s.tax, cash: s.cash, count: s.count, avg: s.avg, data: s.data };
   };
   const carouselWindows = [
     { label: "This week", range: rangeFor("week"), from: startOf("week"), to: nowTs, monthly: false },
@@ -734,6 +716,8 @@ export default function PaymentsPage() {
   if (shop && !planHasFeature(effectivePlan(shop.subscription_plan, shop.subscription_status), "payments")) {
     return <FeatureLock title="Payments" description="Online & card payment tracking is available on the Pro and Premium plans." />;
   }
+  if (loadError) return <div className="p-6" role="alert"><h1 className="text-xl font-semibold">Payments unavailable</h1><p className="text-grey mt-2">We couldn&apos;t load complete payment records. No totals are shown to avoid an inaccurate report.</p><button type="button" className="mt-4 rounded-lg border border-border px-4 py-2" onClick={() => void loadData()}>Retry</button></div>;
+  if (loading || !shop?.id || loadedShop !== shop.id) return <div className="p-6" role="status">Loading payments…</div>;
 
   // ── Earnings carousel = the period selector. The three presets + a Custom card
   // are the swipeable cards; each is built by mkCard (shop or barber mode). ────
@@ -779,8 +763,10 @@ export default function PaymentsPage() {
     stmtItems.forEach(i => { const k = dayStart(i.ts); const arr = m.get(k) ?? []; arr.push(i); m.set(k, arr); });
     return Array.from(m.keys()).sort((a, b) => b - a).map(k => {
       const items = m.get(k)!;
-      const total = items.filter(x => x.settled && !x.refunded).reduce((s, x) => s + (x.earn ? x.amount : netOf(x)), 0);
-      return { key: k, label: dayLabel(k), total, items };
+      const settled = items.filter(x => x.settled && !x.refunded);
+      const feesKnown = settled.every(feeKnown);
+      const total = settled.reduce((s, x) => s + (feesKnown ? statementAmount(x) : x.earn ? x.amount : counted(x)), 0);
+      return { key: k, label: dayLabel(k), total, items, feesKnown };
     });
   })();
 
@@ -796,10 +782,10 @@ export default function PaymentsPage() {
       </div>
     ) : (
       <div className="cwp-ledger">
-        <div className="cwp-lrow"><span className="cwp-lk">Gross taken in</span><span className="cwp-lv">{formatCurrency(p.headline + p.fees)}</span></div>
+        <div className="cwp-lrow"><span className="cwp-lk">Gross taken in</span><span className="cwp-lv">{formatCurrency(p.gross)}</span></div>
         {p.tax > 0 && <div className="cwp-lrow"><span className="cwp-lk">Sales tax</span><span className="cwp-lv">{formatCurrency(p.tax)}</span></div>}
-        {p.fees > 0 && <div className="cwp-lrow"><span className="cwp-lk">Stripe fees</span><span className="cwp-lv">−{formatCurrency(p.fees)}</span></div>}
-        <div className="cwp-lrow cwp-ltotal"><span className="cwp-lk">Collected</span><span className="cwp-lv">{formatCurrency(p.headline)}</span></div>
+        {(!p.feesKnown || p.fees > 0) && <div className="cwp-lrow"><span className="cwp-lk">Stripe fees</span><span className="cwp-lv">{p.feesKnown ? `−${formatCurrency(p.fees)}` : "Unavailable"}</span></div>}
+        <div className="cwp-lrow cwp-ltotal"><span className="cwp-lk">Net collected</span><span className="cwp-lv">{p.feesKnown ? formatCurrency(p.headline) : "Unavailable"}</span></div>
       </div>
     )
   );
@@ -858,7 +844,7 @@ export default function PaymentsPage() {
               {p.range && <span className="cwp-prange">{p.range}</span>}
             </div>
             <div className="cwp-caplbl">{cardCapLabel}</div>
-            <div className="cwp-amt">{formatCurrency(p.headline)}</div>
+            <div className="cwp-amt">{p.feesKnown ? formatCurrency(p.headline) : "Unavailable"}</div>
             <div className={cn("cwp-sub", p.count === 0 && "cwp-flat")}>
               {p.count > 0
                 ? <>{p.count} cut{p.count !== 1 ? "s" : ""} · {formatCurrency(p.avg)} avg{p.cash > 0 ? ` · incl. ${formatCurrency(p.cash)} cash` : ""}</>
@@ -876,7 +862,7 @@ export default function PaymentsPage() {
               <button className="cwp-editrange" onClick={() => setShowCustomModal(true)}>Edit ›</button>
             </div>
             <div className="cwp-caplbl">{cardCapLabel}</div>
-            <div className="cwp-amt">{formatCurrency(customCard.headline)}</div>
+            <div className="cwp-amt">{customCard.feesKnown ? formatCurrency(customCard.headline) : "Unavailable"}</div>
             <div className={cn("cwp-sub", customCard.count === 0 && "cwp-flat")}>
               {customCard.count > 0
                 ? <>{customLabel} · {customCard.count} cut{customCard.count !== 1 ? "s" : ""}{customCard.cash > 0 ? ` · incl. ${formatCurrency(customCard.cash)} cash` : ""}</>
@@ -921,13 +907,12 @@ export default function PaymentsPage() {
         </div>
       )}
 
-      {/* Until the live Stripe fee map loads, Net falls back to gross (reads HIGH).
-          Say so instead of showing a confident fee-free number as final. */}
-      {!barberMode && stripeNet?.connected !== false && feesStatus !== "ready" && (
+      {!barberMode && (feesStatus !== "ready" || periodCards.some(p => !p.feesKnown)) && (
         <div className={cn("cwp-feesnote", feesStatus === "error" && "cwp-feesnote--warn")}>
           {feesStatus === "loading"
-            ? "Calculating Stripe fees… Net updates in a moment."
-            : "Couldn't load Stripe fees just now — Net may read a little high until it refreshes."}
+            ? "Loading Stripe fees. Gross and cash totals remain available."
+            : "Some Stripe fees are unavailable. Affected net totals are hidden; gross and cash totals remain available."}
+          <button className="ml-2 underline" onClick={() => void syncStripe()}>Retry fees</button>
         </div>
       )}
 
@@ -1003,7 +988,7 @@ export default function PaymentsPage() {
             <div key={g.key} className="cwp-daygroup">
               <div className="cwp-day">
                 <span className="cwp-dlabel">{g.label}</span>
-                {g.total > 0 && <span className="cwp-dtot">+{formatCurrency(g.total)}</span>}
+                {g.total > 0 && <span className="cwp-dtot">+{formatCurrency(g.total)}{!g.feesKnown ? " gross" : ""}</span>}
               </div>
               {g.items.map(i => {
                 const refunded = i.refunded;
@@ -1023,7 +1008,7 @@ export default function PaymentsPage() {
                       )}
                     </div>
                     <div className="cwp-rright">
-                      <div className={cn("cwp-a", unpaid ? "cwp-adue" : "cwp-apos")}>{formatCurrency(i.earn ? i.amount : netOf(i))}</div>
+                      <div className={cn("cwp-a", unpaid ? "cwp-adue" : "cwp-apos")}>{formatCurrency(statementAmount(i))}{i.settled && !feeKnown(i) ? " gross" : ""}</div>
                       <div className="cwp-m">
                         {refunded ? <span className="cwp-tag cwp-tref">Refunded</span>
                           : unpaid ? <span className="cwp-tag cwp-tdue">Unpaid</span>
@@ -1077,7 +1062,8 @@ export default function PaymentsPage() {
                   )}
                   <div className="flex justify-between"><span className="text-grey">Method</span><span className="text-foreground">{i.method === "cash" ? "Cash" : "Card"}</span></div>
                   <div className="flex justify-between"><span className="text-grey">Status</span><span className="text-foreground">{i.statusLabel}</span></div>
-                  <div className="flex justify-between"><span className="text-grey">{i.earn ? "Earned" : "Amount"}</span><span className="text-foreground font-semibold">{formatCurrency(i.earn ? i.amount : netOf(i))}</span></div>
+                  <div className="flex justify-between"><span className="text-grey">{i.earn ? "Earned" : i.settled && !feeKnown(i) ? "Gross collected" : "Amount"}</span><span className="text-foreground font-semibold">{formatCurrency(statementAmount(i))}</span></div>
+                  {!i.earn && i.settled && !feeKnown(i) && <div className="flex justify-between"><span className="text-grey">Stripe fee / net collected</span><span>Unavailable</span></div>}
                   {!i.earn && i.settled && i.method !== "cash" && feeOf(i) > 0 && (
                     <div className="flex justify-between"><span className="text-grey">Stripe fee</span><span className="text-grey">{formatCurrency(feeOf(i))}</span></div>
                   )}

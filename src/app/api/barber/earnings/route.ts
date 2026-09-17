@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { computeBarberEarnings } from "@/lib/barber-earnings";
+import type { Transaction } from "@/lib/database.types";
+import { readAllRows } from "@/lib/read-all-rows";
 
 export async function GET(request: NextRequest) {
+ try {
   const token = request.headers.get("Authorization")?.replace("Bearer ", "");
   if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -13,21 +16,21 @@ export async function GET(request: NextRequest) {
   const shopId = searchParams.get("shop_id");
   let barberQuery = supabaseAdmin.from("barbers").select("id, shop_id, commission_percent, permissions, is_active").eq("user_id", user.id);
   if (shopId) barberQuery = barberQuery.eq("shop_id", shopId);
-  const { data: barberRows } = await barberQuery.order("created_at", { ascending: true }).limit(1);
+  const { data: barberRows, error: barberError } = await barberQuery.order("created_at", { ascending: true }).limit(1);
+  if (barberError) throw barberError;
   const barber = barberRows?.[0];
 
   if (!barber) return NextResponse.json({ error: "No barber record" }, { status: 404 });
   // Suspended barbers can't pull earnings via the API either (not just the UI).
   if (barber.is_active === false) return NextResponse.json({ error: "Account suspended" }, { status: 403 });
 
-  // Is this person the shop owner? Kept for LABELLING only now — an owner who
-  // cuts uses their own configured commission (default 100%, editable on the
-  // Staff page) so they can split personal barber wage vs business profit (e.g.
-  // for taxes). Whatever isn't the barber's cut stays in their business.
+  // The owner's stored zero commission is a shop accounting convention;
+  // their personal earnings view must still show 100% of their own services.
   const effShopId = shopId ?? barber.shop_id;
   let isOwner = false;
   if (effShopId) {
-    const { data: shopRow } = await supabaseAdmin.from("shops").select("owner_id").eq("id", effShopId).maybeSingle();
+    const { data: shopRow, error: shopError } = await supabaseAdmin.from("shops").select("owner_id").eq("id", effShopId).maybeSingle();
+    if (shopError || !shopRow) throw shopError ?? new Error("Shop unavailable");
     isOwner = shopRow?.owner_id === user.id;
   }
 
@@ -59,12 +62,14 @@ export async function GET(request: NextRequest) {
     from = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
   }
 
-  const { data: transactions } = await supabaseAdmin
+  const transactions = await readAllRows<Transaction>((first, last) => supabaseAdmin
     .from("transactions")
     .select("*")
     .eq("barber_id", barber.id)
+    .eq("shop_id", barber.shop_id)
     .gte("created_at", from)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false }).order("id", { ascending: false })
+    .range(first, last));
 
   // Earnings math lives in ONE place (src/lib/barber-earnings) so the owner's
   // Payments page — when filtered to this barber — shows the identical numbers.
@@ -101,4 +106,7 @@ export async function GET(request: NextRequest) {
       commissionPercent: isOwner ? 100 : commissionPercent,
     },
   });
+ } catch {
+   return NextResponse.json({ error: "Unable to load earnings. Please try again." }, { status: 500 });
+ }
 }

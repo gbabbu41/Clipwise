@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Package, Plus, AlertTriangle, TrendingDown, TrendingUp, Search, Pencil, Trash2, Check, X } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import type { InventoryItem } from "@/lib/database.types";
+import { inventoryInput, requireInventoryWrite } from "@/lib/inventory-input";
 
 const CATEGORIES = ["All", "Hair Care", "Beard Care", "Styling", "Skincare", "Tools", "Other"];
 
@@ -47,19 +48,31 @@ export default function InventoryPage() {
   const [editRow, setEditRow] = useState<EditRow | null>(null);
   const [toast, setToast] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [loadFailed, setLoadFailed] = useState(false);
+  const writeBusy = useRef(false);
+  const loadRequest = useRef(0);
+  const editQuantity = useRef(0);
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
   const load = useCallback(async () => {
+    const request = ++loadRequest.current;
     if (!shop) { setLoading(false); return; }
     setLoading(true);
-    const { data, error } = await supabase.from("inventory").select("*").eq("shop_id", shop.id).order("name");
-    if (error) showToast("Couldn't load inventory — please refresh.");
-    setItems((data ?? []) as InventoryItem[]);
-    setLoading(false);
+    try {
+      const { data, error } = await supabase.from("inventory").select("*").eq("shop_id", shop.id).order("name");
+      if (error) throw error;
+      if (request !== loadRequest.current) return;
+      setItems((data ?? []) as InventoryItem[]);
+      setLoadFailed(false);
+      setErrorMessage("");
+    } catch {
+      if (request === loadRequest.current) { setErrorMessage("Couldn't load inventory. Please retry."); setLoadFailed(true); }
+    } finally { if (request === loadRequest.current) setLoading(false); }
   }, [shop]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { setItems([]); load(); return () => { loadRequest.current++; }; }, [load]);
 
   const filtered = items.filter(item => {
     const matchesCat = catFilter === "All" || item.category === catFilter;
@@ -72,58 +85,56 @@ export default function InventoryPage() {
   const totalCost = items.reduce((s, i) => s + (i.cost_price ?? 0) * i.quantity, 0);
 
   const addItem = async () => {
-    if (!shop || !form.name.trim()) return;
+    if (!shop || writeBusy.current) return;
+    writeBusy.current = true;
     setSaving(true);
-    const { error } = await supabase.from("inventory").insert({
-      shop_id: shop.id,
-      name: form.name.trim(),
-      category: form.category,
-      price: parseFloat(form.price) || 0,
-      cost_price: parseFloat(form.cost_price) || null,
-      quantity: parseInt(form.quantity) || 0,
-      low_stock_threshold: parseInt(form.low_stock_threshold) || 5,
-    });
-    setSaving(false);
-    if (error) { showToast("Error adding item"); return; }
-    setShowAdd(false);
-    setForm(BLANK);
-    showToast("Product added!");
-    load();
+    try {
+      const values = inventoryInput(form);
+      requireInventoryWrite(await supabase.from("inventory").insert({ shop_id: shop.id, ...values }).select("id"));
+      setShowAdd(false); setForm(BLANK); showToast("Product added!"); await load();
+    } catch (error) { setErrorMessage(error instanceof Error ? error.message : "Unable to add product. Please retry."); }
+    finally { writeBusy.current = false; setSaving(false); }
   };
 
   const saveEdit = async () => {
-    if (!editRow) return;
+    if (!editRow || !shop || writeBusy.current) return;
+    writeBusy.current = true;
     setSaving(true);
-    await supabase.from("inventory").update({
-      name: editRow.name,
-      price: parseFloat(editRow.price) || 0,
-      cost_price: parseFloat(editRow.cost_price) || null,
-      quantity: parseInt(editRow.quantity) || 0,
-      low_stock_threshold: parseInt(editRow.low_stock_threshold) || 5,
-      category: editRow.category,
-    }).eq("id", editRow.id);
-    setSaving(false);
-    setEditRow(null);
-    showToast("Product updated!");
-    load();
+    try {
+      const values = inventoryInput(editRow);
+      requireInventoryWrite(await supabase.from("inventory").update(values).eq("id", editRow.id).eq("shop_id", shop.id).eq("quantity", editQuantity.current).select("id"));
+      setEditRow(null); showToast("Product updated!"); await load();
+    } catch (error) { setErrorMessage(error instanceof Error ? error.message : "Unable to update product. Please retry."); }
+    finally { writeBusy.current = false; setSaving(false); }
   };
 
   const adjustQty = async (id: string, delta: number) => {
     const item = items.find(i => i.id === id);
-    if (!item) return;
+    if (!item || !shop || writeBusy.current) return;
     const newQty = Math.max(0, item.quantity + delta);
-    setItems(prev => prev.map(i => i.id === id ? { ...i, quantity: newQty } : i));
-    await supabase.from("inventory").update({ quantity: newQty }).eq("id", id);
+    if (newQty === item.quantity) return;
+    writeBusy.current = true; setSaving(true);
+    try {
+      requireInventoryWrite(await supabase.from("inventory").update({ quantity: newQty }).eq("id", id).eq("shop_id", shop.id).eq("quantity", item.quantity).select("id"));
+      loadRequest.current++; setLoading(false);
+      setItems(prev => prev.map(i => i.id === id ? { ...i, quantity: newQty } : i)); setErrorMessage("");
+    } catch { setErrorMessage("Stock could not be updated. It may have changed elsewhere. Refresh and try again."); }
+    finally { writeBusy.current = false; setSaving(false); }
   };
 
   const deleteItem = async (id: string) => {
-    await supabase.from("inventory").delete().eq("id", id);
-    setDeleteId(null);
-    setItems(prev => prev.filter(i => i.id !== id));
-    showToast("Product deleted");
+    if (!shop || writeBusy.current) return;
+    writeBusy.current = true; setSaving(true);
+    try {
+      requireInventoryWrite(await supabase.from("inventory").delete().eq("id", id).eq("shop_id", shop.id).select("id"));
+      loadRequest.current++; setLoading(false);
+      setDeleteId(null); setItems(prev => prev.filter(i => i.id !== id)); setErrorMessage(""); showToast("Product deleted");
+    } catch { setErrorMessage("Unable to delete product. Refresh and try again."); }
+    finally { writeBusy.current = false; setSaving(false); }
   };
 
   const startEdit = (item: InventoryItem) => {
+    editQuantity.current = item.quantity;
     setEditRow({
       id: item.id,
       name: item.name,
@@ -141,9 +152,12 @@ export default function InventoryPage() {
     return <FeatureLock title="Inventory" description="Inventory management is available on the Premium plan." />;
   }
 
+  if (loadFailed) return <div className="p-6" role="alert"><p>Inventory could not be loaded.</p><button className="mt-3 underline" onClick={() => load()}>Retry</button></div>;
+
   return (
     <div className="p-6 space-y-6">
       {toast && <Toast message={toast} onClose={() => setToast("")} />}
+      {errorMessage && <div role="alert" className="relative z-[60] rounded-xl border border-red-500/40 bg-card p-4 text-sm"><p>{errorMessage}</p><button className="mt-2 underline" onClick={() => load()}>Refresh inventory</button></div>}
 
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">

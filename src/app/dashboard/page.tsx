@@ -13,6 +13,8 @@ import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import { ApptDetail, Portal, makeApptActions } from "@/components/calendar-view";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { StatsCarousel } from "@/components/dashboard/stats-carousel";
+import { readAllRows } from "@/lib/read-all-rows";
+import { hasMissingCardFees } from "@/lib/analytics-period";
 import { useSheetDrag } from "@/hooks/use-sheet-drag";
 import { cn, formatCurrency, getDateRange, DATE_FILTER_LABELS, formatDateForDb, DateFilterKey, friendlyDate, timeToMinutes, timeAgo } from "@/lib/utils";
 import { PaymentTag } from "@/components/payment-tag";
@@ -164,11 +166,14 @@ export default function DashboardPage() {
 
   // ── Data state ──────────────────────────────────────────────────────────────
   const [loadingAppts, setLoadingAppts] = useState(true);
-  // True once the first load has finished. After that, a filter-change refetch keeps
-  // the hero/carousel MOUNTED (only the first load shows the skeleton) — otherwise
-  // the carousel remounts and snaps back to slide 1 every time the filter changes.
-  const [everLoaded, setEverLoaded] = useState(false);
   const [loadError, setLoadError] = useState(false);
+  const loadSequence = useRef(0);
+  const sideSequence = useRef(0);
+  const [loadedReportKey, setLoadedReportKey] = useState("");
+  const reportKey = `${shop?.id ?? ""}:${dateFilter}:${customStart}:${customEnd}`;
+  const [financialBarbers, setFinancialBarbers] = useState<Barber[]>([]);
+  const [feesError, setFeesError] = useState(false);
+  const [feeRetry, setFeeRetry] = useState(0);
   const [appointments, setAppointments] = useState<AppointmentWithDetails[]>([]);
   // Transactions (POS / gift-card / walk-in sales) for the active range — so the
   // revenue headline includes non-appointment income and matches Payments.
@@ -295,8 +300,11 @@ export default function DashboardPage() {
 
   // ── Load appointments ───────────────────────────────────────────────────────
   const loadAppointments = useCallback(async () => {
+    const sequence = ++loadSequence.current;
     if (!shop) { setLoadingAppts(false); return; }
     setLoadingAppts(true);
+    setLoadError(false);
+    try {
     const [start, end] = getDateRange(dateFilter, customStart, customEnd);
     let q = supabase
       .from("appointments")
@@ -313,37 +321,45 @@ export default function DashboardPage() {
     // POS / gift-card / walk-in transactions in the same window. Owner-only:
     // these sales aren't barber-attributed, so a barber's revenue view stays
     // appointment-scoped (mirrors the Payments page's per-barber behaviour).
-    // Recent transactions (matches the Payments page's 250-row cap). We filter
-    // to the active window by LOCAL date at compute time — same as Payments — so
-    // late-evening sales land on the right day regardless of the server's UTC.
+    // Window timestamps using local midnight and load every page, so quiet and
+    // high-volume shops use the same complete calendar-period accounting.
     const txReq = (profile?.role === "barber")
-      ? Promise.resolve({ data: [] as RevTx[] })
-      : supabase
+      ? Promise.resolve([] as RevTx[])
+      : readAllRows((from, to) => supabase
           .from("transactions")
           .select("client_name, service_name, amount, tip, tax, payment_method, payment_intent_id, created_at, stripe_session_id, source, refunded, barber_id, commission_amount")
           .eq("shop_id", shop.id)
-          .order("created_at", { ascending: false })
-          // Fetch newest-then-filter; 250 truncated a busy shop's window. 2000
-          // covers well past current volume (proper fix = window in SQL + paginate).
-          .limit(2000);
+          .gte("created_at", new Date(`${start}T00:00:00`).toISOString())
+          .lte("created_at", new Date(`${end}T23:59:59.999`).toISOString())
+          .order("created_at", { ascending: false }).order("id")
+          .range(from, to));
     // Revenue appointments — paid/captured, fetched broad (NOT booked-date-
     // windowed) so a booking paid today for a future day is available; we window
     // it to the period by paid_at at compute time. Barber sees only their own.
     let revQ = supabase
       .from("appointments")
-      .select("client_name, total_amount, tax_amount, tip_amount, balance_due, payment_status, payment_method, payment_intent_id, status, barber_id, paid_at, created_at")
+      .select("client_name, total_amount, tax_amount, tip_amount, gift_applied, balance_due, payment_status, payment_method, payment_intent_id, status, barber_id, paid_at, created_at")
       .eq("shop_id", shop.id)
       .in("payment_status", ["paid", "captured"])
-      .order("created_at", { ascending: false })
-      .limit(2000);
+      .order("created_at", { ascending: false }).order("id");
     if (profile?.role === "barber" && myBarberId) revQ = revQ.eq("barber_id", myBarberId);
-    const [{ data, error }, { data: txData }, { data: revData }] = await Promise.all([q, txReq, revQ]);
-    setAppointments((data ?? []) as AppointmentWithDetails[]);
-    setTxns((txData ?? []) as RevTx[]);
-    setRevenueAppts((revData ?? []) as RevApptRow[]);
-    setLoadError(!!error); // surface a failed load instead of showing a false "empty shop"
-    setLoadingAppts(false);
-    setEverLoaded(true);
+    const [data, txData, revData, staffData] = await Promise.all([
+      readAllRows((from, to) => q.order("id").range(from, to)), txReq,
+      readAllRows((from, to) => revQ.range(from, to)),
+      readAllRows((from, to) => supabase.from("barbers").select("*").eq("shop_id", shop.id).order("id").range(from, to)),
+    ]);
+    if (sequence !== loadSequence.current) return;
+    setAppointments(data as AppointmentWithDetails[]);
+    setTxns(txData as RevTx[]);
+    setRevenueAppts(revData as RevApptRow[]);
+    setFinancialBarbers(staffData as Barber[]);
+    setBarbers((staffData as Barber[]).filter(b => b.is_active));
+    setLoadedReportKey(`${shop.id}:${dateFilter}:${customStart}:${customEnd}`);
+    } catch {
+      if (sequence === loadSequence.current) setLoadError(true);
+    } finally {
+      if (sequence === loadSequence.current) setLoadingAppts(false);
+    }
   }, [shop, dateFilter, customStart, customEnd, profile, myBarberId]);
 
   // Live Stripe net/fees (same endpoint the Payments page uses — the money source
@@ -353,17 +369,20 @@ export default function DashboardPage() {
     if (!shop || !accessToken) { setFeesLoading(false); return; }
     let active = true;
     setFeesLoading(true);
+    setFeesError(false);
+    setStripeByPi({});
     fetch("/api/stripe/payments-summary", {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
       body: JSON.stringify({ shop_id: shop.id }),
+      signal: AbortSignal.timeout(15000),
     })
       .then(r => (r.ok ? r.json() : null))
-      .then(d => { if (active && d && !d.error) setStripeByPi(d.byPi ?? {}); })
-      .catch(() => { /* transient — keep gross fallback */ })
+      .then(d => { if (!d || d.error) throw new Error("Fees unavailable"); if (active) setStripeByPi(d.byPi ?? {}); })
+      .catch(() => { if (active) setFeesError(true); })
       .finally(() => { if (active) setFeesLoading(false); });
     return () => { active = false; };
-  }, [shop, accessToken]);
+  }, [shop, accessToken, feeRetry]);
 
   // ── Load the current week's appointments (for the compact calendar) ─────────
   const loadWeekAppts = useCallback(async () => {
@@ -383,15 +402,15 @@ export default function DashboardPage() {
 
   // ── Load barbers & notifications ────────────────────────────────────────────
   const loadSideData = useCallback(async () => {
+    const sequence = ++sideSequence.current;
     if (!shop || !profile) return;
-    const [{ data: b }, notifRes, { data: rev }, { data: cli }] = await Promise.all([
-      supabase.from("barbers").select("*").eq("shop_id", shop.id).eq("is_active", true),
+    const [notifRes, { data: rev }, { data: cli }] = await Promise.all([
       // Scoped to the active shop so a multi-shop owner's alerts don't bleed in.
       fetchShopNotifications(supabase, { userId: profile.id, shopId: shop.id, limit: 5 }),
       supabase.from("reviews").select("rating").eq("shop_id", shop.id),
       supabase.from("clients").select("id, created_at").eq("shop_id", shop.id),
     ]);
-    setBarbers((b ?? []) as Barber[]);
+    if (sequence !== sideSequence.current) return;
     setClients((cli ?? []) as { id: string; created_at: string }[]);
     setNotifications((notifRes.data ?? []) as unknown as Notification[]);
     if (rev && rev.length > 0) {
@@ -421,8 +440,8 @@ export default function DashboardPage() {
     setApptCounts(counts);
   }, [shop, calYear, calMonth, profile, myBarberId]);
 
-  useEffect(() => { loadAppointments(); }, [loadAppointments]);
-  useEffect(() => { loadSideData(); }, [loadSideData]);
+  useEffect(() => { loadAppointments(); return () => { loadSequence.current++; }; }, [loadAppointments]);
+  useEffect(() => { loadSideData(); return () => { sideSequence.current++; }; }, [loadSideData]);
   useEffect(() => { loadCalendarCounts(); }, [loadCalendarCounts]);
   useEffect(() => { loadWeekAppts(); }, [loadWeekAppts]);
 
@@ -498,8 +517,9 @@ export default function DashboardPage() {
   // The owner-barber's own chair: their tips are the owner's money (like their
   // 0-commission service), so collectedTotals splits them out and they're NOT
   // subtracted from net revenue. Identified by user_id === the shop owner.
-  const ownerBarberId = (barbers.find((b) => (b as { user_id?: string | null }).user_id === shop?.owner_id)?.id) ?? null;
+  const ownerBarberId = (financialBarbers.find((b) => (b as { user_id?: string | null }).user_id === shop?.owner_id)?.id) ?? null;
   const collected = collectedTotals(revenueApptsInRange, txnsInRange, stripeByPi, ownerBarberId);
+  const feesUnavailable = feesLoading || feesError || hasMissingCardFees(revenueApptsInRange, txnsInRange, stripeByPi);
   // Count on the SAME money-moved basis as Collected (paid appts, dated by paid_at,
   // no-show fees excluded) so the sub-line under Collected reconciles with the
   // dollar figure instead of mixing a paid-date total with an appointment-date count.
@@ -511,7 +531,7 @@ export default function DashboardPage() {
   // it falls back to the barber's rate × the service (net of tax). Gift/product/
   // no-barber sales carry no barber_id → shop revenue, no commission. Commission
   // is a reporting tally, not a payout.
-  const commissionPct: Record<string, number> = Object.fromEntries(barbers.map((b) => [b.id, b.commission_percent ?? 0]));
+  const commissionPct: Record<string, number> = Object.fromEntries(financialBarbers.map((b) => [b.id, b.commission_percent ?? 0]));
   // Barber commission MUST be tallied over the SAME sales `collected` counts, or
   // Net revenue is apples-vs-oranges (the old code summed the raw transactions
   // ledger on a different date basis — completion rows dated apart from their
@@ -559,7 +579,7 @@ export default function DashboardPage() {
     barberRevMap[t.barber_id] = (barberRevMap[t.barber_id] ?? 0) + (t.amount ?? 0);
   });
   const topBarbers = Object.entries(barberRevMap)
-    .map(([id, rev]) => ({ name: barbers.find((b) => b.id === id)?.name ?? "—", revenue: rev }))
+    .map(([id, rev]) => ({ name: financialBarbers.find((b) => b.id === id)?.name ?? "—", revenue: rev }))
     .sort((a, b) => b.revenue - a.revenue)
     .slice(0, 5);
   // Net revenue = what the shop KEEPS: Collected (after Stripe fees) − sales tax
@@ -724,10 +744,8 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Hero + KPIs + Quick actions. Skeleton only on the FIRST load — after that a
-          filter change refetches without unmounting the carousel, so it keeps the
-          slide you're on (and its scroll position) instead of snapping to slide 1. */}
-      {loadingAppts && !everLoaded ? (
+      {/* Never label previous-period figures with the newly selected range. */}
+      {loadError ? null : loadingAppts || loadedReportKey !== reportKey ? (
         <div className="mb-3"><Skeleton className="h-44 rounded-2xl" /></div>
       ) : (() => {
         // New Clients = distinct client RECORDS first created in the window (each
@@ -811,7 +829,8 @@ export default function DashboardPage() {
             })()}
 
             {/* Revenue hero (swipeable — revenue, bookings, top barbers, status) */}
-            <StatsCarousel revenue={collected.net} taxCollected={collected.tax} cashIncluded={collected.cash} feesPaid={collected.fees} tips={paidOutTips} commission={commission} netRevenue={netRevenue} feesLoading={feesLoading} paidVisits={paidVisits} appointments={appointments} completed={completed} topBarbers={topBarbers} periodLabel={DATE_FILTER_LABELS[dateFilter]} />
+            <StatsCarousel revenue={feesUnavailable ? collected.gross : collected.net} taxCollected={collected.tax} cashIncluded={collected.cash} feesPaid={collected.fees} tips={paidOutTips} commission={commission} netRevenue={netRevenue} feesLoading={feesLoading} feesUnavailable={feesUnavailable} paidVisits={paidVisits} appointments={appointments} completed={completed} topBarbers={topBarbers} periodLabel={DATE_FILTER_LABELS[dateFilter]} rangeStart={rangeStart} rangeEnd={rangeEnd} />
+            {feesUnavailable && !feesLoading && <button type="button" className="mb-3 border border-border rounded-lg px-4 py-2 text-sm" onClick={() => setFeeRetry(v => v + 1)}>Retry processing fees</button>}
 
             {/* Minimal stat tiles — label + number only (helper sub-text removed),
                 borderless tiles on the canvas (dividers removed via globals). */}
@@ -864,8 +883,8 @@ export default function DashboardPage() {
             // phone/tablet/iPad — instead of a fixed 620px grid that overflowed
             // and clipped Thu–Sat on a phone.
             const cols = { gridTemplateColumns: "40px repeat(7, minmax(0, 1fr))" };
-            return (
-              <div
+  return (
+    <div
                 className="cwd-cal"
                 data-no-swipe
                 style={{ cursor: "pointer" }}

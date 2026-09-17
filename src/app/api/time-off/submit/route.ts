@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { insertNotifications } from "@/lib/notify-server";
 import { prettyDate } from "@/lib/utils";
+import { authorizeSchedule, validId, validTimeOff } from "@/lib/schedule-access";
+import { sendAppEmail } from "@/lib/emailer";
 
 // Barber-side time-off submission. The barber's own auth context cannot
 // insert into notifications.user_id = <owner> (RLS allows only own rows),
@@ -25,7 +27,7 @@ export async function POST(request: NextRequest) {
   const { data: { user }, error: authErr } = await supabaseAdmin.auth.getUser(token);
   if (authErr || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const body = await request.json() as {
+  const body = await request.json().catch(() => null) as {
     barber_id: string;
     shop_id: string;
     type: "day_off" | "vacation" | "blocked_hours" | "sick";
@@ -36,24 +38,22 @@ export async function POST(request: NextRequest) {
     reason?: string | null;
   };
 
+  if (!body || !validId(body.barber_id) || !validId(body.shop_id) || !validTimeOff(body)) return NextResponse.json({ error: "Invalid time-off request" }, { status: 400 });
   // Verify the caller actually IS this barber (so a malicious barber can't
   // submit time-off as someone else).
-  const { data: barber } = await supabaseAdmin
-    .from("barbers")
-    .select("id, name, shop_id, permissions")
-    .eq("id", body.barber_id)
-    .eq("user_id", user.id)
-    .eq("is_active", true)
-    .single();
+  const access = await authorizeSchedule(token, body.barber_id, "request_time_off");
+  if ("error" in access) return NextResponse.json({ error: access.error }, { status: access.status });
+  const { barber, isOwner } = access;
   if (!barber || barber.shop_id !== body.shop_id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   // Enforce the owner's "request time off" permission server-side — the nav only
   // hides the page, so without this a barber whose toggle is off could still POST.
   // Undefined = allowed (matches the nav default).
-  if ((barber.permissions as { request_time_off?: boolean } | null)?.request_time_off === false) {
+  if (!isOwner && (barber.permissions as { request_time_off?: boolean } | null)?.request_time_off === false) {
     return NextResponse.json({ error: "Time-off requests are turned off for your account." }, { status: 403 });
   }
+  if (!isOwner && body.type === "blocked_hours" && barber.permissions?.block_hours === false) return NextResponse.json({ error: "No permission to block hours" }, { status: 403 });
 
   // 1) Insert the request
   const { data: inserted, error: insertErr } = await supabaseAdmin
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
     })
     .select()
     .single();
-  if (insertErr) return NextResponse.json({ error: insertErr.message }, { status: 500 });
+  if (insertErr) return NextResponse.json({ error: "Unable to submit time off" }, { status: 500 });
 
   // 2) Owner's in-app notification + 3) email — both need the shop + owner
   const { data: shop } = await supabaseAdmin
@@ -99,13 +99,7 @@ export async function POST(request: NextRequest) {
     const ownerEmail = ownerUser?.user?.email ?? shop.email ?? "";
 
     if (ownerEmail) {
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://clipwise.ca";
-      await fetch(`${baseUrl}/api/send-email`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "time_off_request",
-          data: {
+      await sendAppEmail("time_off_request", {
             shopName: shop.name,
             shopEmail: shop.email ?? "",
             ownerEmail,
@@ -115,8 +109,6 @@ export async function POST(request: NextRequest) {
             timeRange: body.type === "blocked_hours" && body.start_time && body.end_time
               ? `${body.start_time}–${body.end_time}` : "",
             reason: body.reason ?? "",
-          },
-        }),
       }).catch(() => null);
     }
   }

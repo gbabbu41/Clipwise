@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { insertNotifications } from "@/lib/notify-server";
 import { prettyDate } from "@/lib/utils";
+import { authorizeSchedule, validId, validTimeOff } from "@/lib/schedule-access";
+import { sendAppEmail } from "@/lib/emailer";
 
 // Calendar "block hours" — a thin wrapper over the time_off_requests engine
 // (type "blocked_hours"). Two flows:
@@ -19,7 +21,7 @@ export async function POST(request: NextRequest) {
   const { data: { user }, error: authErr } = await supabaseAdmin.auth.getUser(token);
   if (authErr || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const body = await request.json() as {
+  const body = await request.json().catch(() => null) as {
     action?: "create" | "remove";
     request_id?: string;
     barber_id?: string;
@@ -31,33 +33,38 @@ export async function POST(request: NextRequest) {
   };
 
   // ── Resolve the shop + whether the caller owns it ─────────────────────────
-  const shopId = body.shop_id;
-  if (!shopId) return NextResponse.json({ error: "Missing shop_id" }, { status: 400 });
-  const { data: shop } = await supabaseAdmin
+  const shopId = body?.shop_id;
+  if (!body || !validId(shopId) || (body.action !== undefined && body.action !== "create" && body.action !== "remove")) return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+  const { data: shop, error: shopError } = await supabaseAdmin
     .from("shops").select("id, name, owner_id, email").eq("id", shopId).single();
+  if (shopError) return NextResponse.json({ error: "Unable to load shop" }, { status: 503 });
   if (!shop) return NextResponse.json({ error: "Shop not found" }, { status: 404 });
   const isOwner = shop.owner_id === user.id;
 
   // ── Remove an existing block ──────────────────────────────────────────────
   if (body.action === "remove") {
-    if (!body.request_id) return NextResponse.json({ error: "Missing request_id" }, { status: 400 });
-    const { data: blk } = await supabaseAdmin
-      .from("time_off_requests").select("id, barber_id, shop_id, barbers(user_id)").eq("id", body.request_id).single();
+    if (!validId(body.request_id)) return NextResponse.json({ error: "Invalid request_id" }, { status: 400 });
+    const { data: blk, error: blockError } = await supabaseAdmin
+      .from("time_off_requests").select("id, barber_id, shop_id, type").eq("id", body.request_id).maybeSingle();
+    if (blockError) return NextResponse.json({ error: "Unable to load block" }, { status: 503 });
     if (!blk || blk.shop_id !== shopId) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    const ownsIt = isOwner || (blk as { barbers?: { user_id?: string } | null }).barbers?.user_id === user.id;
-    if (!ownsIt) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    await supabaseAdmin.from("time_off_requests").delete().eq("id", body.request_id);
+    if (blk.type !== "blocked_hours") return NextResponse.json({ error: "Not a blocked-hours request" }, { status: 400 });
+    const access = await authorizeSchedule(token, blk.barber_id, "block_hours");
+    if ("error" in access) return NextResponse.json({ error: access.error }, { status: access.status });
+    const { error: deleteError } = await supabaseAdmin.from("time_off_requests").delete().eq("id", body.request_id).eq("shop_id", shopId);
+    if (deleteError) return NextResponse.json({ error: "Unable to remove block" }, { status: 500 });
     return NextResponse.json({ ok: true, removed: true });
   }
 
   // ── Create a block ────────────────────────────────────────────────────────
-  if (!body.barber_id || !body.date || !body.start_time || !body.end_time) {
+  if (!validId(body.barber_id) || !validTimeOff({ ...body, type: "blocked_hours", start_date: body.date, end_date: body.date })) {
     return NextResponse.json({ error: "Missing fields" }, { status: 400 });
   }
 
   // The barber being blocked (and the caller's relationship to them).
-  const { data: barber } = await supabaseAdmin
-    .from("barbers").select("id, name, user_id, shop_id, permissions").eq("id", body.barber_id).single();
+  const access = await authorizeSchedule(token, body.barber_id, "block_hours");
+  if ("error" in access) return NextResponse.json({ error: access.error }, { status: access.status });
+  const { barber } = access;
   if (!barber || barber.shop_id !== shopId) return NextResponse.json({ error: "Barber not found" }, { status: 404 });
 
   if (!isOwner) {
@@ -84,9 +91,9 @@ export async function POST(request: NextRequest) {
     })
     .select()
     .single();
-  if (insErr) return NextResponse.json({ error: insErr.message }, { status: 500 });
+  if (insErr) return NextResponse.json({ error: "Unable to save block" }, { status: 500 });
 
-  const niceDate = prettyDate(body.date);
+  const niceDate = prettyDate(body.date!);
   const timeRange = `${body.start_time}–${body.end_time}`;
 
   if (isOwner) {
@@ -117,13 +124,7 @@ export async function POST(request: NextRequest) {
     const { data: ownerUser } = await supabaseAdmin.auth.admin.getUserById(shop.owner_id);
     const ownerEmail = ownerUser?.user?.email ?? shop.email ?? "";
     if (ownerEmail) {
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://clipwise.ca";
-      await fetch(`${baseUrl}/api/send-email`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "time_off_request",
-          data: {
+      await sendAppEmail("time_off_request", {
             shopName: shop.name,
             shopEmail: shop.email ?? "",
             ownerEmail,
@@ -132,8 +133,6 @@ export async function POST(request: NextRequest) {
             dateRange: niceDate,
             timeRange,
             reason: body.reason ?? "",
-          },
-        }),
       }).catch(() => null);
     }
   }

@@ -48,6 +48,11 @@ export type ByPi = Record<string, { gross: number; fee: number; net: number }>;
 export const isPaid = (s: string | null | undefined) => s === "paid" || s === "captured";
 export const isNoShowTx = (t: RevTx) => t.source === "no_show" || (t.service_name ?? "").startsWith("No-show fee");
 
+/** Ledger amount is before tax; customer collections include tax and tips. */
+export function transactionCollectedAmount(t: Pick<RevTx, "amount" | "tax" | "tip">): number {
+  return (t.amount ?? 0) + (t.tax ?? 0) + (t.tip ?? 0);
+}
+
 /**
  * The ONE rule for which transactions count as income (used by both the
  * Dashboard and the Payments page so they can never disagree). De-dups txs
@@ -149,11 +154,11 @@ export function collectedTotals(appts: RevAppt[], txs: RevTx[], byPi?: ByPi, own
     if (a.payment_intent_id) apptPis.add(a.payment_intent_id);
   }
 
-  // Settled POS / gift-card / walk-in transactions (skip refunded). POS tips are
-  // part of `amount + tip` here.
+  // POS ledger amount excludes tax. Count tax once in collections, then expose
+  // it separately for the owner's tax deduction (not a second deduction).
   for (const t of posTxs) {
     if (t.refunded) continue;
-    const amt = (t.amount ?? 0) + (t.tip ?? 0);
+    const amt = transactionCollectedAmount(t);
     const { net: n, fee: f } = lineNetFee(t.payment_intent_id, amt, byPi);
     gross += amt; net += n; fees += f;
     tax += t.tax ?? 0;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, type ReactNode } from "react";
+import { useEffect, useState, useCallback, useRef, type ReactNode } from "react";
 import { Plus, X, Copy, CalendarOff, Pencil } from "lucide-react";
 import { cn, dbTimeToDisplay, displayTimeToDb, timeToMinutes, prettyDate } from "@/lib/utils";
 
@@ -44,24 +44,43 @@ const pct = (display: string) => {
 export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = true, isOwner = false, isPaused = false, headerAction }: { barberId: string; barberName: string; accessToken: string | null; canEdit?: boolean; isOwner?: boolean; isPaused?: boolean; headerAction?: ReactNode }) {
   const [days, setDays] = useState<Day[]>(defaultDays);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [saving, setSaving] = useState(false);
+  const lastSavedDays = useRef<Day[] | null>(null);
+  const loadSequence = useRef(0);
+  const loadController = useRef<AbortController | null>(null);
+  const saveBusy = useRef(false);
+  const context = `${barberId}:${accessToken}`;
+  const currentContext = useRef(context);
+  currentContext.current = context;
   const [toast, setToast] = useState("");
   const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(""), 3000); };
 
   // ── Time off ────────────────────────────────────────────────────────────
   const [timeOff, setTimeOff] = useState<TimeOff[]>([]);
+  const [canRequestTimeOff, setCanRequestTimeOff] = useState(false);
+  const [canBlockHours, setCanBlockHours] = useState(false);
   const [showOffForm, setShowOffForm] = useState(false);
   const [offBusy, setOffBusy] = useState(false);
   const blankOff = () => ({ type: "day_off", start_date: todayISO(), end_date: todayISO(), start_time: "12:00 PM", end_time: "1:00 PM", reason: "" });
   const [offForm, setOffForm] = useState(blankOff);
 
   const load = useCallback(async () => {
-    if (!barberId || !accessToken) return;
+    const sequence = ++loadSequence.current;
+    loadController.current?.abort();
+    if (!barberId || !accessToken) { setLoading(false); setLoadError("Sign in to load this schedule."); return; }
+    const controller = new AbortController();
+    loadController.current = controller;
+    const timeout = setTimeout(() => controller.abort(), 15000);
     setLoading(true);
-    const res = await fetch(`/api/schedule?barber_id=${barberId}`, { headers: { Authorization: `Bearer ${accessToken}` } });
+    setLoadError("");
+    try {
+    const res = await fetch(`/api/schedule?barber_id=${barberId}`, { headers: { Authorization: `Bearer ${accessToken}` }, signal: controller.signal });
     const data = await res.json().catch(() => null);
+    if (sequence !== loadSequence.current || currentContext.current !== `${barberId}:${accessToken}`) return;
     let next = defaultDays();
-    if (data && !data.error) {
+    if (!res.ok || !data || data.error) throw new Error(data?.error ?? "Couldn't load schedule");
+    if (data) {
       // Authoritative data loaded → reflect EXACTLY what's saved: start every day
       // closed, then open the ones that have a saved slot. (Don't fall back to the
       // Mon–Fri default when 0 slots, or turning every day off looks reverted.)
@@ -75,11 +94,26 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
         if (d) d.breaks.push({ start: dbTimeToDisplay(b.start_time), end: dbTimeToDisplay(b.end_time), label: b.label || "Break" });
       });
       setTimeOff((data.timeOff ?? []) as TimeOff[]);
+      setCanRequestTimeOff(data.canRequestTimeOff === true);
+      setCanBlockHours(data.canBlockHours === true);
     }
     setDays(next);
-    setLoading(false);
+    lastSavedDays.current = next;
+    } catch (error) {
+      if (sequence === loadSequence.current) setLoadError(controller.signal.aborted ? "Loading timed out. Please retry." : error instanceof Error ? error.message : "Couldn't load schedule");
+    } finally { clearTimeout(timeout); if (sequence === loadSequence.current) setLoading(false); }
   }, [barberId, accessToken]);
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    lastSavedDays.current = null;
+    saveBusy.current = false;
+    setSaving(false);
+    setOffBusy(false);
+    setDayModal(null);
+    setBreakModal(null);
+    setShowOffForm(false);
+    load();
+    return () => { ++loadSequence.current; loadController.current?.abort(); };
+  }, [load]);
 
   const setDay = (dow: number, patch: Partial<Day>) => setDays(p => p.map((d, i) => i === dow ? { ...d, ...patch } : d));
   const setBreak = (dow: number, idx: number, patch: Partial<Brk>) =>
@@ -112,21 +146,20 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
     const src = ORDER.map(dow => days[dow]).find(d => d.isOpen);
     if (!src) { showToast("Open a day first"); return; }
     const next = days.map(d => d.isOpen ? { ...d, start: src.start, end: src.end, breaks: src.breaks.map(b => ({ ...b })) } : d);
-    setDays(next);
     save(next);
   };
   const setWeekdays = () => {
     const next = days.map((d, dow) => ({ ...d, isOpen: dow >= 1 && dow <= 5, start: "9:00 AM", end: "6:00 PM" }));
-    setDays(next);
     save(next);
   };
 
   // Persist the schedule. Editing a day (pencil → popup → Save) and the quick
   // actions all call this — there's no separate "Save schedule" button anymore.
-  // Pass an explicit `override` when saving right after a setDays() so we don't
-  // race React's async state (the quick actions do this).
+  // Quick actions render only after a successful save. Manual drafts remain
+  // visible after failures and are explicitly marked as unsaved.
   const save = async (override?: Day[]): Promise<boolean> => {
-    if (!accessToken) return false;
+    if (!accessToken || !canEdit || saveBusy.current || loadError) return false;
+    const requestSequence = loadSequence.current;
     const src = override ?? days;
     // Validate end > start and breaks within hours.
     for (const dow of ORDER) {
@@ -139,7 +172,10 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
       }
     }
     setSaving(true);
+    saveBusy.current = true;
+    try {
     const res = await fetch("/api/schedule", {
+      signal: AbortSignal.timeout(15000),
       method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         barber_id: barberId,
@@ -147,23 +183,31 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
         breaks: src.flatMap((d, dow) => d.isOpen ? d.breaks.map(b => ({ day_of_week: dow, start_time: displayTimeToDb(b.start), end_time: displayTimeToDb(b.end), label: b.label })) : []),
       }),
     });
-    setSaving(false);
+    if (currentContext.current !== context || requestSequence !== loadSequence.current) return false;
     if (res.ok) {
       const d = await res.json().catch(() => ({}));
-      if (d?.breaksError) showToast("Hours saved, but breaks didn't save — run the barber_breaks migration.");
-      else showToast(`Schedule saved · emailed ${barberName.split(" ")[0]}`);
+      if (currentContext.current !== context || requestSequence !== loadSequence.current) return false;
+      if (d?.breaksError) { showToast("Schedule could not be fully saved. Please retry."); return false; }
+      lastSavedDays.current = src;
+      if (override) setDays(src);
+      showToast("Schedule saved");
       return true;
     } else { const d = await res.json().catch(() => ({})); showToast(d.error ?? "Couldn't save"); return false; }
+    } catch { if (currentContext.current === context) showToast("Couldn't confirm the save. Your draft is not marked saved; reload to verify."); return false; }
+    finally { if (currentContext.current === context) { setSaving(false); saveBusy.current = false; } }
   };
 
   const addTimeOff = async () => {
-    if (!accessToken) return;
+    if (!accessToken || !canRequestTimeOff || offBusy || (offForm.type === "blocked_hours" && !canBlockHours)) return;
+    const requestSequence = loadSequence.current;
     if (offForm.end_date < offForm.start_date) { showToast("End date can't be before start date"); return; }
     if (offForm.type === "blocked_hours" && timeToMinutes(offForm.end_time) <= timeToMinutes(offForm.start_time)) {
       showToast("Block end must be after start"); return;
     }
     setOffBusy(true);
+    try {
     const res = await fetch("/api/schedule/time-off", {
+      signal: AbortSignal.timeout(15000),
       method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         barber_id: barberId,
@@ -175,9 +219,10 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
         reason: offForm.reason || null,
       }),
     });
-    setOffBusy(false);
+    if (currentContext.current !== context || requestSequence !== loadSequence.current) return;
     if (res.ok) {
       const d = await res.json().catch(() => ({}));
+      if (currentContext.current !== context || requestSequence !== loadSequence.current) return;
       // Replace state with the server's authoritative list (handles merges /
       // dedupes / deletes) so the UI never drifts from the DB.
       if (Array.isArray(d.timeOff)) setTimeOff(d.timeOff as TimeOff[]);
@@ -188,14 +233,22 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
           : isOwner ? "Time off added" : "Time-off request sent for approval";
       showToast(msg);
     } else { const d = await res.json().catch(() => ({})); showToast(d.error ?? "Couldn't save time off"); }
+    } catch { if (currentContext.current === context && requestSequence === loadSequence.current) showToast("Couldn't confirm time off. Reload to verify before retrying."); }
+    finally { if (currentContext.current === context && requestSequence === loadSequence.current) setOffBusy(false); }
   };
 
   const cancelTimeOff = async (id: string) => {
     if (!accessToken) return;
-    setTimeOff(p => p.filter(t => t.id !== id));
-    await fetch(`/api/schedule/time-off?id=${id}&barber_id=${barberId}`, {
+    const requestSequence = loadSequence.current;
+    try {
+    const res = await fetch(`/api/schedule/time-off?id=${id}&barber_id=${barberId}`, {
+      signal: AbortSignal.timeout(15000),
       method: "DELETE", headers: { Authorization: `Bearer ${accessToken}` },
-    }).catch(() => {});
+    });
+    if (currentContext.current !== context || requestSequence !== loadSequence.current) return;
+    if (!res.ok) { const data = await res.json().catch(() => ({})); showToast(data.error ?? "Couldn't cancel time off"); return; }
+    setTimeOff(p => p.filter(t => t.id !== id));
+    } catch { if (currentContext.current === context && requestSequence === loadSequence.current) showToast("Couldn't confirm cancellation. Reload to verify."); }
   };
 
   if (loading) return (
@@ -218,6 +271,8 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
 
   const dm = dayModal !== null ? days[dayModal] : null;
 
+  if (loadError) return <div role="alert" className="rounded-2xl border border-border bg-card p-4 text-sm"><p>{loadError}</p><button onClick={load} className="mt-3 underline">Retry loading schedule</button></div>;
+
   return (
     <div className="space-y-4">
       {/* ── Weekly schedule (compact one-line rows, edit in a popup) ─────── */}
@@ -226,6 +281,7 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
           <div className="min-w-0">
             <h3 className="font-semibold text-foreground">Weekly Schedule</h3>
             <p className="text-xs text-grey-muted mt-0.5">Repeats every week — same hours, automatically.</p>
+            {lastSavedDays.current && JSON.stringify(days) !== JSON.stringify(lastSavedDays.current) && <p role="status" className="text-xs text-amber-400 mt-1">Unsaved changes</p>}
           </div>
           {headerAction}
         </div>
@@ -252,10 +308,10 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
 
         {/* Quick actions */}
         {canEdit && <div className="flex flex-wrap gap-2 mt-3">
-          <button onClick={setWeekdays} className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card-raised text-grey hover:text-foreground text-xs font-medium px-3 py-1.5">
+          <button onClick={setWeekdays} disabled={saving} className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card-raised text-grey hover:text-foreground text-xs font-medium px-3 py-1.5 disabled:opacity-50">
             Quick fill: Mon–Fri 9–6
           </button>
-          <button onClick={copyToAll} className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card-raised text-grey hover:text-foreground text-xs font-medium px-3 py-1.5">
+          <button onClick={copyToAll} disabled={saving} className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card-raised text-grey hover:text-foreground text-xs font-medium px-3 py-1.5 disabled:opacity-50">
             <Copy size={13} /> Copy first day to all
           </button>
         </div>}
@@ -272,10 +328,10 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
             <CalendarOff size={16} className="text-amber-400" />
             <span className="font-semibold text-foreground">Time Off</span>
           </div>
-          <button onClick={() => setShowOffForm(v => !v)}
+          {canRequestTimeOff && <button onClick={() => setShowOffForm(v => !v)}
             className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card-raised text-grey hover:text-foreground text-xs font-medium px-3 py-1.5">
             <Plus size={13} /> {isOwner ? "Add time off" : "Request"}
-          </button>
+          </button>}
         </div>
         <p className="text-xs text-grey-muted mt-1">
           {isOwner ? "Block off vacation, days off or specific hours — applied instantly." : "Request a day off or vacation — your owner approves it."}
@@ -286,7 +342,7 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
           <div className="mt-3 rounded-xl border border-border bg-card p-3 space-y-2.5">
             <select value={offForm.type} onChange={e => setOffForm(f => ({ ...f, type: e.target.value }))}
               className="w-full rounded-lg bg-card-raised border border-border text-foreground text-sm px-3 py-2 focus:outline-none focus:border-white">
-              {TIMEOFF_TYPES.map(t => <option key={t.value} value={t.value} className="bg-card-raised">{t.label}</option>)}
+              {TIMEOFF_TYPES.filter(t => t.value !== "blocked_hours" || canBlockHours).map(t => <option key={t.value} value={t.value} className="bg-card-raised">{t.label}</option>)}
             </select>
             <div className="flex items-center gap-2 text-sm">
               <input type="date" value={offForm.start_date} min={todayISO()}
@@ -334,10 +390,10 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
                   {t.reason ? ` · ${t.reason}` : ""}
                 </p>
               </div>
-              <button onClick={() => cancelTimeOff(t.id)} aria-label="Cancel time off"
+              {canRequestTimeOff && (t.type !== "blocked_hours" || canBlockHours) && <button onClick={() => cancelTimeOff(t.id)} aria-label="Cancel time off"
                 className="flex-shrink-0 w-7 h-7 rounded-lg border border-border text-grey hover:text-foreground flex items-center justify-center">
                 <X size={14} />
-              </button>
+              </button>}
             </div>
           ))}
         </div>
@@ -407,7 +463,7 @@ export function ScheduleEditor({ barberId, barberName, accessToken, canEdit = tr
                 className="w-full rounded-xl bg-white text-black font-semibold text-sm py-2.5 hover:opacity-90 disabled:opacity-50">
                 {saving ? "Saving…" : "Save"}
               </button>
-              <p className="text-[11px] text-grey-muted text-center -mt-1">Saved &amp; emailed to {barberName.split(" ")[0]} instantly.</p>
+              <p className="text-[11px] text-grey-muted text-center -mt-1">Save {barberName.split(" ")[0]}’s weekly hours and breaks.</p>
             </div>
           </div>
         </>
