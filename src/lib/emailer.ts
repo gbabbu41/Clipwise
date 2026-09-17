@@ -240,6 +240,7 @@ function ownerApproved(data: Record<string, string>) {
 // statusKind is one of "trial" | "paid" | "free".
 function ownerWelcome(data: Record<string, string>) {
   const kind = data.statusKind || "free";
+  const paymentsEnabled = data.paymentsEnabled === "true";
   const plan = data.planLabel || "Starter";
   const planRow = kind === "trial"
     ? `<div class="row"><span class="label">Plan</span><span class="val">${plan} — free trial</span></div>
@@ -269,8 +270,8 @@ function ownerWelcome(data: Record<string, string>) {
     <ul class="steps">
       <li><span class="step-num">1</span>Add your services &amp; prices</li>
       <li><span class="step-num">2</span>Set your working hours</li>
-      <li><span class="step-num">3</span>Connect payments to get paid online</li>
-      <li><span class="step-num">4</span>Share your booking link with clients</li>
+      ${paymentsEnabled ? '<li><span class="step-num">3</span>Connect payments to get paid online</li>' : ""}
+      <li><span class="step-num">${paymentsEnabled ? "4" : "3"}</span>Share your booking link with clients</li>
     </ul>
     <p style="font-weight:600;color:#111827;margin:18px 0 8px">Your booking page</p>
     <div class="link-box"><a href="${BASE_URL}/book/${data.slug}">${BASE_URL}/book/${data.slug}</a></div>

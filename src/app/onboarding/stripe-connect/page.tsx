@@ -6,10 +6,12 @@ import { Logo } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth-context";
 import { useResetOnReturn } from "@/lib/use-reset-on-return";
+import { canPromptPaymentSetup } from "@/lib/setup-prompts";
 
 export default function StripeConnectPage() {
   const router = useRouter();
-  const { accessToken } = useAuth();
+  const { shop, profile, accessToken } = useAuth();
+  const canConnect = profile?.role === "shop_owner" && canPromptPaymentSetup(shop);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   // Back from Stripe restores this page from bfcache with `loading` frozen —
@@ -18,13 +20,14 @@ export default function StripeConnectPage() {
 
   async function connect() {
     if (!accessToken) { setError("Please sign in again to continue."); return; }
+    if (!canConnect || !shop || loading) return;
     setLoading(true);
     setError("");
     try {
       const res = await fetch("/api/stripe/connect", {
         method: "POST",
         headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ shop_id: shop.id }),
       });
       const data = await res.json();
       if (!res.ok || !data.url) { setError(data.error ?? "Could not start Stripe Connect."); setLoading(false); return; }
@@ -68,7 +71,8 @@ export default function StripeConnectPage() {
             </div>
           </div>
 
-          <Button className="w-full" size="lg" loading={loading} onClick={connect}>
+          {!canConnect && <p className="text-sm text-grey">Customer payment setup is not required for your current account. You can continue using your available booking features.</p>}
+          <Button className="w-full" size="lg" loading={loading} disabled={!canConnect} onClick={connect}>
             Connect with Stripe <ArrowRight size={16} />
           </Button>
 

@@ -10,6 +10,8 @@ import { hardwareCreditCents, HARDWARE_CREDIT_MAX_CENTS } from "@/lib/hardware-c
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { DashboardHeader } from "@/components/dashboard/page-header";
+import { FeatureLock } from "@/components/dashboard/feature-lock";
+import { effectivePlan, planHasFeature } from "@/lib/validation";
 
 // Where a barber buys their own WisePad 3. This links out for now; at go-live it
 // becomes Stripe's hardware-shop EMBEDDED COMPONENT (they buy in-page, direct from
@@ -27,6 +29,7 @@ type ConnectStatus = { connected: boolean; status: string; checkError?: boolean 
 export default function CardReaderPage() {
   const router = useRouter();
   const { shop, accessToken, refreshShop } = useAuth();
+  const hasPayments = !!shop && planHasFeature(effectivePlan(shop.subscription_plan, shop.subscription_status), "payments");
   // Defense-in-depth: this page is money-adjacent, so never render it in the app.
   useEffect(() => { if (isNativeApp()) router.replace("/dashboard"); }, [router]);
 
@@ -53,7 +56,7 @@ export default function CardReaderPage() {
   // Interim manual credit: after buying a reader the barber requests the credit,
   // an admin approves it. This only records the request (owner-scoped route).
   const requestCredit = async () => {
-    if (!accessToken || requesting) return;
+    if (!accessToken || requesting || !hasPayments || isNativeApp()) return;
     setRequesting(true);
     try {
       const res = await fetch("/api/stripe/terminal/hardware-credit", {
@@ -67,7 +70,7 @@ export default function CardReaderPage() {
   };
 
   const load = useCallback(async () => {
-    if (!accessToken || !shop?.id) return;
+    if (!accessToken || !shop?.id || !hasPayments || isNativeApp()) return;
     setLoading(true);
     try {
       const res = await fetch(`/api/stripe/connect/status?shop_id=${encodeURIComponent(shop.id)}`, {
@@ -76,11 +79,11 @@ export default function CardReaderPage() {
       setConnect(res.ok ? await res.json() : null);
     } catch { setConnect(null); }
     setLoading(false);
-  }, [accessToken, shop?.id]);
+  }, [accessToken, shop?.id, hasPayments]);
   useEffect(() => { load(); }, [load]);
 
   const startConnect = async () => {
-    if (!accessToken) return;
+    if (!accessToken || !hasPayments || connecting || isNativeApp()) return;
     setConnecting(true);
     try {
       const res = await fetch("/api/stripe/connect", {
@@ -95,6 +98,12 @@ export default function CardReaderPage() {
   };
 
   const connected = connect?.connected;
+
+  // Keep every hook above these guards. No hardware or plan surface in native.
+  if (isNativeApp() || !shop) return null;
+  if (!hasPayments) {
+    return <FeatureLock title="Card Reader" description="Customer card payments require a plan with payment features. Stripe setup is not needed for your current plan." />;
+  }
 
   return (
     <div className="min-h-screen bg-background px-4 sm:px-6 pb-28 space-y-5">

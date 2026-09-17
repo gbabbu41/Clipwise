@@ -23,8 +23,15 @@ export async function POST(request: NextRequest) {
   const { data: { user }, error: authErr } = await supabaseAdmin.auth.getUser(token);
   if (authErr || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { plan: rawPlan, shop_id } = await request.json().catch(() => ({})) as { plan?: string; shop_id?: string };
-  const plan = (rawPlan ?? "").toLowerCase();
+  const body = await request.json().catch(() => null);
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return NextResponse.json({ error: "Choose a valid plan and shop." }, { status: 400 });
+  }
+  const { plan: rawPlan, shop_id } = body as { plan?: string; shop_id?: string };
+  if (typeof rawPlan !== "string" || (shop_id !== undefined && typeof shop_id !== "string")) {
+    return NextResponse.json({ error: "Choose a valid plan and shop." }, { status: 400 });
+  }
+  const plan = rawPlan.toLowerCase();
   if (!PAID_PLANS.has(plan)) {
     return NextResponse.json({ error: "Pick a Pro or Premium plan to start a trial." }, { status: 400 });
   }
@@ -32,10 +39,11 @@ export async function POST(request: NextRequest) {
   // Owner-scoped: a shop_id the caller doesn't own resolves to nothing → 404.
   let q = supabaseAdmin
     .from("shops")
-    .select("id, subscription_plan, subscription_status, trial_ends_at, trial_used, stripe_subscription_id, status")
+    .select("id, subscription_plan, subscription_status, trial_ends_at, trial_used, trial_ended_at, stripe_subscription_id, status")
     .eq("owner_id", user.id);
   if (shop_id) q = q.eq("id", shop_id);
-  const { data: rows } = await q.order("created_at", { ascending: true }).limit(1);
+  const { data: rows, error: readError } = await q.order("created_at", { ascending: true }).limit(1);
+  if (readError) return NextResponse.json({ error: "Couldn't check trial eligibility. Please try again." }, { status: 503 });
   const shop = rows?.[0];
   if (!shop) return NextResponse.json({ error: "No shop found" }, { status: 404 });
 
@@ -46,7 +54,7 @@ export async function POST(request: NextRequest) {
   if (shop.stripe_subscription_id) {
     return NextResponse.json({ error: "You already have a paid subscription." }, { status: 409 });
   }
-  if ((shop as { trial_used?: boolean }).trial_used || shop.trial_ends_at) {
+  if ((shop as { trial_used?: boolean }).trial_used || shop.trial_ends_at || shop.trial_ended_at) {
     return NextResponse.json(
       { error: "You've already used your free trial. Add a card from Billing to upgrade." },
       { status: 409 },
@@ -64,18 +72,15 @@ export async function POST(request: NextRequest) {
   // never reactivate a suspended/rejected shop this way.
   if (shop.status === "pending") upd.status = "approved";
 
-  let r = await supabaseAdmin
+  // Claim eligibility in the write itself: two tabs cannot both grant a trial,
+  // and a concurrent paid activation or shop suspension cannot be overwritten.
+  const r = await supabaseAdmin
     .from("shops").update(upd).eq("id", shop.id).eq("owner_id", user.id)
-    .select("id, subscription_plan, subscription_status, trial_ends_at, status").single();
-  // Resilient to phase34 (trial_ends_at) / phase49 (trial_used) not being run yet:
-  // drop whichever missing column the DB complains about and retry.
-  if (r.error && /trial_ends_at|trial_used/.test(r.error.message) && /column|does not exist|schema cache/i.test(r.error.message)) {
-    const { trial_ends_at: _t, trial_used: _u, ...noTrial } = upd;
-    r = await supabaseAdmin
-      .from("shops").update(noTrial).eq("id", shop.id).eq("owner_id", user.id)
-      .select("id, subscription_plan, subscription_status, status").single();
-  }
+    .eq("trial_used", false).is("trial_ends_at", null).is("trial_ended_at", null)
+    .is("stripe_subscription_id", null).eq("status", shop.status)
+    .select("id, subscription_plan, subscription_status, trial_ends_at, status").maybeSingle();
   if (r.error) return NextResponse.json({ error: "Couldn't start your trial. Please try again." }, { status: 500 });
+  if (!r.data) return NextResponse.json({ error: "Your trial eligibility changed. Refresh Billing before trying again." }, { status: 409 });
 
   return NextResponse.json({ ok: true, shop: r.data, trialEndsAt });
 }

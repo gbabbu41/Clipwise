@@ -171,7 +171,7 @@ export function OnboardingBanner({ shop }: Props) {
 
       {/* Starter → Pro trial nudge. Billing is an Apple-IAP surface, so it never
           renders in the native app. Only shown while the shop is still on Starter. */}
-      {shop.subscription_plan === "starter" && !isNativeApp() && (
+      {shop.subscription_plan === "starter" && !shop.trial_used && !shop.trial_ends_at && !shop.trial_ended_at && !shop.stripe_subscription_id && !isNativeApp() && (
         <Link href="/dashboard/billing"
           className="mt-3 flex items-center justify-between gap-3 p-3 rounded-xl border border-gold/25 bg-gold/5 hover:bg-gold/10 transition-all group">
           <div>

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Clock, ArrowRight } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { isNativeApp } from "@/lib/native-app";
+import { effectivePlan } from "@/lib/validation";
 
 /**
  * Countdown banner for a shop on a no-card Pro/Premium free trial. Prompts the
@@ -23,7 +24,7 @@ const SNOOZE_MS = 12 * 60 * 60 * 1000; // 12h → at most ~2 reminders/day
  * without the prop, it falls back to the client-side runtime check.
  */
 export function TrialBanner({ native }: { native?: boolean } = {}) {
-  const { shop } = useAuth();
+  const { shop, profile } = useAuth();
   const shopId = shop?.id ?? null;
   // Start hidden, reveal after checking the persisted snooze — avoids a flash and
   // any SSR/hydration mismatch. Re-checks whenever the active shop changes.
@@ -43,18 +44,19 @@ export function TrialBanner({ native }: { native?: boolean } = {}) {
   // never even server-rendered in the app); fall back to the client runtime check.
   if (native ?? isNativeApp()) return null;
 
-  if (shop?.stripe_subscription_id) return null; // real subscriber — no trial UI
+  if (!shop || profile?.role !== "shop_owner" || shop.stripe_subscription_id) return null;
 
   const endMs = shop?.trial_ends_at ? new Date(shop.trial_ends_at).getTime() : NaN;
   const daysLeft = Number.isNaN(endMs) ? -1 : Math.ceil((endMs - Date.now()) / 86_400_000);
-  const activeTrial = !!shop?.trial_ends_at && !Number.isNaN(endMs) && daysLeft > 0;
+  const plan = effectivePlan(shop.subscription_plan, shop.subscription_status);
+  const activeTrial = plan !== "starter" && Number.isFinite(endMs) && daysLeft > 0;
 
   // Trial is OVER (used a trial, no active countdown, not currently paying) → the
   // shop has dropped to free Starter. Shown even when `trial_ended_at` wasn't
   // stamped (older/manual downgrades), by leaning on `trial_used`.
   const trialEnded = !activeTrial
     && !!shop?.trial_used
-    && shop?.subscription_status !== "active";
+    && (plan === "starter" || (Number.isFinite(endMs) && endMs <= Date.now()));
 
   if (!activeTrial && !trialEnded) return null;
   if (snoozed) return null;
@@ -78,10 +80,10 @@ export function TrialBanner({ native }: { native?: boolean } = {}) {
               Your free trial has ended{endedOn ? ` (${endedOn})` : ""} — you&rsquo;re on the free Starter plan
             </p>
             <p className="text-xs opacity-80 mt-0.5">
-              Add a card to switch your paid features back on (online payments, POS, loyalty &amp; extra barbers). Your account &amp; bookings are safe.
+              You can keep using Starter for free, or review a paid plan to restore its included features. Your account &amp; bookings are safe.
             </p>
             <Link href="/dashboard/billing" className="inline-flex items-center gap-1 text-xs font-semibold mt-2 hover:underline">
-              Add your card <ArrowRight size={13} />
+              Review plans <ArrowRight size={13} />
             </Link>
           </div>
           <button onClick={snooze} className="text-sm leading-none opacity-60 hover:opacity-100 flex-shrink-0" aria-label="Dismiss for now">✕</button>
@@ -106,10 +108,10 @@ export function TrialBanner({ native }: { native?: boolean } = {}) {
             {urgent ? `Your free trial ends in ${label}` : `You're on a free trial — ${label} left`}
           </p>
           <p className="text-xs opacity-80 mt-0.5">
-            Add a card to keep online payments, POS, loyalty &amp; extra barbers. No charge until you subscribe — otherwise your shop drops to the free Starter plan (your account &amp; bookings stay safe).
+            Review your plan and subscription price before continuing with paid features. You won&apos;t be charged automatically on this no-card trial. Without a subscription, you return to free Starter; your account &amp; bookings stay safe.
           </p>
           <Link href="/dashboard/billing" className="inline-flex items-center gap-1 text-xs font-semibold mt-2 hover:underline">
-            Add your card <ArrowRight size={13} />
+            Review subscription <ArrowRight size={13} />
           </Link>
         </div>
         {/* Always dismissible now (even at ≤3 days) — snoozes ~12h so it never

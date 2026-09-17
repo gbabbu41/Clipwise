@@ -8,6 +8,8 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { formatPlanPrice, type PlanRow } from "@/lib/plans";
 import { marketingFor } from "@/lib/plan-marketing";
+import { PlanReview } from "@/components/billing/plan-review";
+import { isNativeApp } from "@/lib/native-app";
 
 type Plan = string;
 
@@ -58,22 +60,36 @@ const FALLBACK_PLANS: PlanRow[] = [
 function PlanPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { accessToken, plans } = useAuth();
+  const { accessToken, plans, shops, loading: authLoading, profile } = useAuth();
   const cards = (plans.length ? plans : FALLBACK_PLANS).filter(p => p.is_active);
   const [step, setStep] = useState<"pick" | "redirecting" | "verifying" | "success">("pick");
   const [error, setError] = useState("");
+  const [review, setReview] = useState<PlanRow | null>(null);
+  const hasShop = shops.length > 0;
+  useEffect(() => {
+    if (isNativeApp()) { router.replace("/dashboard"); return; }
+    if (authLoading) return;
+    if (profile && profile.role !== "shop_owner") {
+      router.replace(profile.role === "barber" ? "/barber-dashboard" : profile.role === "super_admin" ? "/admin" : "/");
+    } else if (hasShop) {
+      const sessionId = searchParams.get("status") === "success" ? searchParams.get("session_id") : null;
+      router.replace(sessionId ? `/dashboard/billing?upgraded=1&session_id=${encodeURIComponent(sessionId)}` : "/dashboard/billing");
+    }
+  }, [authLoading, hasShop, profile, router, searchParams]);
 
   // Plan the user picked on the homepage (/signup?plan=… → carried here). Spotlight
   // and scroll to it so their choice isn't silently forgotten.
   const preselected = searchParams.get("plan") || "";
   useEffect(() => {
+    if (hasShop || authLoading || isNativeApp()) return;
     if (!preselected) return;
     const el = document.getElementById(`plan-${preselected}`);
     if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
-  }, [preselected]);
+  }, [preselected, hasShop, authLoading]);
 
   // Handle return from Stripe Checkout
   useEffect(() => {
+    if (hasShop || authLoading || isNativeApp()) return;
     const status = searchParams.get("status");
     if (status === "cancelled") {
       setError("Payment cancelled. Choose a plan to continue.");
@@ -86,13 +102,14 @@ function PlanPageInner() {
       // Wait for the auth token to load — verify-session now requires it.
       if (!sessionId || !plan || !accessToken) return;
       setStep("verifying");
-      fetch(`/api/stripe/verify-session?session_id=${sessionId}`, {
+      fetch(`/api/stripe/verify-session?session_id=${encodeURIComponent(sessionId)}`, {
         headers: { Authorization: `Bearer ${accessToken ?? ""}` },
+        signal: AbortSignal.timeout(15000),
       })
         .then(r => r.json())
-        .then(({ paid, subscriptionId, customerId }) => {
-          if (paid) {
-            sessionStorage.setItem("clipwise_plan", JSON.stringify({ plan, autoApprove: true, subscriptionId, customerId, sessionId }));
+        .then(({ paid, subscriptionId, customerId, plan: verifiedPlan }) => {
+          if (paid && typeof verifiedPlan === "string") {
+            sessionStorage.setItem("clipwise_plan", JSON.stringify({ plan: verifiedPlan, autoApprove: true, subscriptionId, customerId, sessionId }));
             setStep("success");
             setTimeout(() => router.push("/onboarding"), 1400);
           } else {
@@ -102,12 +119,23 @@ function PlanPageInner() {
         })
         .catch(() => { setError("Payment verification failed. Please try again."); setStep("pick"); });
     }
-  }, [searchParams, router, accessToken]);
+  }, [searchParams, router, accessToken, hasShop, authLoading]);
 
   function selectPlan(plan: Plan) {
     setError("");
     const card = cards.find(c => c.id === plan);
-    if (!card || card.price_cents === 0) {
+    if (!card || !plans.length) return;
+    setReview(card);
+  }
+
+  function confirmPlan() {
+    if (!review) return;
+    const card = plans.find(p => p.id === review.id && p.is_active);
+    if (!card || card.price_cents !== review.price_cents) {
+      setReview(null); setError("Plan details changed. Please review your choice again."); return;
+    }
+    const plan = card.id;
+    if (card.price_cents === 0) {
       // Free tier → no checkout, shop goes to manual approval.
       sessionStorage.setItem("clipwise_plan", JSON.stringify({ plan, autoApprove: false }));
       router.push("/onboarding");
@@ -119,6 +147,7 @@ function PlanPageInner() {
     router.push("/onboarding");
   }
 
+  if (isNativeApp() || hasShop || authLoading || (profile && profile.role !== "shop_owner")) return <div className="min-h-screen bg-background" />;
   if (step === "redirecting" || step === "verifying") {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -166,7 +195,6 @@ function PlanPageInner() {
             const st = styleFor(plan.id);
             const Icon = st.icon;
             const isFree = plan.price_cents === 0;
-            const cta = isFree ? "Get Started Free" : `Start ${plan.name} — 21 days free`;
             // Marketing copy (bullets, tagline, spotlight) from the shared list so
             // this matches the home page: what's included AND what's not, with Pro
             // spotlighted. A custom plan with no entry falls back to its DB
@@ -178,9 +206,8 @@ function PlanPageInner() {
             const badge = mk ? (mk.pop ? "Most popular" : null) : plan.badge;
             return (
               <div key={plan.id} id={`plan-${plan.id}`}
-                className={cn("relative bg-surface border rounded-2xl p-6 flex flex-col transition-all cursor-pointer", st.accent,
-                  preselected === plan.id && "ring-2 ring-gold ring-offset-2 ring-offset-background")}
-                onClick={() => selectPlan(plan.id)}>
+                className={cn("relative bg-surface border rounded-2xl p-6 flex flex-col transition-all", st.accent,
+                  preselected === plan.id && "ring-2 ring-gold ring-offset-2 ring-offset-background")}>
                 {badge && (
                   <div className={cn("absolute -top-3 left-1/2 -translate-x-1/2 text-xs font-bold px-3 py-1 rounded-full", st.badgeBg)}>
                     {badge}
@@ -223,8 +250,8 @@ function PlanPageInner() {
                   ))}
                 </ul>
 
-                <button className={cn("w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all", st.btn)}>
-                  {cta} <ArrowRight size={15} />
+                <button type="button" disabled={!plans.length} onClick={() => selectPlan(plan.id)} className={cn("w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50", st.btn)}>
+                  {isFree ? "Continue with free Starter" : `Review ${plan.name} trial`} <ArrowRight size={15} />
                 </button>
               </div>
             );
@@ -234,6 +261,16 @@ function PlanPageInner() {
         <p className="text-center text-xs text-[#8f8f8f] mt-8">
           Starter is free forever. Pro &amp; Premium start with a 21-day free trial — no card required. You only add a card if you decide to keep it; billed monthly, no contracts.
         </p>
+        {!plans.length && <p role="status" className="text-center text-sm text-grey mt-4">Loading current plans. If this takes too long, <button type="button" className="underline" onClick={() => window.location.reload()}>reload plans</button>.</p>}
+        {review && <PlanReview title={`Review ${review.name}`} confirmLabel={review.price_cents === 0 ? "Confirm free plan & continue" : "Confirm trial & continue"} onCancel={() => setReview(null)} onConfirm={confirmPlan}>
+          <dl className="space-y-2">
+            <div className="flex justify-between gap-4"><dt>Plan</dt><dd className="font-semibold text-foreground">{review.name}</dd></div>
+            <div className="flex justify-between gap-4"><dt>Due today</dt><dd className="text-foreground">$0 CAD</dd></div>
+            <div className="flex justify-between gap-4"><dt>{review.price_cents === 0 ? "Recurring price" : "After the free trial"}</dt><dd className="text-foreground">{review.price_cents === 0 ? "Free — no billing cycle" : `${formatPlanPrice(review.price_cents)} CAD / month`}</dd></div>
+          </dl>
+          <p>{review.price_cents === 0 ? "No card required and no subscription charges. Card payments and other paid features are not included." : "Your 21-day trial starts when your shop is created. No card required, and no automatic charge. If you don't subscribe, you return to Starter. If you later add a card, the paid plan renews monthly until cancelled."}</p>
+          <p>Next: set up your shop using the existing setup guide, then enter your portal. You can change plans later in Billing.</p>
+        </PlanReview>}
       </div>
     </div>
   );

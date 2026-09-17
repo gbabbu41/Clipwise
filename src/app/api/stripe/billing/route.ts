@@ -14,7 +14,8 @@ export async function GET(request: NextRequest) {
   const shopId = new URL(request.url).searchParams.get("shop_id");
   let query = supabaseAdmin.from("shops").select("*").eq("owner_id", user.id);
   if (shopId) query = query.eq("id", shopId);
-  const { data: shops } = await query.order("created_at", { ascending: false }).limit(1);
+  const { data: shops, error: shopsError } = await query.order("created_at", { ascending: false }).limit(1);
+  if (shopsError) return NextResponse.json({ error: "Billing details are temporarily unavailable." }, { status: 503 });
   const shop = shops?.[0];
   if (!shop) return NextResponse.json({ error: "No shop found" }, { status: 404 });
 
@@ -26,6 +27,7 @@ export async function GET(request: NextRequest) {
     cardLast4: string | null;
     cardBrand: string | null;
     cancelAtPeriodEnd: boolean;
+    subscriptionCheckError?: boolean;
     invoices: { id: string; amount: number; date: number; status: string; url: string | null }[];
     connect: {
       connected: boolean; status: string;
@@ -84,7 +86,7 @@ export async function GET(request: NextRequest) {
         card = readCard(pms.data[0]);
       }
       if (card) { result.cardLast4 = card.last4; result.cardBrand = card.brand; }
-    } catch { /* subscription may be gone — leave defaults */ }
+    } catch { result.subscriptionCheckError = true; }
   }
 
   // Invoice history

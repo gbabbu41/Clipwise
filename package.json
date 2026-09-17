@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "test:flows": "node scripts/tests/run-flows.cjs",
     "cap:sync": "cap sync",
     "cap:ios": "cap sync ios && cap open ios",
     "cap:android": "cap sync android && cap open android"
@@ -68,6 +69,7 @@
     "eslint-config-next": "14.2.35",
     "playwright": "^1.60.0",
     "postcss": "^8",
+    "react-test-renderer": "18.3.1",
     "tailwindcss": "^3.4.1",
     "typescript": "^5"
   }

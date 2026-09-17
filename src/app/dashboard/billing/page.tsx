@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { CreditCard, Check, AlertTriangle, ExternalLink, Crown, Building2, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
@@ -11,11 +11,16 @@ import { effectivePlan } from "@/lib/validation";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { PlanReview } from "@/components/billing/plan-review";
+
+async function billingFetch(url: string, options?: RequestInit) {
+  return fetch(url, { ...options, signal: AbortSignal.timeout(15000) });
+}
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
     <div className="fixed bottom-6 right-6 z-[100] bg-card-raised border border-border rounded-xl px-5 py-3 text-sm text-foreground shadow-xl flex items-center gap-3">
-      <span className="text-foreground">✓</span>{message}
+      <span role="status">{message}</span>
       <button onClick={onClose} className="text-grey hover:text-foreground ml-2">✕</button>
     </div>
   );
@@ -29,6 +34,7 @@ interface Billing {
   cardLast4: string | null;
   cardBrand?: string | null;
   cancelAtPeriodEnd?: boolean;
+  subscriptionCheckError?: boolean;
   invoices: { id: string; amount: number; date: number; status: string; url: string | null }[];
   connect: { connected: boolean; status: string; chargesEnabled?: boolean; payoutsEnabled?: boolean; detailsSubmitted?: boolean; checkError?: boolean };
 }
@@ -52,12 +58,20 @@ export default function BillingPage() {
   const [actionLoading, setActionLoading] = useState("");
   const [showCancel, setShowCancel] = useState(false);
   const [couponCode, setCouponCode] = useState("");
+  const [loadError, setLoadError] = useState("");
+  const [review, setReview] = useState<{ planId: string; mode: "trial" | "checkout" | "resume"; price: number; shopId: string } | null>(null);
+  const loadVersion = useRef(0);
+  const confirming = useRef(false);
+  useEffect(() => { setReview(null); setShowCancel(false); }, [shop?.id]);
 
   const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(""), 3000); };
 
   const load = useCallback(async () => {
-    if (!accessToken) return;
+    if (!accessToken || !shop?.id) return;
+    const version = ++loadVersion.current;
     setLoading(true);
+    setLoadError("");
+    setBilling(null);
     // Scope to the ACTIVE shop. Without this, a multi-location owner saw the
     // NEWEST shop's plan + Connect status (the API's fallback), not the location
     // they're viewing — which is exactly why a fully-connected shop wrongly read
@@ -67,16 +81,18 @@ export default function BillingPage() {
     // degraded state (plan from the shop fallback, Connect shown "Not connected")
     // with no signal. Also guard the network throw so loading never hangs.
     try {
-      const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
-      if (res.ok) setBilling(await res.json());
-      else console.error("billing load failed:", res.status);
-    } catch (e) {
-      console.error("billing load error:", e);
+      const res = await billingFetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+      if (!res.ok) throw new Error("billing unavailable");
+      const data = await res.json();
+      if (data.subscriptionCheckError) throw new Error("Subscription status could not be verified");
+      if (version === loadVersion.current) setBilling(data);
+    } catch {
+      if (version === loadVersion.current) setLoadError("We couldn't load billing details. Refresh before starting another subscription change.");
     }
-    setLoading(false);
+    if (version === loadVersion.current) setLoading(false);
   }, [accessToken, shop?.id]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(); return () => { loadVersion.current++; }; }, [load]);
 
   // After tapping a button that redirects to Stripe (Add card / upgrade / portal
   // / Connect) then hitting Back, iOS/Safari restore this page from the bfcache
@@ -92,15 +108,18 @@ export default function BillingPage() {
     window.history.replaceState({}, "", "/dashboard/billing");
     (async () => {
       // Apply the plan synchronously (don't rely on the platform webhook firing).
-      if (sid) {
-        const res = await fetch("/api/stripe/confirm-subscription", {
+      if (!sid) { showToast("We couldn't verify this checkout. Refresh billing to check your subscription."); return; }
+      {
+        const res = await billingFetch("/api/stripe/confirm-subscription", {
           method: "POST",
           headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
           body: JSON.stringify({ session_id: sid }),
         }).catch(() => null);
-        if (res && !res.ok) {
-          const d = await res.json().catch(() => ({}));
-          showToast(d.error ?? "Payment received, but we couldn't activate the plan — refresh in a moment.");
+        const d = res ? await res.json().catch(() => ({})) : {};
+        if (!res?.ok || d.ok !== true || d.paid !== true) {
+          showToast(d.error ?? "We couldn't confirm your subscription. Check billing before trying again.");
+          await load();
+          return;
         }
       }
       showToast("You're subscribed. Your plan is now active.");
@@ -117,16 +136,15 @@ export default function BillingPage() {
     if (params.get("card_updated") !== "1") return;
     window.history.replaceState({}, "", "/dashboard/billing");
     (async () => {
-      const res = await fetch(`/api/stripe/billing${shop?.id ? `?shop_id=${encodeURIComponent(shop.id)}` : ""}`, {
+      const res = await billingFetch(`/api/stripe/billing${shop?.id ? `?shop_id=${encodeURIComponent(shop.id)}` : ""}`, {
         headers: { Authorization: `Bearer ${accessToken}` },
       }).catch(() => null);
       const data = res && res.ok ? await res.json().catch(() => null) : null;
+      if (!data?.cardLast4) { showToast("Returned from Stripe. We couldn't verify a saved card; please refresh billing."); return; }
       if (data) setBilling(data);
       const label = cardLabel(data?.cardLast4, data?.cardBrand);
       const when = data?.nextBilling ? ` It'll be charged on ${fmtDate(data.nextBilling)}.` : "";
-      showToast(label
-        ? `Card accepted — ${label} is now on file.${when}`
-        : `Card accepted.${when}`);
+      showToast(`Card on file: ${label}.${when}`);
       // Email the owner a confirmation of the card change (best-effort, server-side).
       fetch("/api/stripe/notify-card-updated", {
         method: "POST",
@@ -136,17 +154,18 @@ export default function BillingPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accessToken, shop?.id]);
 
-  const startCheckoutUpgrade = async (planId: string) => {
+  const startCheckoutUpgrade = async (planId: string, expectedPrice: number) => {
     if (!accessToken) return;
     setActionLoading(planId);
+    try {
     // First try an in-place switch on the existing subscription (proration —
     // credit for unused days, no card re-entry, no duplicate subscription). The
     // server returns 409 if there's no live subscription, and we fall back to
     // Checkout to collect a card.
-    const pr = await fetch("/api/stripe/change-plan", {
+    const pr = await billingFetch("/api/stripe/change-plan", {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ plan: planId }),
+      body: JSON.stringify({ plan: planId, expected_price_cents: expectedPrice }),
     }).catch(() => null);
     const prData = pr ? await pr.json().catch(() => ({})) : {};
     if (pr?.ok && prData.ok) {
@@ -156,20 +175,21 @@ export default function BillingPage() {
       setActionLoading("");
       return;
     }
-    if (pr && pr.status === 409) {
+    if (pr && pr.status === 409 && prData.error === "no_subscription") {
       // No live subscription yet → collect a card via Checkout.
-      const res = await fetch("/api/stripe/checkout", {
+      const res = await billingFetch("/api/stripe/checkout", {
         method: "POST",
         headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ plan: planId, upgrade: true }),
+        body: JSON.stringify({ plan: planId, upgrade: true, expected_price_cents: expectedPrice }),
       });
       const data = await res.json();
       if (res.ok && data.url) window.location.href = data.url;
-      else { showToast(data.error ?? "Could not start upgrade"); setActionLoading(""); }
+      else { showToast(data.message ?? data.error ?? "Could not start upgrade"); setActionLoading(""); }
       return;
     }
-    showToast(prData.error ?? "Could not change plan");
-    setActionLoading("");
+    showToast(prData.message ?? prData.error ?? "Could not change plan");
+    } catch { showToast("Couldn't confirm the billing request. Refresh billing before trying again."); }
+    finally { setActionLoading(""); }
   };
 
   // Start the no-card 21-day trial (no checkout / no card up front). Only offered
@@ -178,7 +198,7 @@ export default function BillingPage() {
   const startTrial = async (planId: string) => {
     if (!accessToken) return;
     setActionLoading(planId);
-    const res = await fetch("/api/shops/start-trial", {
+    const res = await billingFetch("/api/shops/start-trial", {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
       body: JSON.stringify({ plan: planId, shop_id: shop?.id }),
@@ -197,15 +217,15 @@ export default function BillingPage() {
   const completeConnect = async () => {
     if (!accessToken) return;
     setActionLoading("connect");
-    const res = await fetch("/api/stripe/connect", {
+    const res = await billingFetch("/api/stripe/connect", {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
       // Connect the SHOP being viewed (multi-location owners have one account per
       // location), not just the newest shop.
       body: JSON.stringify({ shop_id: shop?.id }),
-    });
-    const data = await res.json();
-    if (res.ok && data.url) window.location.href = data.url;
+    }).catch(() => null);
+    const data = res ? await res.json().catch(() => ({})) : {};
+    if (res?.ok && data.url) window.location.href = data.url;
     else { showToast(data.error ?? "Could not start Stripe Connect"); setActionLoading(""); }
   };
 
@@ -213,12 +233,12 @@ export default function BillingPage() {
   const openPortal = async () => {
     if (!accessToken) return;
     setActionLoading("portal");
-    const res = await fetch("/api/stripe/billing-portal", {
+    const res = await billingFetch("/api/stripe/billing-portal", {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-    });
-    const data = await res.json();
-    if (res.ok && data.url) window.location.href = data.url;
+    }).catch(() => null);
+    const data = res ? await res.json().catch(() => ({})) : {};
+    if (res?.ok && data.url) window.location.href = data.url;
     else { showToast(data.error ?? "Could not open billing portal"); setActionLoading(""); }
   };
 
@@ -227,7 +247,7 @@ export default function BillingPage() {
   const openDashboard = async () => {
     if (!accessToken) return;
     setActionLoading("dashboard");
-    const res = await fetch("/api/stripe/dashboard-link", {
+    const res = await billingFetch("/api/stripe/dashboard-link", {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
       body: JSON.stringify({ shop_id: shop?.id }),
@@ -242,7 +262,7 @@ export default function BillingPage() {
   const cancelPlan = async (immediate: boolean) => {
     if (!accessToken) return;
     setActionLoading("cancel");
-    const res = await fetch("/api/stripe/cancel-subscription", {
+    const res = await billingFetch("/api/stripe/cancel-subscription", {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
       body: JSON.stringify({ immediate, shop_id: shop?.id }),
@@ -265,7 +285,7 @@ export default function BillingPage() {
   const resumePlan = async () => {
     if (!accessToken) return;
     setActionLoading("resume");
-    const res = await fetch("/api/stripe/resume-subscription", {
+    const res = await billingFetch("/api/stripe/resume-subscription", {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
       body: JSON.stringify({ shop_id: shop?.id }),
@@ -290,7 +310,7 @@ export default function BillingPage() {
   const redeemCoupon = async () => {
     if (!accessToken || !couponCode.trim()) return;
     setActionLoading("coupon");
-    const res = await fetch("/api/coupons/redeem", {
+    const res = await billingFetch("/api/coupons/redeem", {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
       body: JSON.stringify({ code: couponCode.trim(), shop_id: shop?.id }),
@@ -318,6 +338,27 @@ export default function BillingPage() {
     return <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border", map[status] ?? map.inactive)}>{label[status] ?? status}</span>;
   };
 
+  const requestReview = (planId: string, mode: "trial" | "checkout" | "resume") => {
+    if (actionLoading || confirming.current || !billing || !shop || isNativeApp()) return;
+    const plan = plans.find(p => p.id === planId && p.is_active);
+    if (!plan) { showToast("Current plan details are unavailable. Please reload before continuing."); return; }
+    setReview({ planId, mode, price: mode === "resume" && billing.amount != null ? Math.round(billing.amount * 100) : plan.price_cents, shopId: shop.id });
+  };
+  const confirmReview = async () => {
+    if (!review || confirming.current || !shop || review.shopId !== shop.id || !billing || isNativeApp()) return;
+    const plan = plans.find(p => p.id === review.planId && p.is_active);
+    if (!plan || (review.mode !== "resume" && plan.price_cents !== review.price)) {
+      setReview(null); showToast("Plan details changed. Please review your choice again."); return;
+    }
+    confirming.current = true;
+    try {
+      if (review.mode === "trial") await startTrial(review.planId);
+      else if (review.mode === "resume") await resumePlan();
+      else await startCheckoutUpgrade(review.planId, review.price);
+    } finally { confirming.current = false; setReview(null); setActionLoading(""); }
+  };
+
+  if (isNativeApp()) return null;
   if (loading) {
     return (
       <div className="p-6 flex items-center justify-center min-h-[60vh]">
@@ -326,10 +367,13 @@ export default function BillingPage() {
     );
   }
 
+  if (loadError) return <div className="p-6 max-w-xl space-y-4"><h1 className="text-2xl font-bold">Billing</h1><p role="alert" className="text-grey">{loadError}</p><Button onClick={load}>Retry billing</Button></div>;
+
   // On a no-card trial: subscription_status is "active" but there's no Stripe
   // subscription yet (trial_ends_at set). The page offers "add card to keep your
   // CURRENT plan" — otherwise a Pro-trial owner has no way to stay on Pro.
-  const isTrial = !!shop?.trial_ends_at && !shop?.stripe_subscription_id;
+  const isTrial = !!shop?.trial_ends_at && !shop?.stripe_subscription_id && shop?.subscription_plan !== "starter"
+    && shop?.subscription_status === "active" && new Date(shop.trial_ends_at).getTime() > Date.now();
   const trialDaysLeft = isTrial
     ? Math.max(0, Math.ceil((new Date(shop!.trial_ends_at as string).getTime() - Date.now()) / 86_400_000))
     : 0;
@@ -342,7 +386,8 @@ export default function BillingPage() {
   // Without this, an expired-TRIAL shop (plan still "pro", status "inactive") was
   // shown as "Pro" with no way to restart Pro and a dead "Manage subscription"
   // button — while every feature was already locked to Starter.
-  const activePlan = effectivePlan(currentPlanId, billing?.subscriptionStatus);
+  const trialExpired = !!shop?.trial_ends_at && !shop.stripe_subscription_id && new Date(shop.trial_ends_at).getTime() <= Date.now();
+  const activePlan = trialExpired ? "starter" : effectivePlan(currentPlanId, billing?.subscriptionStatus ?? shop?.subscription_status);
   const onFreePlan = activePlan === "starter";              // effectively Starter (fresh OR lapsed)
   const isLapsed = onFreePlan && currentPlanId !== "starter" && !isTrial; // had a paid plan that lapsed
   // Eligible for the no-card 21-day trial: on Starter, never trialed before, and
@@ -353,7 +398,7 @@ export default function BillingPage() {
   // true. Without this, the page showed "Start free trial" buttons that the server
   // rejects ("already used your trial") — leaving the owner with NO way to add a
   // card and subscribe. trial_used → the plans show "Choose" (Stripe checkout).
-  const trialEligible = onFreePlan && !shop?.trial_used && !shop?.trial_ends_at && !shop?.stripe_subscription_id;
+  const trialEligible = onFreePlan && !shop?.trial_used && !shop?.trial_ended_at && !shop?.trial_ends_at && !shop?.stripe_subscription_id;
   // Show the plan they're effectively on (a lapsed Pro reads as Starter, not Pro).
   const displayPlanId = onFreePlan ? "starter" : currentPlanId;
   const displayPlan = plans.find(p => p.id === displayPlanId);
@@ -379,6 +424,8 @@ export default function BillingPage() {
   // Current plan price → so each option reads "Upgrade" (higher) or "Downgrade"
   // (lower) rather than a vague "Switch". On free = fresh "Choose".
   const currentPrice = onFreePlan ? 0 : (plans.find(p => p.id === currentPlanId)?.price_cents ?? 0);
+  const reviewedPlan = review ? plans.find(p => p.id === review.planId) : null;
+  const hasLiveSubscription = !!shop?.stripe_subscription_id && ["active", "past_due"].includes(billing?.subscriptionStatus ?? "");
 
   return (
     <div className="p-6 space-y-6 max-w-3xl">
@@ -415,7 +462,7 @@ export default function BillingPage() {
               <p className="text-[11px] text-sky-200 mt-1">Day {Math.min(TRIAL_DAYS, TRIAL_DAYS - trialDaysLeft + 1)} of your {TRIAL_DAYS}-day free trial</p>
             </div>
             <p className="text-xs text-sky-200 mt-0.5">Add a card to keep {currentPlanName} after your trial ends. {trialDaysLeft >= 2 ? `Your card isn't charged until your trial ends — you keep all ${trialDaysLeft} remaining free days` : "Your card is charged when your trial ends"}; cancel anytime. If you do nothing, your shop drops to the free Starter plan.</p>
-            <Button size="sm" className="mt-2" loading={actionLoading === currentPlanId} onClick={() => startCheckoutUpgrade(currentPlanId)}>
+            <Button size="sm" className="mt-2" disabled={!!actionLoading} loading={actionLoading === currentPlanId} onClick={() => requestReview(currentPlanId, "checkout")}>
               <CreditCard size={14} /> Add card &amp; keep {currentPlanName}
             </Button>
           </div>
@@ -487,7 +534,7 @@ export default function BillingPage() {
               <AlertTriangle size={16} className="text-amber-400 flex-shrink-0 mt-0.5" />
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-amber-200">Your plan ends on <span className="font-semibold text-amber-100">{fmtDate(billing?.nextBilling)}</span>, then switches to the free Starter plan. No more charges.</p>
-                <button onClick={resumePlan} disabled={actionLoading === "resume"} className="text-xs font-semibold text-amber-300 hover:text-amber-200 mt-1.5 disabled:opacity-60">
+                <button onClick={() => requestReview(currentPlanId, "resume")} disabled={!!actionLoading} className="text-xs font-semibold text-amber-300 hover:text-amber-200 mt-1.5 disabled:opacity-60">
                   {actionLoading === "resume" ? "Resuming…" : "Resume plan"}
                 </button>
               </div>
@@ -515,11 +562,11 @@ export default function BillingPage() {
                       {trialEligible && <p className="text-[11px] font-semibold text-emerald-400 mt-1">21-day free trial · no card</p>}
                     </div>
                     {trialEligible ? (
-                      <Button size="sm" variant="primary" loading={actionLoading === p.id} onClick={() => startTrial(p.id)}>
+                      <Button size="sm" variant="primary" disabled={!!actionLoading} loading={actionLoading === p.id} onClick={() => requestReview(p.id, "trial")}>
                         <ArrowUpRight size={14} /> Start free trial
                       </Button>
                     ) : (
-                      <Button size="sm" variant={!onFreePlan && p.price_cents < currentPrice ? "outline" : "primary"} loading={actionLoading === p.id} onClick={() => startCheckoutUpgrade(p.id)}>
+                      <Button size="sm" variant={!onFreePlan && p.price_cents < currentPrice ? "outline" : "primary"} disabled={!!actionLoading} loading={actionLoading === p.id} onClick={() => requestReview(p.id, "checkout")}>
                         {onFreePlan
                           ? <><ArrowUpRight size={14} /> Choose</>
                           : p.price_cents < currentPrice
@@ -538,7 +585,7 @@ export default function BillingPage() {
                     </ul>
                   )}
                   {trialEligible && (
-                    <button type="button" onClick={() => startCheckoutUpgrade(p.id)} className="text-[11px] text-grey hover:text-foreground transition-colors">
+                    <button type="button" disabled={!!actionLoading} onClick={() => requestReview(p.id, "checkout")} className="text-[11px] text-grey hover:text-foreground transition-colors">
                       or subscribe now with a card
                     </button>
                   )}
@@ -682,6 +729,23 @@ export default function BillingPage() {
         </Card>
       )}
 
+      {review && reviewedPlan && <PlanReview title={review.mode === "resume" ? "Review renewal" : `Review ${reviewedPlan.name}`} busy={!!actionLoading}
+        onCancel={() => setReview(null)} onConfirm={confirmReview}
+        confirmLabel={review.mode === "trial" ? "Start my 21-day free trial" : review.mode === "resume" ? "Confirm monthly renewal" : hasLiveSubscription ? "Confirm plan change" : "Continue to secure checkout"}>
+        <dl className="space-y-2">
+          <div className="flex justify-between gap-4"><dt>Plan</dt><dd className="text-foreground font-semibold">{reviewedPlan.name}</dd></div>
+          <div className="flex justify-between gap-4"><dt>Base subscription</dt><dd className="text-foreground">{formatPlanPrice(review.price)} CAD / month</dd></div>
+          <div className="flex justify-between gap-4"><dt>Billing cycle</dt><dd className="text-foreground">Monthly</dd></div>
+        </dl>
+        {review.mode === "trial" ? <p><strong className="text-foreground">$0 today. No card required.</strong> Your trial lasts 21 days. Nothing is charged automatically: subscribe with a card to keep this plan, or return to Starter when the trial ends.</p>
+          : review.mode === "resume" ? <p>Undo the scheduled cancellation. Your subscription will renew automatically from {fmtDate(billing?.nextBilling)} and monthly thereafter until cancelled.</p>
+          : hasLiveSubscription ? <p>Your plan changes immediately. Stripe applies a credit or charge for the unused part of this billing period on your next invoice ({fmtDate(billing?.nextBilling)}). That invoice can differ from the base monthly price. {billing?.cancelAtPeriodEnd ? "Your scheduled cancellation remains in place." : "The subscription renews monthly until cancelled."}</p>
+          : <p>No payment is taken by this button. Stripe shows the final total and first charge date before you subscribe. {isTrial ? "Your remaining trial is preserved; checkout may extend the end date slightly if it is near expiry." : "Without an active trial, the first payment is due when you complete checkout."} After subscribing, it renews monthly until cancelled.</p>}
+        <p>Base plan price excludes any applicable tax, existing add-ons and payment-processing fees. Additional-location charges are recalculated for the selected plan. {shops.length > 1 ? `This subscription is shared across your ${shops.length} locations.` : ""}</p>
+        {!onFreePlan && reviewedPlan.price_cents < currentPrice && <p>Downgrading removes features and reduces limits immediately. Check the selected plan&apos;s included features before confirming.</p>}
+        {review.mode !== "trial" && <p>Cancel in Billing to stop future renewals; paid access continues to the end of the billing period. No refund for unused days.</p>}
+      </PlanReview>}
+
       {/* Cancel / downgrade-to-free confirmation */}
       {showCancel && (
         <>
@@ -689,7 +753,9 @@ export default function BillingPage() {
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-md space-y-4">
               <h2 className="text-lg font-bold text-foreground">{isTrial ? "Switch to the free plan?" : `Cancel ${currentPlanName}?`}</h2>
-              {isTrial ? (
+              {!shop?.stripe_subscription_id && !isTrial ? (
+                <p className="text-sm text-grey">There is no recurring Stripe subscription to cancel. Confirming switches this shop to free Starter immediately and removes its paid features. No refund or charge is created.</p>
+              ) : isTrial ? (
                 <p className="text-sm text-grey">
                   You&apos;re on a free trial{trialDaysLeft ? ` (${trialDaysLeft} day${trialDaysLeft === 1 ? "" : "s"} left)` : ""} — you won&apos;t be charged either way. You can keep {currentPlanName} until{" "}
                   <span className="text-foreground font-medium">{fmtDate(shop?.trial_ends_at as string | null)}</span>, then it becomes the free Starter plan automatically. Or switch to free right now.
@@ -700,13 +766,15 @@ export default function BillingPage() {
                   <span className="text-foreground font-medium">{fmtDate(billing?.nextBilling)}</span> — then you move to the free Starter plan. No more charges, and no refund for the unused days.
                 </p>
               )}
-              {shops && shops.length > 1 && (
+              {shops && shops.length > 1 && shop?.stripe_subscription_id && (
                 <p className="text-xs text-amber-500/90 bg-amber-500/10 border border-amber-500/25 rounded-lg px-3 py-2">
                   Heads up: your locations share one subscription, so this applies to <span className="font-semibold">all {shops.length} of your locations</span>.
                 </p>
               )}
               <div className="flex flex-col gap-2 pt-1">
-                {isTrial ? (
+                {!shop?.stripe_subscription_id && !isTrial ? (
+                  <><Button variant="danger" loading={actionLoading === "cancel"} onClick={() => cancelPlan(true)}>Switch to free now</Button><Button variant="outline" onClick={() => setShowCancel(false)}>Keep {currentPlanName}</Button></>
+                ) : isTrial ? (
                   <>
                     <Button variant="danger" loading={actionLoading === "cancel"} onClick={() => cancelPlan(true)}>Switch to free now</Button>
                     <Button variant="outline" onClick={() => setShowCancel(false)}>Keep my trial</Button>

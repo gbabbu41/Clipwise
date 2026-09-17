@@ -18,7 +18,11 @@ export async function POST(request: NextRequest) {
   const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
   if (error || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { plan, upgrade } = await request.json() as { plan: string; upgrade?: boolean };
+  const body = await request.json().catch(() => null);
+  const { plan, upgrade, expected_price_cents } = (body ?? {}) as { plan?: string; upgrade?: boolean; expected_price_cents?: number };
+  if (typeof plan !== "string" || !plan || plan.length > 100 || (upgrade !== undefined && typeof upgrade !== "boolean")) {
+    return NextResponse.json({ error: "Invalid plan selection" }, { status: 400 });
+  }
 
   // Pricing is the admin-editable DB plan; fall back to the hardcoded map only
   // if the plans table is missing/empty (pre-migration safety). A purchasable
@@ -31,10 +35,16 @@ export async function POST(request: NextRequest) {
     amount = dbPlan.price_cents;
     planName = dbPlan.name;
   } else {
+    if (planRows.length > 0) return NextResponse.json({ error: "This plan is not available for purchase." }, { status: 400 });
     const fallback = PLAN_PRICING[plan];
-    if (!fallback) return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
+    if (!fallback || !Number.isSafeInteger(fallback.amount) || fallback.amount <= 0) return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
     amount = fallback.amount;
     planName = fallback.name;
+  }
+  // The browser does not set the price; it acknowledges the server price the
+  // owner reviewed. An old tab must review again before a changed price bills.
+  if (!Number.isSafeInteger(expected_price_cents) || expected_price_cents !== amount) {
+    return NextResponse.json({ error: "price_changed", message: "The plan price changed or was not confirmed. Reload Billing and review the price again." }, { status: 409 });
   }
 
   // For an upgrade from the billing page, capture the existing subscription so the
@@ -46,9 +56,10 @@ export async function POST(request: NextRequest) {
   // they keep every remaining free day instead of being billed on the spot.
   let trialEndUnix: number | undefined;
   if (upgrade) {
-    const { data: shops } = await supabaseAdmin
+    const { data: shops, error: shopsError } = await supabaseAdmin
       .from("shops").select("name, stripe_subscription_id, stripe_customer_id, trial_ends_at, subscription_status")
       .eq("owner_id", user.id).order("created_at", { ascending: false }).limit(1);
+    if (shopsError) return NextResponse.json({ error: "Couldn't check your subscription. Please try again." }, { status: 503 });
     oldSubscriptionId = shops?.[0]?.stripe_subscription_id ?? "";
     customerId = shops?.[0]?.stripe_customer_id ?? undefined;
     const shopName = shops?.[0]?.name ?? "";

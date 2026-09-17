@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { SetupSheet } from "./setup-sheet";
+import { canPromptPaymentSetup } from "@/lib/setup-prompts";
 
 // Squire-style setup nudge on the calendar with a smart completion flow:
 //   • LOCATION + HOURS are the essentials — they keep coming back until actually
@@ -36,16 +37,19 @@ export function CalendarSetupNudge() {
 
   useEffect(() => {
     if (!shop || profile?.role !== "shop_owner") { setSteps(null); return; }
+    setSteps(null);
     let cancelled = false;
     (async () => {
-      const [{ count: svcCount }, { data: barbers }] = await Promise.all([
+      const [{ count: svcCount, error: servicesError }, { data: barbers, error: barbersError }] = await Promise.all([
         supabase.from("services").select("id", { count: "exact", head: true }).eq("shop_id", shop.id),
         supabase.from("barbers").select("id").eq("shop_id", shop.id),
       ]);
+      if (servicesError || barbersError) return; // unavailable is not "not set up"
       const barberIds = (barbers ?? []).map((b: { id: string }) => b.id);
       let hasHours = false;
       if (barberIds.length) {
-        const { count: tsCount } = await supabase.from("time_slots").select("id", { count: "exact", head: true }).in("barber_id", barberIds);
+        const { count: tsCount, error: hoursError } = await supabase.from("time_slots").select("id", { count: "exact", head: true }).in("barber_id", barberIds);
+        if (hoursError) return;
         hasHours = (tsCount ?? 0) > 0;
       }
       let shared = false;
@@ -58,11 +62,11 @@ export function CalendarSetupNudge() {
         { key: "barber", prompt: "add yourself to the calendar", cta: "Add yourself as a barber", href: "/dashboard/staff", done: barberIds.length > 0 },
         { key: "logo", prompt: "add your shop logo", cta: "Add a logo", href: "/dashboard/settings", done: !!shop.logo },
         { key: "phone", prompt: "add a contact number", cta: "Add your phone number", href: "/dashboard/settings", done: !!(shop.phone && shop.phone.trim()) },
-        { key: "payments", prompt: "connect payments to get paid", cta: "Connect payments", href: "/dashboard/stripe", done: !!shop.stripe_account_id },
+        ...(canPromptPaymentSetup(shop) ? [{ key: "payments", prompt: "connect payments to accept cards", cta: "Set up customer payments", href: "/onboarding/stripe-connect", done: shop.stripe_connected === true }] : []),
         { key: "share", prompt: "share your booking link", cta: "Share your booking link", href: "/dashboard/share", done: shared },
       ];
       if (!cancelled) setSteps(list);
-    })();
+    })().catch(() => { /* Don't show incorrect setup advice after a failed read. */ });
     return () => { cancelled = true; };
   }, [shop, profile]);
 

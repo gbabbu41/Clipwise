@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { sendSmsBestEffort, toE164 } from "@/lib/twilio";
 import { canReceivePromos } from "@/lib/consent";
 import { effectivePlan, isPaidPlan } from "@/lib/validation";
+import { canPromptPaymentSetup } from "@/lib/setup-prompts";
 import { ensurePlansHydrated } from "@/lib/plans-server";
 import { prettyDate } from "@/lib/utils";
 import { safeTz, todayInTz, shiftYmd, hoursUntilBooking } from "@/lib/timezone";
@@ -76,7 +77,7 @@ async function run() {
 
   const { data: shops } = await supabaseAdmin
     .from("shops")
-    .select("id, name, email, slug, subscription_plan, subscription_status, booking_settings, timezone, google_place_id, owner_id, stripe_connected, created_at, connect_nudge_sent_at");
+    .select("id, name, email, slug, subscription_plan, subscription_status, trial_ends_at, stripe_subscription_id, booking_settings, timezone, google_place_id, owner_id, stripe_connected, created_at, connect_nudge_sent_at");
   if (!shops?.length) return NextResponse.json({ ok: true, shops: 0 });
 
   let emails = 0, texts = 0, retagged = 0, sends = 0;
@@ -382,7 +383,7 @@ async function run() {
     // A payments-capable shop (paid/trial plan — Starter is cash-only) that never
     // finished Connect silently can't take online payments / deposits / no-show
     // fees. Nudge the owner ONCE, a couple days in. connect_nudge_sent_at dedupes.
-    if (isPaidPlan(plan) && (shop as { stripe_connected?: boolean }).stripe_connected !== true
+    if (canPromptPaymentSetup(shop) && (shop as { stripe_connected?: boolean }).stripe_connected !== true
         && !(shop as { connect_nudge_sent_at?: string | null }).connect_nudge_sent_at && sends < MAX_SENDS) {
       const createdAt = (shop as { created_at?: string | null }).created_at;
       const ageDays = createdAt ? (Date.now() - Date.parse(createdAt)) / 86_400_000 : 0;

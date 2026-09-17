@@ -6,6 +6,7 @@ import { getLocationLimit } from "@/lib/validation";
 import { reconcileLocationAddon, reconcileAiPhoneAddon } from "@/lib/stripe-addons";
 import { cancelDuplicateSubscriptions } from "@/lib/stripe-subscription";
 import { isNativeRequest } from "@/lib/native-app";
+import { sendAppEmail } from "@/lib/emailer";
 
 // Called by the Billing page when the owner returns from a subscription
 // Checkout (upgrade/switch). Verifies the session and applies the plan to the
@@ -22,8 +23,10 @@ export async function POST(request: NextRequest) {
   const { data: { user }, error: authErr } = await supabaseAdmin.auth.getUser(token);
   if (authErr || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { session_id } = await request.json() as { session_id?: string };
-  if (!session_id) return NextResponse.json({ error: "Missing session_id" }, { status: 400 });
+  const body = await request.json().catch(() => null);
+  if (!body || typeof body !== "object" || Array.isArray(body)) return NextResponse.json({ error: "Invalid request." }, { status: 400 });
+  const { session_id } = body as { session_id?: string };
+  if (typeof session_id !== "string" || !session_id || session_id.length > 255) return NextResponse.json({ error: "Missing or invalid session_id" }, { status: 400 });
 
   let session: Awaited<ReturnType<typeof stripe.checkout.sessions.retrieve>>;
   try {
@@ -39,21 +42,54 @@ export async function POST(request: NextRequest) {
   if (!meta.user_id || meta.user_id !== user.id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  const paid = session.payment_status === "paid" || session.status === "complete";
+  const paid = session.status === "complete" && (session.payment_status === "paid" || session.payment_status === "no_payment_required");
   if (session.mode !== "subscription" || !paid) {
     return NextResponse.json({ ok: false, paid: false });
   }
 
-  const planId = meta.plan || null;
   const newSubId = typeof session.subscription === "string" ? session.subscription : null;
   const customerId = typeof session.customer === "string" ? session.customer : null;
   const oldSubId = meta.old_subscription_id || "";
+  if (!newSubId || !customerId) return NextResponse.json({ error: "Could not verify subscription." }, { status: 409 });
 
-  const { data: shops } = await supabaseAdmin
-    .from("shops").select("id, name, email, subscription_plan, subscription_status")
-    .eq("owner_id", user.id).order("created_at", { ascending: false }).limit(1);
+  // A completed Checkout URL is a historical receipt, not proof of CURRENT
+  // entitlement. Reopening it after cancellation or a plan change must never
+  // revive the old plan or cancel the owner's newer subscription.
+  let currentSub: Awaited<ReturnType<typeof stripe.subscriptions.retrieve>>;
+  try {
+    currentSub = await stripe.subscriptions.retrieve(newSubId);
+  } catch {
+    return NextResponse.json({ error: "Couldn't verify your current subscription. Please refresh Billing." }, { status: 502 });
+  }
+  const subCustomer = typeof currentSub.customer === "string" ? currentSub.customer : currentSub.customer?.id;
+  if (currentSub.metadata?.user_id !== user.id || subCustomer !== customerId) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  if (!["active", "trialing"].includes(currentSub.status) || !currentSub.metadata?.plan) {
+    return NextResponse.json({ error: "This checkout no longer has an active subscription. Refresh Billing to see your current plan." }, { status: 409 });
+  }
+  const planId = currentSub.metadata.plan;
+
+  const { data: shops, error: shopsError } = await supabaseAdmin
+    .from("shops").select("id, name, email, subscription_plan, subscription_status, stripe_subscription_id")
+    .eq("owner_id", user.id).order("created_at", { ascending: false });
+  if (shopsError) return NextResponse.json({ error: "Couldn't check your account. Please try again." }, { status: 503 });
   const shop = shops?.[0];
   if (!shop) return NextResponse.json({ error: "Shop not found" }, { status: 404 });
+  const alreadyApplied = shops.every(s => s.stripe_subscription_id === newSubId && s.subscription_plan === planId && s.subscription_status === "active");
+
+  const otherIds = Array.from(new Set((shops ?? []).map(s => s.stripe_subscription_id).filter((id): id is string => !!id && id !== newSubId)));
+  for (const id of otherIds) {
+    if (id === oldSubId) continue; // explicit replacement captured by our checkout
+    try {
+      const other = await stripe.subscriptions.retrieve(id);
+      if (!["canceled", "incomplete_expired"].includes(other.status)) {
+        return NextResponse.json({ error: "A different subscription is already attached to your account. Refresh Billing before continuing." }, { status: 409 });
+      }
+    } catch {
+      return NextResponse.json({ error: "Couldn't verify your existing subscription. Please refresh Billing." }, { status: 502 });
+    }
+  }
 
   // Label the Stripe customer with the shop's business name so invoices read
   // "To: <Shop>" rather than the cardholder's personal name.
@@ -106,19 +142,13 @@ export async function POST(request: NextRequest) {
   }
 
   // Welcome / confirmation email to the shop owner (best-effort).
-  const baseUrl = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca";
   const { data: planRow } = planId
     ? await supabaseAdmin.from("plans").select("name").eq("id", planId).maybeSingle()
     : { data: null as { name: string } | null };
   const ownerEmail = user.email || shop.email;
-  if (ownerEmail) {
-    fetch(`${baseUrl}/api/send-email`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        type: "subscription_started",
-        data: { shopName: shop.name, ownerEmail, planName: planRow?.name ?? planId ?? "your new plan" },
-      }),
+  if (ownerEmail && !alreadyApplied) {
+    await sendAppEmail("subscription_started", {
+      shopName: shop.name, ownerEmail, planName: planRow?.name ?? planId ?? "your new plan",
     }).catch(() => null);
   }
 

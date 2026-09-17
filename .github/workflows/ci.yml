@@ -21,6 +21,8 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm install --no-audit --no-fund
+      - name: Subscription flow regression tests (mocked services)
+        run: npm run test:flows
       - name: Build (real next build — same gate as Vercel)
         run: npx next build
         env:

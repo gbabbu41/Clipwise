@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { getPlatformSettings } from "@/lib/platform-settings";
-import { clampLen, FIELD_CAPS } from "@/lib/validation";
+import { clampLen, FIELD_CAPS, effectivePlan, planHasFeature } from "@/lib/validation";
+import { ensurePlansHydrated } from "@/lib/plans-server";
 import { DEFAULT_BOOKING_SETTINGS } from "@/lib/booking-defaults";
 import { tzForProvince, DEFAULT_TZ } from "@/lib/timezone";
 import { sendAppEmail } from "@/lib/emailer";
@@ -22,6 +23,7 @@ async function sendNewShopEmails(opts: {
   const planLabel = plan.charAt(0).toUpperCase() + plan.slice(1);
   const statusKind = trialEndsAt ? "trial" : (subscriptionStatus === "active" && plan !== "starter" ? "paid" : "free");
   try {
+    await ensurePlansHydrated();
     if (ownerEmail) {
       // Live shop → the full welcome (booking page is up). Still-pending shop
       // (auto-approve off) → the "we got you, under review" note instead, so we
@@ -30,6 +32,7 @@ async function sendNewShopEmails(opts: {
       await sendAppEmail(ownerType, {
         ownerEmail, ownerName, shopName, slug,
         planLabel, statusKind,
+        paymentsEnabled: String(planHasFeature(effectivePlan(plan, subscriptionStatus), "payments")),
         trialEndsOn: trialEndsAt ? prettyDate(trialEndsAt.slice(0, 10)) : "",
       });
     }
@@ -71,21 +74,31 @@ export async function POST(request: NextRequest) {
   // return it instead of creating another. Additional locations go through
   // /api/shops/add-location, which enforces the multi-location (Premium) gate.
   {
-    const { data: existing } = await supabaseAdmin
+    const { data: existing, error: existingError } = await supabaseAdmin
       .from("shops").select("id, slug, status, subscription_plan")
       .eq("owner_id", user.id).order("created_at", { ascending: true }).limit(1);
+    if (existingError) return NextResponse.json({ error: "Couldn't check your shop. Please try again." }, { status: 503 });
     if (existing && existing.length > 0) {
       return NextResponse.json({ ok: true, shop: existing[0], existing: true });
     }
   }
 
-  const body = await request.json() as {
+  const rawBody = await request.json().catch(() => null);
+  if (!rawBody || typeof rawBody !== "object" || Array.isArray(rawBody)) {
+    return NextResponse.json({ error: "Invalid shop details" }, { status: 400 });
+  }
+  const body = rawBody as {
     name?: string; address?: string; city?: string; province?: string; postal_code?: string;
     phone?: string; email?: string; description?: string; logo?: string;
     subscription_id?: string;
     trial_plan?: string;   // pro/premium → start a no-card 21-day trial
   };
-  if (!body.name?.trim()) return NextResponse.json({ error: "Shop name is required" }, { status: 400 });
+  if (typeof body.name !== "string" || !body.name.trim()) return NextResponse.json({ error: "Shop name is required" }, { status: 400 });
+  for (const field of ["address", "city", "province", "postal_code", "phone", "email", "description", "logo", "subscription_id", "trial_plan"] as const) {
+    if (body[field] != null && typeof body[field] !== "string") {
+      return NextResponse.json({ error: "Invalid shop details" }, { status: 400 });
+    }
+  }
 
   // ── Verify payment SERVER-SIDE — never trust a client-claimed plan/status ──
   let plan = "starter";
@@ -170,20 +183,15 @@ export async function POST(request: NextRequest) {
     stripe_subscription_id: stripeSubscriptionId,
     stripe_customer_id: stripeCustomerId,
     trial_ends_at: trialEndsAt,
+    trial_used: !!trialEndsAt,
   };
 
   // Unique slug — retry once with a fresh suffix on collision.
   const base = slugify(body.name);
   for (let attempt = 0; attempt < 3; attempt++) {
     const slug = `${base}-${Math.random().toString(36).slice(2, 6)}`;
-    let ins = await supabaseAdmin
+    const ins = await supabaseAdmin
       .from("shops").insert({ ...baseRow, slug }).select("id, slug, status, subscription_plan").single();
-    // Resilient to the phase34 migration not being run yet: if trial_ends_at
-    // doesn't exist, retry without it so shop creation never breaks.
-    if (ins.error && /trial_ends_at/.test(ins.error.message) && /column|does not exist|schema cache/i.test(ins.error.message)) {
-      const { trial_ends_at: _t, ...noTrial } = baseRow;
-      ins = await supabaseAdmin.from("shops").insert({ ...noTrial, slug }).select("id, slug, status, subscription_plan").single();
-    }
     if (!ins.error && ins.data) {
       // Welcome the new owner + notify admin — best-effort, never blocks signup.
       const { data: prof } = await supabaseAdmin.from("users").select("name").eq("id", user.id).maybeSingle();

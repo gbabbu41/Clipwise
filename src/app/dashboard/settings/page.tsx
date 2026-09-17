@@ -159,7 +159,7 @@ export default function SettingsPage() {
   // Must check trial_used (permanent), not just trial_ends_at (cleared when a trial
   // ends/cancels) — otherwise a used-trial owner is shown a "Start free trial"
   // button the server rejects, with no card path. trial_used → "Switch" (checkout).
-  const trialEligible = isFreePlan && !shop?.trial_used && !shop?.trial_ends_at && !shop?.stripe_subscription_id;
+  const trialEligible = isFreePlan && !shop?.trial_used && !shop?.trial_ends_at && !shop?.trial_ended_at && !shop?.stripe_subscription_id;
   // Cancel-flow state of the current shop.
   const onTrialSub = !!shop?.trial_ends_at && !shop?.stripe_subscription_id;
   const hasStripeSub = !!shop?.stripe_subscription_id;
@@ -183,10 +183,6 @@ export default function SettingsPage() {
   const [accountPhone, setAccountPhone] = useState("");
   const [savingPhone, setSavingPhone] = useState(false);
   const [toast, setToast] = useState("");
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-  const [startingTrial, setStartingTrial] = useState(false);
-  const [showCancelSub, setShowCancelSub] = useState(false);
-  const [cancellingSub, setCancellingSub] = useState(false);
   const [deactivateInput, setDeactivateInput] = useState("");
   const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -705,70 +701,8 @@ export default function SettingsPage() {
     }
   };
 
-  // Start the no-card 21-day trial for an existing Starter shop (no checkout).
-  const startTrial = async (planKey: string) => {
-    if (!accessToken) { showToast("Please sign in again"); return; }
-    setStartingTrial(true);
-    try {
-      const res = await fetch("/api/shops/start-trial", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ plan: planKey, shop_id: shop?.id }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) { showToast(data.error || "Couldn't start your trial. Please try again."); return; }
-      setShowUpgradeModal(false);
-      await refreshShop();
-      showToast("Your 21-day free trial is on — no card needed. Add a card from Billing anytime to keep it.");
-    } catch {
-      showToast("Connection error. Please try again.");
-    } finally {
-      setStartingTrial(false);
-    }
-  };
-
-  // Cancel / downgrade to free — right here, no bouncing to Billing. immediate=true
-  // switches to free now (trial or comp); false keeps a paid plan until period end.
-  const cancelSubscription = async (immediate: boolean) => {
-    if (!accessToken) { showToast("Please sign in again"); return; }
-    setCancellingSub(true);
-    try {
-      const res = await fetch("/api/stripe/cancel-subscription", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ immediate }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) { showToast(data.error || "Couldn't cancel. Please try again."); return; }
-      setShowCancelSub(false);
-      await refreshShop();
-      if (data.immediate) showToast("You're back on the free Starter plan.");
-      else if (data.scheduled) showToast("Cancelled — you keep your plan until it ends, then it's free.");
-      else showToast("Cancelled — you keep your plan until your trial ends, then it's free.");
-    } catch {
-      showToast("Connection error. Please try again.");
-    } finally {
-      setCancellingSub(false);
-    }
-  };
-
-  // Card-first upgrade (Stripe checkout). Shared by the "subscribe now" paths.
-  const startCheckout = async (planKey: string) => {
-    setShowUpgradeModal(false);
-    if (!accessToken) { showToast("Please sign in again"); return; }
-    if (planKey === "starter") { showToast("To move to Starter, cancel your plan from Billing."); return; }
-    showToast("Opening secure checkout…");
-    try {
-      const res = await fetch("/api/stripe/checkout", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ plan: planKey, upgrade: true }),
-      });
-      const data = await res.json();
-      if (data.url) window.location.href = data.url;
-      else showToast(data.error || "Could not start checkout");
-    } catch { showToast("Connection error. Please try again."); }
-  };
+  // All subscription decisions share Billing's current-price review and confirmation.
+  const reviewSubscription = () => { window.location.href = "/dashboard/billing"; };
 
   // The shared Bootstrap form-switch wraps all of these; this local alias
   // keeps the existing call signature (`<Toggle value={..} onChange={..} />`).
@@ -1313,17 +1247,17 @@ export default function SettingsPage() {
                     </div>
                   ))}
                 </div>
-                <Button variant="gold" onClick={() => setShowUpgradeModal(true)}>
+                <Button variant="gold" onClick={reviewSubscription}>
                   {activePlanKey === "premium" ? "View Plans" : "Upgrade Plan"}
                 </Button>
                 {trialEligible && (
                   <p className="text-xs text-emerald-400 mt-2">Try Pro or Premium free for 21 days — no card required.</p>
                 )}
-                {/* Paid/trial only — cancel happens right here (no bouncing to
-                    Billing). Starter is already free, so this stays hidden. */}
+                {/* Paid/trial only — review cancellation details in Billing.
+                    Starter is already free, so this stays hidden. */}
                 {!isFreePlan && (
                   <div className="mt-4 pt-4 border-t border-border">
-                    <Button variant="danger" size="sm" onClick={() => setShowCancelSub(true)}>
+                    <Button variant="danger" size="sm" onClick={reviewSubscription}>
                       Cancel or downgrade plan
                     </Button>
                     <p className="text-[11px] text-grey mt-1.5">
@@ -1715,104 +1649,6 @@ export default function SettingsPage() {
         </Card>
       )}
 
-      {showUpgradeModal && (
-        <>
-          <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setShowUpgradeModal(false)} />
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-            <div className="bg-card shadow-sm border border-border rounded-2xl p-6 w-full max-w-2xl space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-foreground">Choose a Plan</h2>
-                <button onClick={() => setShowUpgradeModal(false)} className="text-grey hover:text-foreground">✕</button>
-              </div>
-              <div className="grid md:grid-cols-3 gap-4">
-                {(() => {
-                  const activePlanKey = effectivePlan(shop?.subscription_plan, shop?.subscription_status);
-                  return planCards.map(plan => {
-                    const isCurrent = plan.key === activePlanKey;
-                    return (
-                      <div key={plan.key} className={cn("p-4 rounded-xl border", isCurrent ? "border-foreground bg-card-raised" : "border-border")}>
-                        <div className="flex items-center justify-between mb-2">
-                          <h3 className="font-bold text-foreground">{plan.name}</h3>
-                          {isCurrent && <Badge variant="gold">Current</Badge>}
-                        </div>
-                        <p className="mb-1">
-                          <span className="text-xl font-bold text-foreground">{plan.priceLabel}</span>
-                          <span className="text-xs text-grey ml-1">{plan.priceSuffix}</span>
-                        </p>
-                        {trialEligible && plan.key !== "starter" && (
-                          <p className="text-[11px] font-semibold text-emerald-400 mb-3">21-day free trial · no card</p>
-                        )}
-                        <div className="space-y-1 mb-4">
-                          {plan.features.map(f => (
-                            <p key={f} className="text-xs text-grey flex items-center gap-1"><span className="text-emerald-400">✓</span>{f}</p>
-                          ))}
-                        </div>
-                        {isCurrent ? (
-                          <Button variant="secondary" size="sm" className="w-full" disabled>Current Plan</Button>
-                        ) : trialEligible && plan.key !== "starter" ? (
-                          <div className="space-y-1.5">
-                            <Button variant="gold" size="sm" className="w-full" loading={startingTrial}
-                              onClick={() => startTrial(plan.key)}>
-                              Start 21-day free trial
-                            </Button>
-                            <button type="button" onClick={() => startCheckout(plan.key)}
-                              className="w-full text-[11px] text-grey hover:text-foreground transition-colors">
-                              or subscribe now with a card
-                            </button>
-                          </div>
-                        ) : (
-                          <Button variant="gold" size="sm" className="w-full" onClick={() => startCheckout(plan.key)}>
-                            Switch to {plan.name}
-                          </Button>
-                        )}
-                      </div>
-                    );
-                  });
-                })()}
-              </div>
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* Cancel / downgrade-to-free confirmation (in Settings, no bouncing) */}
-      {showCancelSub && (
-        <>
-          <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setShowCancelSub(false)} />
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-md space-y-4">
-              <h2 className="text-lg font-bold text-foreground">Cancel your plan?</h2>
-              {onTrialSub ? (
-                <p className="text-sm text-grey">
-                  You&apos;re on a free trial — you won&apos;t be charged. You can keep it until{" "}
-                  <span className="text-foreground font-medium">{shop?.trial_ends_at ? new Date(shop.trial_ends_at).toLocaleDateString("en-CA", { month: "long", day: "numeric", year: "numeric" }) : "it ends"}</span>, then it becomes the free Starter plan. Or switch to free now.
-                </p>
-              ) : hasStripeSub ? (
-                <p className="text-sm text-grey">
-                  You&apos;ll keep your plan until the end of your current billing period, then move to the free Starter plan. No more charges, and no refund for the unused days.
-                </p>
-              ) : (
-                <p className="text-sm text-grey">This moves you to the free Starter plan. You can upgrade again anytime.</p>
-              )}
-              <div className="flex flex-col gap-2 pt-1">
-                {onTrialSub ? (
-                  <>
-                    <Button variant="danger" loading={cancellingSub} onClick={() => cancelSubscription(true)}>Switch to free now</Button>
-                    <Button variant="outline" onClick={() => setShowCancelSub(false)}>Keep my trial</Button>
-                  </>
-                ) : (
-                  <>
-                    <Button variant="danger" loading={cancellingSub} onClick={() => cancelSubscription(!hasStripeSub)}>
-                      {hasStripeSub ? "Cancel at period end" : "Switch to free"}
-                    </Button>
-                    <Button variant="outline" onClick={() => setShowCancelSub(false)}>Keep my plan</Button>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-        </>
-      )}
     </div>
   );
 }

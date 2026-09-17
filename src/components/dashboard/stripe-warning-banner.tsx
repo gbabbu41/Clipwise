@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { AlertTriangle, ArrowRight } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useResetOnReturn } from "@/lib/use-reset-on-return";
-import { planHasFeature, effectivePlan } from "@/lib/validation";
+import { canPromptPaymentSetup } from "@/lib/setup-prompts";
 
 /**
  * Dashboard-wide warning shown to shop owners whose plan CAN take online
@@ -17,10 +17,12 @@ import { planHasFeature, effectivePlan } from "@/lib/validation";
  * Restricted account.
  */
 export function StripeWarningBanner() {
-  const { shop, accessToken } = useAuth();
-  const [needsSetup, setNeedsSetup] = useState(false);
-  const [dismissed, setDismissed] = useState(false);
+  const { shop, profile, accessToken } = useAuth();
+  const [setupShopId, setSetupShopId] = useState<string | null>(null);
+  const [dismissedShopId, setDismissedShopId] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
+  const [error, setError] = useState("");
+  const eligible = profile?.role === "shop_owner" && canPromptPaymentSetup(shop);
   // Returning from Stripe via Back restores this page from bfcache with `starting`
   // frozen — clear it so the button doesn't spin forever.
   useResetOnReturn(() => setStarting(false));
@@ -28,7 +30,8 @@ export function StripeWarningBanner() {
   // Start Stripe Connect onboarding directly (same as Billing's "Complete Setup"
   // button) — the old link only navigated to Billing without starting anything.
   const startConnect = async () => {
-    if (!accessToken) return;
+    if (!accessToken || !eligible || !shop || starting) return;
+    setError("");
     setStarting(true);
     try {
       const res = await fetch("/api/stripe/connect", {
@@ -41,14 +44,14 @@ export function StripeWarningBanner() {
       const data = await res.json();
       if (res.ok && data.url) { window.location.href = data.url; return; }
     } catch { /* fall through */ }
+    setError("Couldn't open payment setup. Please try again.");
     setStarting(false);
   };
 
   useEffect(() => {
-    if (!shop || !accessToken) return;
-    // Only relevant for shops on a paid plan that unlocks online payments.
-    const plan = effectivePlan(shop.subscription_plan, shop.subscription_status);
-    if (!planHasFeature(plan, "payments")) { setNeedsSetup(false); return; }
+    setSetupShopId(null);
+    setError("");
+    if (!shop || !accessToken || !eligible) return;
 
     let cancelled = false;
     (async () => {
@@ -56,18 +59,18 @@ export function StripeWarningBanner() {
         const res = await fetch(`/api/stripe/connect/status?shop_id=${shop.id}`, {
           headers: { Authorization: `Bearer ${accessToken}` },
         });
-        if (!res.ok) return;
+        if (!res.ok) throw new Error("Payment status unavailable");
         const data = await res.json();
-        if (!cancelled) setNeedsSetup(!data.connected);
+        if (!cancelled) setSetupShopId(data.connected === false ? shop.id : null);
       } catch {
         // Network/Stripe hiccup — fall back to the stored flag.
-        if (!cancelled) setNeedsSetup(!shop.stripe_connected);
+        if (!cancelled) setSetupShopId(shop.stripe_connected === false ? shop.id : null);
       }
     })();
     return () => { cancelled = true; };
-  }, [shop, accessToken]);
+  }, [shop, accessToken, eligible]);
 
-  if (!needsSetup || dismissed) return null;
+  if (!eligible || !shop || setupShopId !== shop.id || dismissedShopId === shop.id) return null;
 
   return (
     <div className="px-4 md:px-6 pt-4">
@@ -78,8 +81,8 @@ export function StripeWarningBanner() {
             Your Stripe payouts aren&apos;t fully set up
           </p>
           <p className="text-xs text-orange-200/80 mt-0.5">
-            Until you finish Stripe onboarding, customers can&apos;t pay online and any
-            payment links you send will fail. It only takes a couple of minutes.
+            Finish Stripe onboarding to enable customer card payments and payouts.
+            This connects your shop&apos;s bank account; it is separate from your ClipWise subscription.
           </p>
           <button
             onClick={startConnect}
@@ -88,9 +91,10 @@ export function StripeWarningBanner() {
           >
             {starting ? "Opening Stripe…" : <>Finish Stripe setup <ArrowRight size={13} /></>}
           </button>
+          {error && <p role="alert" className="text-xs text-orange-200 mt-2">{error}</p>}
         </div>
         <button
-          onClick={() => setDismissed(true)}
+          onClick={() => setDismissedShopId(shop.id)}
           className="text-orange-300/60 hover:text-orange-200 text-sm leading-none flex-shrink-0"
           aria-label="Dismiss"
         >
