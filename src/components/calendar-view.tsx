@@ -1772,6 +1772,10 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   // scrollTop back to "now" while a finger was already dragging). Reset only
   // when a deliberate navigation (view / day / barber change) re-arms focus.
   const userTookOverRef = useRef(false);
+  // Timestamp of our OWN programmatic scrollTop set, so the scroll backstop below
+  // can tell our centering apart from the user's finger (a user scroll near this
+  // time is the ONLY reliable "hands-on" signal on the iOS PWA).
+  const lastProgScrollRef = useRef(0);
   const cancelFocusPasses = useCallback(() => {
     focusTimersRef.current.forEach(clearTimeout);
     focusTimersRef.current = [];
@@ -1790,6 +1794,9 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
         ? isToday(currentDate)
         : Array.from({ length: count }, (_, i) => addDays(currentDate, i)).some(isToday);
       const line = nowLineRef.current;
+      // Mark this as OUR scroll so the scroll backstop doesn't mistake it for the
+      // user grabbing the timeline (it fires a scroll event a frame later).
+      lastProgScrollRef.current = Date.now();
       if (showsToday && line) {
         // Scroll ONLY the timeline container (never ancestors). scrollIntoView
         // bubbles up and scrolls the page/main too, which pushed the month/date/
@@ -1801,10 +1808,11 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
         el.scrollTop = 0; // non-today → top of the day (7 AM / earliest booking)
       }
     };
-    // Several passes so it lands on "now" even as the timeline reflows — the enter
-    // slide (~220ms), appointments loading in, and the desktop row-height stretch
-    // all move the line after first paint. Each pass bails once the user takes over.
-    focusTimersRef.current = [0, 120, 300, 600].map(d => setTimeout(run, d));
+    // Two passes only — one after first paint, one after the enter slide (~220ms)
+    // + data settle. Fewer programmatic scrollTop sets means iOS doesn't "eat" the
+    // first user touch trying to halt our scroll (the "works after a few taps"
+    // feel). Both bail the instant the user takes over.
+    focusTimersRef.current = [50, 400].map(d => setTimeout(run, d));
   }, [view, currentDate, dayLayout, isMobile, cancelFocusPasses]);
 
   // Callback ref for the timeline scroll container. Focuses "now" when a new view
@@ -1819,13 +1827,20 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     scrollRef.current = el;
     if (!el) return;
     const takeOver = () => { userTookOverRef.current = true; cancelFocusPasses(); };
-    el.addEventListener("touchstart", takeOver, { passive: true });
-    el.addEventListener("pointerdown", takeOver, { passive: true });
+    // A user scroll is the definitive "hands-on" signal — and on the iOS PWA it
+    // fires even when touchstart handling is flaky. Treat any scroll that isn't
+    // our own recent centering as the user taking over, and give up for good.
+    const onScroll = () => { if (Date.now() - lastProgScrollRef.current > 200) takeOver(); };
+    // capture:true so it fires before any child can swallow the touch.
+    el.addEventListener("touchstart", takeOver, { passive: true, capture: true });
     el.addEventListener("wheel", takeOver, { passive: true });
+    el.addEventListener("keydown", takeOver, { passive: true });
+    el.addEventListener("scroll", onScroll, { passive: true });
     scrollListenersCleanupRef.current = () => {
-      el.removeEventListener("touchstart", takeOver);
-      el.removeEventListener("pointerdown", takeOver);
+      el.removeEventListener("touchstart", takeOver, { capture: true } as EventListenerOptions);
       el.removeEventListener("wheel", takeOver);
+      el.removeEventListener("keydown", takeOver);
+      el.removeEventListener("scroll", onScroll);
     };
     focusTimeline();
   }, [focusTimeline, cancelFocusPasses]);
