@@ -124,13 +124,14 @@ export function HomeHero() {
 
 // Homepage-only selectors: shared marketing pages and app portals are untouched.
 const HERO_CSS = `
-.mkt .home-hero{padding:142px 0 64px;background:#000}
+.mkt .home-hero{--hh-accent:#6487b8;padding:142px 0 64px;background:#000}
 /* Homepage navigation stays black while scrolling; other marketing pages are unchanged. */
-.mkt:has(.home-hero) .navbar{background:#000;backdrop-filter:none;-webkit-backdrop-filter:none;border-color:#29292f;box-shadow:none}
+.mkt:has(.home-hero) .navbar{background:#000;backdrop-filter:none;-webkit-backdrop-filter:none;border:0;border-radius:0;box-shadow:none}
 .mkt:has(.home-hero) .navbar ul,.mkt:has(.home-hero) .navbar .login{color:#e4e4e9}
 .mkt:has(.home-hero) .navbar .burger{background:#000}
 .mkt:has(.home-hero) .mobmenu{background:#000;backdrop-filter:none;border-color:#29292f}
 .mkt:has(.home-hero) .mobmenu a{color:#e4e4e9}
+.mkt:has(.home-hero) .navbar ul a:hover,.mkt:has(.home-hero) .navbar .login:hover,.mkt:has(.home-hero) .mobmenu a:hover{color:#6487b8}
 .mkt .hh-grid{display:grid;grid-template-columns:1.08fr 1fr;gap:48px;align-items:center}
 .mkt .hh-copy{min-width:0}
 .mkt .hh-copy .eyebrow{color:#b8b8c0;font-size:10px;letter-spacing:.15em;margin-bottom:22px}
@@ -163,9 +164,9 @@ const HERO_CSS = `
 .mkt .hh-controls{display:flex;align-items:center;gap:14px;margin-top:28px}
 .mkt .hh-selectors{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));flex:1;gap:14px;min-width:0}
 .mkt .hh-selector{background:none;border:0;padding:10px 0 0;font-family:inherit;font-size:11px;text-align:left;font-weight:600;color:#a5a5ae;cursor:pointer;min-height:44px}
-.mkt .hh-selector:hover,.mkt .hh-selector.is-active{color:#fff}
+.mkt .hh-selector:hover,.mkt .hh-selector.is-active{color:var(--hh-accent)}
 .mkt .hh-track{display:block;height:2px;background:#35353c;overflow:hidden;margin-top:10px}
-.mkt .hh-track>span{display:block;width:100%;height:100%;background:#f5f4f7;transform-origin:left;transition:transform .4s ease}
+.mkt .hh-track>span{display:block;width:100%;height:100%;background:var(--hh-accent);transform-origin:left;transition:transform .4s ease}
 .mkt .hh-play{display:grid;place-items:center;flex:none;width:36px;height:36px;padding:0;border:1px solid #44444b;border-radius:50%;background:#ffffff06;color:#e4e4e9;cursor:pointer}
 .mkt .hh-play:hover{background:#ffffff12}.mkt .hh-play:disabled{opacity:.5;cursor:default}
 @media(prefers-reduced-motion:reduce){.mkt .home-hero .hh-slide,.mkt .home-hero .hh-track>span{transition:none!important}}
