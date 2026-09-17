@@ -124,9 +124,14 @@ export function HomeHero() {
 
 // Homepage-only selectors: shared marketing pages and app portals are untouched.
 const HERO_CSS = `
-.mkt .home-hero{--hh-accent:#6487b8;padding:142px 0 64px;background:#000}
-/* Homepage navigation stays black while scrolling; other marketing pages are unchanged. */
-.mkt:has(.home-hero) .navbar{background:#000;backdrop-filter:none;-webkit-backdrop-filter:none;border:0;border-radius:0;box-shadow:none}
+.mkt .home-hero{--hh-accent:#6487b8;padding:72px 0 64px;background:#000}
+/* Match the approved demo: normal-flow header, never fixed or sticky. */
+.mkt:has(.home-hero) .navbar{position:relative;top:auto;left:auto;transform:none;margin:0 auto;height:auto;min-height:70px;padding:26px 10px 0 20px;justify-content:space-between;gap:24px;background:#000;backdrop-filter:none;-webkit-backdrop-filter:none;border:0;border-radius:0;box-shadow:none}
+.mkt:has(.home-hero) .navbar .brand{font-size:19px}
+.mkt:has(.home-hero) .navbar ul{gap:23px;font-size:12px}
+.mkt:has(.home-hero) .navbar .right{gap:16px}
+.mkt:has(.home-hero) .navbar .login{font-size:12px}
+.mkt:has(.home-hero) .navbar .go{display:inline-flex;align-items:center;justify-content:center;min-height:44px;font-size:12px;padding:11px 17px}
 .mkt:has(.home-hero) .navbar ul,.mkt:has(.home-hero) .navbar .login{color:#e4e4e9}
 .mkt:has(.home-hero) .navbar .burger{background:#000}
 .mkt:has(.home-hero) .mobmenu{background:#000;backdrop-filter:none;border-color:#29292f}
@@ -171,6 +176,6 @@ const HERO_CSS = `
 .mkt .hh-play:hover{background:#ffffff12}.mkt .hh-play:disabled{opacity:.5;cursor:default}
 @media(prefers-reduced-motion:reduce){.mkt .home-hero .hh-slide,.mkt .home-hero .hh-track>span{transition:none!important}}
 @media(max-width:960px){.mkt .hh-grid{gap:28px}.mkt .hh-copy h1{font-size:42px}.mkt .hh-preview{padding:18px 14px}.mkt .hh-preview-heading{font-size:8px;letter-spacing:.08em}.mkt .hh-screens{gap:8px}}
-@media(max-width:760px){.mkt .home-hero{padding:116px 0 40px}.mkt .hh-grid{grid-template-columns:1fr;gap:32px}.mkt .hh-copy h1{font-size:clamp(36px,7.8vw,52px);max-width:18ch;text-wrap:initial}.mkt .hh-description{font-size:16px;margin:20px 0 24px}.mkt .hh-copy .eyebrow{margin-bottom:18px}.mkt .hh-benefits{margin-top:26px;padding-top:18px}.mkt .hh-preview{width:100%;max-width:440px;margin:0 auto;padding:20px}.mkt .hh-preview-heading{font-size:9px}.mkt .hh-screens{gap:12px}.mkt .hh-calendar{width:53%}.mkt .hh-dashboard{width:43%}}
+@media(max-width:760px){.mkt .home-hero{padding:48px 0 40px}.mkt:has(.home-hero) .navbar{padding-top:22px;min-height:66px;gap:12px}.mkt .hh-grid{grid-template-columns:1fr;gap:32px}.mkt .hh-copy h1{font-size:clamp(36px,7.8vw,52px);max-width:18ch;text-wrap:initial}.mkt .hh-description{font-size:16px;margin:20px 0 24px}.mkt .hh-copy .eyebrow{margin-bottom:18px}.mkt .hh-benefits{margin-top:26px;padding-top:18px}.mkt .hh-preview{width:100%;max-width:440px;margin:0 auto;padding:20px}.mkt .hh-preview-heading{font-size:9px}.mkt .hh-screens{gap:12px}.mkt .hh-calendar{width:53%}.mkt .hh-dashboard{width:43%}}
 @media(max-width:420px){.mkt .home-hero .wrap{padding-inline:22px}.mkt .hh-copy .cta{flex-direction:column}.mkt .hh-copy .pill{width:100%}.mkt .hh-copy .micro{font-size:12px}.mkt .hh-benefits{gap:12px}.mkt .hh-benefits p{font-size:11px}.mkt .hh-preview{padding:18px 14px}.mkt .hh-phone{padding:3px;border-radius:17px}.mkt .hh-phone img{border-radius:13px}}
 `;
