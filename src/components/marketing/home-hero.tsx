@@ -51,7 +51,7 @@ export function HomeHero() {
 
   useEffect(() => {
     if (!running) return;
-    const timer = window.setTimeout(() => setActive(index => (index + 1) % FEATURES.length), 4000);
+    const timer = window.setTimeout(() => setActive(index => (index + 1) % FEATURES.length), 5000);
     return () => window.clearTimeout(timer);
   }, [active, running]);
 
@@ -150,11 +150,10 @@ const HERO_CSS = `
 .mkt .hh-preview figcaption{font-size:12px;line-height:1.6;color:#e4e4e9;margin-top:22px}
 .mkt .hh-preview figcaption span{display:block;color:#a5a5ae;font-size:10px;margin-top:3px}
 .mkt .hh-stack{display:grid}
-.mkt .hh-slide{grid-area:1/1;min-width:0;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .55s ease,visibility 0s .55s}
-.mkt .hh-slide.is-active{opacity:1;visibility:visible;pointer-events:auto;transition:opacity .55s ease,visibility 0s}
-/* Clear outgoing copy before fading in the next headline; screenshots crossfade. */
-.mkt .hh-copy .hh-slide{transition:opacity .18s ease-out,visibility 0s .18s}
-.mkt .hh-copy .hh-slide.is-active{transition:opacity .38s cubic-bezier(.22,1,.36,1) .18s,visibility 0s .18s}
+/* All changing content fades out together, then fades in after a short clear beat.
+   Keep visibility until fade-out ends; reserve every layer's space to avoid jumps. */
+.mkt .hh-slide{grid-area:1/1;min-width:0;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .45s ease-in-out,visibility 0s .45s}
+.mkt .hh-slide.is-active{opacity:1;visibility:visible;pointer-events:auto;transition:opacity .55s ease-in-out .55s,visibility 0s .55s}
 .mkt .hh-controls{display:flex;align-items:center;gap:14px;margin-top:28px}
 .mkt .hh-selectors{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));flex:1;gap:14px;min-width:0}
 .mkt .hh-selector{background:none;border:0;padding:10px 0 0;font-family:inherit;font-size:11px;text-align:left;font-weight:600;color:#a5a5ae;cursor:pointer;min-height:44px}
