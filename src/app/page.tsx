@@ -2,13 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { PLAN_MARKETING } from "@/lib/plan-marketing";
 import { HomeHero } from "@/components/marketing/home-hero";
+import { HomePageStyles } from "@/components/marketing/home-page-styles";
 import { MarketingShell } from "@/components/marketing/shell";
 
-// Public marketing homepage. The DESIGN is the "new" black/emerald landing (ditto);
+// Public marketing homepage. Black, white, and restrained muted-blue accents;
 // the SYSTEM + DATA are ours — real routes on every CTA, pricing rendered from the
 // PLAN_MARKETING single source of truth, and our real footer. The whole page is a
-// server component (indexable, copy in the initial HTML), including the product
-// hero. Theme CSS is scoped under `.mkt`, so the portals are untouched.
+// server-rendered (indexable, copy in the initial HTML), with an interactive
+// product hero. Theme CSS is scoped under `.mkt`, so the portals are untouched.
 //
 // Native app never reaches this: middleware redirects `/` → /dashboard for the app,
 // so none of the billing/pricing here leaks into the iOS shell (Apple IAP).
@@ -31,6 +32,8 @@ export const metadata: Metadata = {
 export default function HomePage() {
   return (
     <MarketingShell>
+      <HomePageStyles />
+      <main className="home-content">
       <HomeHero />
 
       {/* proof strip */}
@@ -54,9 +57,9 @@ export default function HomePage() {
           </div>
           <div className="two" style={{ alignItems: "center" }}>
             <div className="devs">
-              <div className="dev a"><img src="/new/app-cal.jpg" alt="Calendar" loading="lazy" /></div>
-              <div className="dev b"><img src="/new/app-week.jpg" alt="The week view with walk-in, POS and analytics shortcuts" loading="lazy" /></div>
-              <div className="dev c"><img src="/new/app-donut.jpg" alt="Booking status — completed, cancelled, confirmed and no-shows" loading="lazy" /></div>
+              <div className="dev a"><img src="/new/app-cal.jpg" width={640} height={1280} alt="Calendar" loading="lazy" /></div>
+              <div className="dev b"><img src="/new/app-week.jpg" width={640} height={1280} alt="The week view with walk-in, POS and analytics shortcuts" loading="lazy" /></div>
+              <div className="dev c"><img src="/new/app-donut.jpg" width={640} height={1280} alt="Booking status — completed, cancelled, confirmed and no-shows" loading="lazy" /></div>
             </div>
             <ul className="bul" style={{ gap: 18 }}>
               <li><b>Calendar &amp; waitlist.</b>Drag to reschedule, fill gaps from the waitlist, let walk-ins check themselves in.</li>
@@ -71,7 +74,7 @@ export default function HomePage() {
 
       {/* the problem */}
       <section className="blk band">
-        <img className="bg" src="/new/atmo-tools.jpg" alt="" loading="lazy" />
+        <img className="bg" src="/new/atmo-tools.jpg" width={1500} height={1000} alt="" loading="lazy" />
         <div className="veil" /><div className="grain" />
         <div className="wrap">
           <div className="head" style={{ marginBottom: 0 }}>
@@ -95,7 +98,7 @@ export default function HomePage() {
               <li><b>No-show rate.</b>Tracked automatically, so you know what it’s costing you.</li>
             </ul>
           </div>
-          <div className="dev"><img src="/new/app-home.jpg" alt="The ClipWise dashboard showing revenue, average ticket and no-show rate" loading="lazy" /></div>
+          <div className="dev"><img src="/new/app-home.jpg" width={640} height={1280} alt="The ClipWise dashboard showing revenue, average ticket and no-show rate" loading="lazy" /></div>
         </div>
       </section>
 
@@ -104,14 +107,14 @@ export default function HomePage() {
         <div className="wrap">
           <div className="head">
             <p className="eyebrow">Client booking</p>
-            <h2>Four taps. No app.<br /><em>No fee.</em></h2>
-            <p className="lead">Your own booking page — from an Instagram bio to a confirmed appointment with a card on file, without your client ever paying a surcharge.</p>
+            <h2>Four steps. No app.<br /><em>No booking fee.</em></h2>
+            <p className="lead">Your own booking page — from an Instagram bio to a confirmed appointment, without your client paying a booking surcharge. Payment options follow your shop’s settings.</p>
           </div>
           <div className="rail">
-            <div className="step"><p className="sn">01 / SHOP</p><div className="fr"><img src="/new/book-shop.jpg" alt="Shop page" loading="lazy" /></div><p>Your shop, your services, your prices.</p></div>
-            <div className="step"><p className="sn">02 / SERVICE</p><div className="fr"><img src="/new/book-service.jpg" alt="Choose services" loading="lazy" /></div><p>Pick one, or combine several in a visit.</p></div>
-            <div className="step"><p className="sn">03 / TIME</p><div className="fr"><img src="/new/book-time.jpg" alt="Choose a time" loading="lazy" /></div><p>Real availability, by barber or anyone.</p></div>
-            <div className="step"><p className="sn">04 / CONFIRM</p><div className="fr"><img src="/new/book-confirm.jpg" alt="Confirm and pay" loading="lazy" /></div><p>Pay now or reserve — tax shown, total confirmed.</p></div>
+            <div className="step"><p className="sn">01 / SHOP</p><div className="fr"><img src="/new/book-shop.jpg" width={520} height={1016} alt="Shop page" loading="lazy" /></div><p>Your shop, your services, your prices.</p></div>
+            <div className="step"><p className="sn">02 / SERVICE</p><div className="fr"><img src="/new/book-service.jpg" width={520} height={1016} alt="Choose services" loading="lazy" /></div><p>Pick one, or combine several in a visit.</p></div>
+            <div className="step"><p className="sn">03 / TIME</p><div className="fr"><img src="/new/book-time.jpg" width={520} height={1016} alt="Choose a time" loading="lazy" /></div><p>Real availability, by barber or anyone.</p></div>
+            <div className="step"><p className="sn">04 / CONFIRM</p><div className="fr"><img src="/new/book-confirm.jpg" width={520} height={1016} alt="Confirm and pay" loading="lazy" /></div><p>Pay now or reserve — tax shown, total confirmed.</p></div>
           </div>
         </div>
       </section>
@@ -131,26 +134,26 @@ export default function HomePage() {
             </div>
             <p className="fine">Shown on a $34 cut. Processing is billed by Stripe at their standard Canadian rates, directly to your own account.</p>
           </div>
-          <div className="dev"><img src="/new/app-pay.jpg" alt="The ClipWise payments screen" loading="lazy" /></div>
+          <div className="dev"><img src="/new/app-pay.jpg" width={640} height={1280} alt="The ClipWise payments screen" loading="lazy" /></div>
         </div>
       </section>
 
       {/* no-shows */}
       <section className="blk band">
-        <img className="bg" src="/new/atmo-fade.jpg" alt="" loading="lazy" />
+        <img className="bg" src="/new/atmo-fade.jpg" width={1000} height={1500} alt="" loading="lazy" />
         <div className="veil" /><div className="grain" />
         <div className="wrap two">
           <div className="copy">
             <p className="eyebrow">No-shows</p>
             <h2>The empty chair,<br /><em>covered.</em></h2>
-            <p className="lead">Every booking keeps a card on file. Nothing’s charged when they show — but a no-show is one tap, not a phone call you never make.</p>
+            <p className="lead">Enable no-show protection to collect a card when clients book. For eligible bookings with a saved card, manage a no-show charge from the appointment.</p>
             <ul className="bul">
-              <li><b>Card on file.</b>Saved at booking, charged only if they don’t show.</li>
-              <li><b>One tap to charge.</b>Straight from the booking itself.</li>
+              <li><b>Card on file.</b>Require a saved card for pay-in-person bookings when your payment setup supports it.</li>
+              <li><b>Charge from the booking.</b>Review an eligible no-show and apply your shop’s policy.</li>
               <li><b>Your rules.</b>You set the fee and the window.</li>
             </ul>
           </div>
-          <div className="dev"><img src="/new/app-checkout.jpg" alt="Charging a no-show from the checkout screen" loading="lazy" /></div>
+          <div className="dev"><img src="/new/app-checkout.jpg" width={640} height={1280} alt="Charging a no-show from the checkout screen" loading="lazy" /></div>
         </div>
       </section>
 
@@ -162,7 +165,7 @@ export default function HomePage() {
             <h2>Built around your business —<br /><em>not ours.</em></h2>
           </div>
           <div className="figs">
-            <div className="fig"><p className="n">$0</p><h3>Client booking fees</h3><p>Your clients never pay a surcharge to book. Other platforms add a per-booking fee; we add nothing.</p></div>
+            <div className="fig"><p className="n">$0</p><h3>Client booking fees</h3><p>Your clients never pay a surcharge to book through ClipWise. Your services, your prices, no extra booking fee.</p></div>
             <div className="fig"><p className="n">0%</p><h3>Commission</h3><p>Every client you bring in stays 100% yours. No cut taken on your own followers, ever.</p></div>
             <div className="fig"><p className="n">100%</p><h3>Of every tip</h3><p>Tips go straight to your Stripe account — collected online or from a post-visit link.</p></div>
           </div>
@@ -181,6 +184,7 @@ export default function HomePage() {
               <div key={p.plan} className={`tier${p.pop ? " hi" : ""}`}>
                 <p className="tn">{p.n}</p>
                 <div className="pr"><span className="p">{p.p}</span><span className="u">{p.per}</span></div>
+                <p className="plan-for">{p.forWho}</p>
                 <ul>{p.yes.map((y, i) => <li key={i}>{y}</li>)}</ul>
                 <Link className={`pill ${p.pop ? "w" : "g"}`} href={`/signup?plan=${p.plan}`}>{p.cta}</Link>
               </div>
@@ -192,7 +196,7 @@ export default function HomePage() {
 
       {/* close */}
       <section className="close">
-        <img className="bg" src="/new/atmo-shop.jpg" alt="" loading="lazy" />
+        <img className="bg" src="/new/atmo-shop.jpg" width={1500} height={1001} alt="" loading="lazy" />
         <div className="veil" /><div className="grain" />
         <div className="wrap">
           <p className="eyebrow">Get started</p>
@@ -205,6 +209,7 @@ export default function HomePage() {
         </div>
       </section>
 
+      </main>
     </MarketingShell>
   );
 }
