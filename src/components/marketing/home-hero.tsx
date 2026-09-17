@@ -51,7 +51,7 @@ export function HomeHero() {
 
   useEffect(() => {
     if (!running) return;
-    const timer = window.setTimeout(() => setActive(index => (index + 1) % FEATURES.length), 1000);
+    const timer = window.setTimeout(() => setActive(index => (index + 1) % FEATURES.length), 4000);
     return () => window.clearTimeout(timer);
   }, [active, running]);
 
@@ -152,6 +152,9 @@ const HERO_CSS = `
 .mkt .hh-stack{display:grid}
 .mkt .hh-slide{grid-area:1/1;min-width:0;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .55s ease,visibility 0s .55s}
 .mkt .hh-slide.is-active{opacity:1;visibility:visible;pointer-events:auto;transition:opacity .55s ease,visibility 0s}
+/* Clear outgoing copy before fading in the next headline; screenshots crossfade. */
+.mkt .hh-copy .hh-slide{transition:opacity .18s ease-out,visibility 0s .18s}
+.mkt .hh-copy .hh-slide.is-active{transition:opacity .38s cubic-bezier(.22,1,.36,1) .18s,visibility 0s .18s}
 .mkt .hh-controls{display:flex;align-items:center;gap:14px;margin-top:28px}
 .mkt .hh-selectors{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));flex:1;gap:14px;min-width:0}
 .mkt .hh-selector{background:none;border:0;padding:10px 0 0;font-family:inherit;font-size:11px;text-align:left;font-weight:600;color:#a5a5ae;cursor:pointer;min-height:44px}
@@ -160,7 +163,7 @@ const HERO_CSS = `
 .mkt .hh-track>span{display:block;width:100%;height:100%;background:#f5f4f7;transform-origin:left;transition:transform .4s ease}
 .mkt .hh-play{display:grid;place-items:center;flex:none;width:36px;height:36px;padding:0;border:1px solid #44444b;border-radius:50%;background:#ffffff06;color:#e4e4e9;cursor:pointer}
 .mkt .hh-play:hover{background:#ffffff12}.mkt .hh-play:disabled{opacity:.5;cursor:default}
-@media(prefers-reduced-motion:reduce){.mkt .home-hero .hh-slide,.mkt .home-hero .hh-track>span{transition:none}}
+@media(prefers-reduced-motion:reduce){.mkt .home-hero .hh-slide,.mkt .home-hero .hh-track>span{transition:none!important}}
 @media(max-width:960px){.mkt .hh-grid{gap:28px}.mkt .hh-copy h1{font-size:42px}.mkt .hh-preview{padding:18px 14px}.mkt .hh-preview-heading{font-size:8px;letter-spacing:.08em}.mkt .hh-screens{gap:8px}}
 @media(max-width:760px){.mkt .home-hero{padding:116px 0 40px}.mkt .hh-grid{grid-template-columns:1fr;gap:32px}.mkt .hh-copy h1{font-size:clamp(36px,7.8vw,52px);max-width:18ch;text-wrap:initial}.mkt .hh-description{font-size:16px;margin:20px 0 24px}.mkt .hh-copy .eyebrow{margin-bottom:18px}.mkt .hh-benefits{margin-top:26px;padding-top:18px}.mkt .hh-preview{width:100%;max-width:440px;margin:0 auto;padding:20px}.mkt .hh-preview-heading{font-size:9px}.mkt .hh-screens{gap:12px}.mkt .hh-calendar{width:53%}.mkt .hh-dashboard{width:43%}}
 @media(max-width:420px){.mkt .home-hero .wrap{padding-inline:22px}.mkt .hh-copy .cta{flex-direction:column}.mkt .hh-copy .pill{width:100%}.mkt .hh-copy .micro{font-size:12px}.mkt .hh-benefits{gap:12px}.mkt .hh-benefits p{font-size:11px}.mkt .hh-preview{padding:18px 14px}.mkt .hh-phone{padding:3px;border-radius:17px}.mkt .hh-phone img{border-radius:13px}}
