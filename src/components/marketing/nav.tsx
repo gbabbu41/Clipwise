@@ -10,10 +10,10 @@ export function MarketingNav() {
     <nav className="navbar">
       <Link href="/" className="brand">CLIPWISE</Link>
       <ul>
-        <li><Link href="/#app">Product</Link></li>
-        <li><Link href="/#book">Booking</Link></li>
-        <li><Link href="/#pay">Payments</Link></li>
-        <li><Link href="/#price">Pricing</Link></li>
+        <li><Link href="/features">Product</Link></li>
+        <li><Link href="/online-booking">Booking</Link></li>
+        <li><Link href="/payments">Payments</Link></li>
+        <li><Link href="/pricing">Pricing</Link></li>
         <li><Link href="/shops">Find a Barber</Link></li>
       </ul>
       <div className="right">

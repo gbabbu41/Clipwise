@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { MKT_CSS } from "@/lib/marketing-theme";
+import { PublicIdentity } from "./public-identity";
 
 // Themed chrome for the public auth / entry pages (login, signup, password,
 // join). Same black/emerald theme as the rest of the public site, but a MINIMAL
@@ -18,9 +19,10 @@ export function AuthShell({
   showBack?: boolean;
 }) {
   return (
-    <div className="mkt">
+    <div className="mkt public-site">
       <style dangerouslySetInnerHTML={{ __html: MKT_CSS }} />
-      <div className="authwrap">
+      <PublicIdentity />
+      <main className="authwrap">
         <div className="authbrand">
           <Link href="/" className="wm">CLIPWISE</Link>
           {title && <h1>{title}</h1>}
@@ -28,7 +30,7 @@ export function AuthShell({
         </div>
         <div className={`authcard${wide ? " wide" : ""}`}>{children}</div>
         {showBack && <Link href="/" className="authback"><ArrowLeft size={14} /> Back to home</Link>}
-      </div>
+      </main>
     </div>
   );
 }

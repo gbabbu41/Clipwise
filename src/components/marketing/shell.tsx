@@ -1,6 +1,8 @@
 import { MKT_CSS } from "@/lib/marketing-theme";
 import { MarketingNav } from "./nav";
 import { MarketingFooter } from "./footer";
+import { PublicIdentity } from "./public-identity";
+import { SignupEntry } from "./signup-entry";
 
 // Wraps a public marketing page in the scoped theme (`.mkt` + MKT_CSS) with the
 // shared nav and footer. Every public page renders <MarketingShell>…</MarketingShell>
@@ -11,11 +13,15 @@ import { MarketingFooter } from "./footer";
 // fixed nav).
 export function MarketingShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mkt">
+    <div className="mkt public-site">
       <style dangerouslySetInnerHTML={{ __html: MKT_CSS }} />
+      <PublicIdentity />
+      <SignupEntry>
+      <a href="#public-main" className="skip-public">Skip to content</a>
       <MarketingNav />
       {children}
       <MarketingFooter />
+      </SignupEntry>
     </div>
   );
 }

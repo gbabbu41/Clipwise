@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <LegalShell title="Privacy Policy" updated="August 12, 2026">
+    <LegalShell title="Privacy Policy" updated="September 17, 2026">
       <p>
         <strong className="text-white">ClipWise</strong> (&ldquo;ClipWise,&rdquo;
         &ldquo;we&rdquo;) respects your privacy. This policy explains what personal information we
@@ -21,6 +21,7 @@ export default function PrivacyPage() {
         <p>We collect:</p>
         <ul className="list-disc pl-5 space-y-1">
           <li><strong className="text-white">Account information</strong> — name, email, phone, password (hashed), and role (shop owner, barber, or customer).</li>
+          <li><strong className="text-white">Signup interest</strong> — if you enter your email in the Get started form, we save your email and selected plan to support signup. This is not a marketing subscription. These records are scheduled for deletion after 30 days. A short-lived signup draft expires after 30 minutes; hashed network identifiers used to limit abuse are cleaned up after 48 hours.</li>
           <li><strong className="text-white">Shop information</strong> — business name, address, hours, services, pricing, staff, and logo.</li>
           <li><strong className="text-white">Booking information</strong> — appointments, the barber/service chosen, notes, and history.</li>
           <li><strong className="text-white">Payment information</strong> — processed by Stripe. We receive limited details (e.g., amount, status, last-4, a payment reference) but <strong className="text-white">do not store full card numbers</strong>.</li>

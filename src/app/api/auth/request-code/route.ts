@@ -3,6 +3,8 @@ import crypto from "crypto";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { sendAppEmail } from "@/lib/emailer";
 import { verifyTurnstile } from "@/lib/turnstile";
+import { enforceRateLimit } from "@/lib/rate-limit";
+import { publicSignupGate } from "@/lib/public-signup-gate";
 
 // Step 1 of the "verify-first, create-after" signup: no account, password, or
 // profile is written anywhere until the emailed code is verified. This route only
@@ -16,8 +18,13 @@ const RESEND_COOLDOWN_MS = 30_000;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function POST(req: NextRequest) {
+  const limited = enforceRateLimit(req, "signup-code", 10, 60_000);
+  if (limited) return limited;
+  const gate = await publicSignupGate();
+  if (gate) return gate;
   let body: { email?: string; role?: string; captchaToken?: string; resend?: boolean };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Bad request" }, { status: 400 }); }
+  if (!body || typeof body.email !== "string" || (body.captchaToken !== undefined && (typeof body.captchaToken !== "string" || body.captchaToken.length > 4096))) return NextResponse.json({ error: "Bad request" }, { status: 400 });
 
   const email = (body.email || "").trim().toLowerCase();
   const role = body.role === "shop_owner" || body.role === "barber" ? body.role : "customer";

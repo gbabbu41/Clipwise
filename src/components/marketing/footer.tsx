@@ -15,8 +15,10 @@ export function MarketingFooter() {
           </div>
           <div>
             <h3>Product</h3>
-            <Link href="/#app">Features</Link>
-            <Link href="/#price">Pricing</Link>
+            <Link href="/features">Features</Link>
+            <Link href="/online-booking">Online booking</Link>
+            <Link href="/payments">Payments</Link>
+            <Link href="/pricing">Pricing</Link>
             <Link href="/shops">Find a Barber</Link>
           </div>
           <div>

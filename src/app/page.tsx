@@ -1,215 +1,31 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { PLAN_MARKETING } from "@/lib/plan-marketing";
 import { HomeHero } from "@/components/marketing/home-hero";
 import { HomePageStyles } from "@/components/marketing/home-page-styles";
 import { MarketingShell } from "@/components/marketing/shell";
-
-// Public marketing homepage. Black, white, and restrained muted-blue accents;
-// the SYSTEM + DATA are ours — real routes on every CTA, pricing rendered from the
-// PLAN_MARKETING single source of truth, and our real footer. The whole page is a
-// server-rendered (indexable, copy in the initial HTML), with an interactive
-// product hero. Theme CSS is scoped under `.mkt`, so the portals are untouched.
-//
-// Native app never reaches this: middleware redirects `/` → /dashboard for the app,
-// so none of the billing/pricing here leaks into the iOS shell (Apple IAP).
+import { PublicClose, PublicFAQ } from "@/components/marketing/public-content";
+import { PLAN_MARKETING } from "@/lib/plan-marketing";
 
 export const metadata: Metadata = {
   title: "ClipWise — Barbershop software built for Canadian shops",
-  description:
-    "Barbershop management built for Canadian shops — booking with no client fees, Interac at 15¢ flat, Tap to Pay, no-show protection and 0% commission.",
+  description: "Bookings, payments and your team, together. Barbershop software built for Canadian shops with no client booking surcharge and 0% platform commission.",
   alternates: { canonical: "https://clipwise.ca/" },
-  openGraph: {
-    title: "ClipWise — Barbershop software built for Canadian shops",
-    description: "Booking with no client fees, Interac at 15¢ flat, Tap to Pay, and 0% commission.",
-    url: "https://clipwise.ca/",
-    images: [{ url: "https://clipwise.ca/new/poster.jpg" }],
-    type: "website",
-  },
+  openGraph: { title: "ClipWise — More time cutting. Less time managing.", description: "The business behind the chair, in one place.", url: "https://clipwise.ca/", images: [{ url: "https://clipwise.ca/new/poster.jpg" }], type: "website" },
   twitter: { card: "summary_large_image" },
 };
 
 export default function HomePage() {
-  return (
-    <MarketingShell>
-      <HomePageStyles />
-      <main className="home-content">
-      <HomeHero />
-
-      {/* proof strip */}
-      <div className="proof">
-        <div className="wrap">
-          <span><b>Interac</b> at 15¢ flat</span>
-          <span><b>Tap to Pay</b> on iPhone</span>
-          <span><b>0%</b> commission</span>
-          <span><b>$0</b> client booking fees</span>
-          <span><b>Built for Canadian barbers</b></span>
-        </div>
-      </div>
-
-      {/* inside the app */}
-      <section className="blk" id="app" style={{ borderBottom: "1px solid var(--line)" }}>
-        <div className="wrap">
-          <div className="head">
-            <p className="eyebrow">Inside the app</p>
-            <h2>The whole shop,<br /><em>in one app.</em></h2>
-            <p className="lead">Calendar, walk-ins, payroll, loyalty, reviews and stock — the parts of a barbershop that usually live in five different places, running in one.</p>
-          </div>
-          <div className="two" style={{ alignItems: "center" }}>
-            <div className="devs">
-              <div className="dev a"><img src="/new/app-cal.jpg" width={640} height={1280} alt="Calendar" loading="lazy" /></div>
-              <div className="dev b"><img src="/new/app-week.jpg" width={640} height={1280} alt="The week view with walk-in, POS and analytics shortcuts" loading="lazy" /></div>
-              <div className="dev c"><img src="/new/app-donut.jpg" width={640} height={1280} alt="Booking status — completed, cancelled, confirmed and no-shows" loading="lazy" /></div>
-            </div>
-            <ul className="bul" style={{ gap: 18 }}>
-              <li><b>Calendar &amp; waitlist.</b>Drag to reschedule, fill gaps from the waitlist, let walk-ins check themselves in.</li>
-              <li><b>Payroll &amp; commission.</b>Per-barber splits calculated from real takings, not a spreadsheet.</li>
-              <li><b>Loyalty &amp; gift cards.</b>Points for regulars, gift cards sold and redeemed at checkout.</li>
-              <li><b>Reviews &amp; marketing.</b>Reminders cut no-shows; win-back campaigns refill quiet weeks.</li>
-              <li><b>Inventory.</b>Track product down to the bottle.</li>
-            </ul>
-          </div>
-        </div>
-      </section>
-
-      {/* the problem */}
-      <section className="blk band">
-        <img className="bg" src="/new/atmo-tools.jpg" width={1500} height={1000} alt="" loading="lazy" />
-        <div className="veil" /><div className="grain" />
-        <div className="wrap">
-          <div className="head" style={{ marginBottom: 0 }}>
-            <p className="eyebrow">The old way</p>
-            <h2>A paper book works right up until<br /><em>it doesn’t.</em></h2>
-            <p className="lead">Until someone doesn’t show and there’s nothing you can do. Until a barber asks what they earned last month and the answer is three hours of counting. Until the phone rings during a fade.</p>
-          </div>
-        </div>
-      </section>
-
-      {/* the day */}
-      <section className="blk" id="day">
-        <div className="wrap two">
-          <div className="copy">
-            <p className="eyebrow">Your whole day</p>
-            <h2>Every chair,<br /><em>one screen.</em></h2>
-            <p className="lead">Open the app and the day is already there — who’s booked, who’s paid, what the shop has taken, and which chair is sitting empty at 1:45.</p>
-            <ul className="bul">
-              <li><b>Live revenue.</b>Gross, fees and net, updating as the chairs turn over.</li>
-              <li><b>Per-barber numbers.</b>Performance, payroll and commission in one place.</li>
-              <li><b>No-show rate.</b>Tracked automatically, so you know what it’s costing you.</li>
-            </ul>
-          </div>
-          <div className="dev"><img src="/new/app-home.jpg" width={640} height={1280} alt="The ClipWise dashboard showing revenue, average ticket and no-show rate" loading="lazy" /></div>
-        </div>
-      </section>
-
-      {/* booking */}
-      <section className="blk" id="book" style={{ background: "var(--s1)", borderBlock: "1px solid var(--line)" }}>
-        <div className="wrap">
-          <div className="head">
-            <p className="eyebrow">Client booking</p>
-            <h2>Four steps. No app.<br /><em>No booking fee.</em></h2>
-            <p className="lead">Your own booking page — from an Instagram bio to a confirmed appointment, without your client paying a booking surcharge. Payment options follow your shop’s settings.</p>
-          </div>
-          <div className="rail">
-            <div className="step"><p className="sn">01 / SHOP</p><div className="fr"><img src="/new/book-shop.jpg" width={520} height={1016} alt="Shop page" loading="lazy" /></div><p>Your shop, your services, your prices.</p></div>
-            <div className="step"><p className="sn">02 / SERVICE</p><div className="fr"><img src="/new/book-service.jpg" width={520} height={1016} alt="Choose services" loading="lazy" /></div><p>Pick one, or combine several in a visit.</p></div>
-            <div className="step"><p className="sn">03 / TIME</p><div className="fr"><img src="/new/book-time.jpg" width={520} height={1016} alt="Choose a time" loading="lazy" /></div><p>Real availability, by barber or anyone.</p></div>
-            <div className="step"><p className="sn">04 / CONFIRM</p><div className="fr"><img src="/new/book-confirm.jpg" width={520} height={1016} alt="Confirm and pay" loading="lazy" /></div><p>Pay now or reserve — tax shown, total confirmed.</p></div>
-          </div>
-        </div>
-      </section>
-
-      {/* payments */}
-      <section className="blk" id="pay">
-        <div className="wrap two flip">
-          <div className="copy">
-            <p className="eyebrow">Payments</p>
-            <h2>The cards Canadians<br /><em>actually carry.</em></h2>
-            <p className="lead">Interac, credit, cash and online — into your own Stripe account, with sales tax calculated at checkout and every tip tracked to the cent.</p>
-            <div className="rates">
-              <div className="rate"><span className="l">Interac, tapped or inserted<em>WisePad 3 reader</em></span><span className="v">15¢</span></div>
-              <div className="rate"><span className="l">Credit, in person<em>2.7% + 5¢</em></span><span className="v">97¢</span></div>
-              <div className="rate"><span className="l">Online booking<em>2.9% + 30¢</em></span><span className="v">$1.29</span></div>
-              <div className="rate"><span className="l">Our cut of any of it<em>Not a percentage. Nothing.</em></span><span className="v">$0.00</span></div>
-            </div>
-            <p className="fine">Shown on a $34 cut. Processing is billed by Stripe at their standard Canadian rates, directly to your own account.</p>
-          </div>
-          <div className="dev"><img src="/new/app-pay.jpg" width={640} height={1280} alt="The ClipWise payments screen" loading="lazy" /></div>
-        </div>
-      </section>
-
-      {/* no-shows */}
-      <section className="blk band">
-        <img className="bg" src="/new/atmo-fade.jpg" width={1000} height={1500} alt="" loading="lazy" />
-        <div className="veil" /><div className="grain" />
-        <div className="wrap two">
-          <div className="copy">
-            <p className="eyebrow">No-shows</p>
-            <h2>The empty chair,<br /><em>covered.</em></h2>
-            <p className="lead">Enable no-show protection to collect a card when clients book. For eligible bookings with a saved card, manage a no-show charge from the appointment.</p>
-            <ul className="bul">
-              <li><b>Card on file.</b>Require a saved card for pay-in-person bookings when your payment setup supports it.</li>
-              <li><b>Charge from the booking.</b>Review an eligible no-show and apply your shop’s policy.</li>
-              <li><b>Your rules.</b>You set the fee and the window.</li>
-            </ul>
-          </div>
-          <div className="dev"><img src="/new/app-checkout.jpg" width={640} height={1280} alt="Charging a no-show from the checkout screen" loading="lazy" /></div>
-        </div>
-      </section>
-
-      {/* compare */}
-      <section className="blk">
-        <div className="wrap">
-          <div className="head">
-            <p className="eyebrow">Compare</p>
-            <h2>Built around your business —<br /><em>not ours.</em></h2>
-          </div>
-          <div className="figs">
-            <div className="fig"><p className="n">$0</p><h3>Client booking fees</h3><p>Your clients never pay a surcharge to book through ClipWise. Your services, your prices, no extra booking fee.</p></div>
-            <div className="fig"><p className="n">0%</p><h3>Commission</h3><p>Every client you bring in stays 100% yours. No cut taken on your own followers, ever.</p></div>
-            <div className="fig"><p className="n">100%</p><h3>Of every tip</h3><p>Tips go straight to your Stripe account — collected online or from a post-visit link.</p></div>
-          </div>
-        </div>
-      </section>
-
-      {/* pricing — rendered from PLAN_MARKETING (our single source of truth) */}
-      <section className="blk" id="price" style={{ background: "var(--s1)", borderBlock: "1px solid var(--line)" }}>
-        <div className="wrap">
-          <div className="head">
-            <p className="eyebrow">Pricing</p>
-            <h2>Start free.<br /><em>Upgrade when ready.</em></h2>
-          </div>
-          <div className="tiers">
-            {PLAN_MARKETING.map((p) => (
-              <div key={p.plan} className={`tier${p.pop ? " hi" : ""}`}>
-                <p className="tn">{p.n}</p>
-                <div className="pr"><span className="p">{p.p}</span><span className="u">{p.per}</span></div>
-                <p className="plan-for">{p.forWho}</p>
-                <ul>{p.yes.map((y, i) => <li key={i}>{y}</li>)}</ul>
-                <Link className={`pill ${p.pop ? "w" : "g"}`} href={`/signup?plan=${p.plan}`}>{p.cta}</Link>
-              </div>
-            ))}
-          </div>
-          <p className="fine" style={{ marginTop: 26 }}>Card processing is billed by Stripe at their standard Canadian rates, directly to your own account.</p>
-        </div>
-      </section>
-
-      {/* close */}
-      <section className="close">
-        <img className="bg" src="/new/atmo-shop.jpg" width={1500} height={1001} alt="" loading="lazy" />
-        <div className="veil" /><div className="grain" />
-        <div className="wrap">
-          <p className="eyebrow">Get started</p>
-          <h2>Put the notebook down.</h2>
-          <p className="lead">Set up your shop, your services and your booking link in an afternoon. No credit card, no contract.</p>
-          <div className="cta" style={{ marginTop: 8 }}>
-            <Link className="pill w" href="/signup">Get started free</Link>
-            <a className="pill g" href="mailto:support@clipwise.ca">Talk to us</a>
-          </div>
-        </div>
-      </section>
-
-      </main>
-    </MarketingShell>
-  );
+  return <MarketingShell><HomePageStyles /><main id="public-main" className="home-content">
+    <HomeHero />
+    <div className="proof"><div className="wrap"><span><b>Built for Canadian barbers</b></span><span><b>$0</b> client booking fees</span><span><b>0%</b> platform commission</span></div></div>
+    <section className="public-section" id="app"><div className="wrap"><div className="head"><p className="eyebrow">The essentials, connected</p><h2>Run the shop.<br /><em>Keep your focus.</em></h2></div><div className="public-grid">
+      <article className="public-feature"><span className="number">01 / BOOKINGS</span><h3>A fuller calendar.</h3><p>Give clients a booking link. Keep appointments and walk-ins in view.</p><Link className="public-link" href="/online-booking">Explore booking →</Link></article>
+      <article className="public-feature"><span className="number">02 / PAYMENTS</span><h3>A simpler checkout.</h3><p>Bring payments, tips and tax together—with the numbers to match.</p><Link className="public-link" href="/payments">Explore payments →</Link></article>
+      <article className="public-feature"><span className="number">03 / YOUR TEAM</span><h3>A clearer business.</h3><p>Choose the staff, reporting and inventory tools your shop needs.</p><Link className="public-link" href="/features">See the product →</Link></article>
+    </div></div></section>
+    <section className="public-section" id="book"><div className="wrap public-split"><div className="copy"><p className="eyebrow">Made for the next appointment</p><h2>Your shop.<br /><em>One booking link.</em></h2><p className="lead">Clients choose a service, find a time and confirm in their browser. Your page stays about your shop.</p><Link className="public-link" href="/online-booking">See how booking works →</Link></div><div className="public-phone"><img src="/new/book-time.jpg" alt="Client choosing an available appointment time" width={520} height={1016} loading="lazy" /></div></div></section>
+    <section className="public-section" id="price"><div className="wrap compact-pricing"><div><p className="eyebrow">Simple plans</p><h2 style={{ marginTop: 16 }}>Start free. Grow from there.</h2><p>{PLAN_MARKETING.map(p => p.n + ": " + p.p + (p.per === "/mo" ? "/mo" : "")).join(" · ")}</p><span id="pay" className="fine">Card processing is separate. Explore the plans for included features.</span></div><Link className="pill g" href="/pricing">Compare plans →</Link></div></section>
+    <section className="public-section"><div className="wrap"><div className="head"><p className="eyebrow">Before you start</p><h2>Keep it simple.</h2></div><PublicFAQ items={[{ question: "Can I try ClipWise without a card?", answer: "Yes. Start with the free Starter plan, or a 21-day no-card trial on Pro or Premium." }, { question: "Do my clients need an app?", answer: "No. They can book through your shop’s public page in their browser, without a ClipWise account." }, { question: "What happens after I get started?", answer: "Enter your email, finish signup and verify the email code. Starter takes you into your shop portal; paid-plan selections continue through plan setup." }]} /></div></section>
+    <PublicClose />
+  </main></MarketingShell>;
 }

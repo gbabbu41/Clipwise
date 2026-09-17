@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 export default function CookiesPage() {
   return (
-    <LegalShell title="Cookie Policy" updated="July 18, 2026">
+    <LegalShell title="Cookie Policy" updated="September 17, 2026">
       <p>
         This policy explains how <strong className="text-white">ClipWise</strong> uses
         cookies and similar technologies (like browser local storage). It should be read alongside our{" "}
@@ -28,6 +28,7 @@ export default function CookiesPage() {
           <li><strong className="text-white">Essential / authentication</strong> — to keep you securely signed in to your account (managed by our authentication provider, Supabase). The Service does not work without these.</li>
           <li><strong className="text-white">Preferences</strong> — small local-storage values such as your notification-sound choice, so the app behaves the way you left it.</li>
           <li><strong className="text-white">Security &amp; integrity</strong> — to help detect abuse and keep the platform reliable.</li>
+          <li><strong className="text-white">Signup continuity</strong> — after you submit the Get started form, a secure, HttpOnly cookie called <code>cw_signup_draft</code> holds a random reference for up to 30 minutes. It lets us prefill your email on signup. It does not contain your email or password and does not sign you in.</li>
         </ul>
         <p>
           We do <strong className="text-white">not</strong> use third-party advertising or cross-site

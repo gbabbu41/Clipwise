@@ -16,7 +16,7 @@ export async function middleware(request: NextRequest) {
   if (isNativeRequest(request)) {
     // Marketing/landing (has pricing) → into the app proper. /dashboard is
     // auth-gated below, so a logged-out visitor bounces on to /login from there.
-    if (pathname === "/") {
+    if (["/", "/features", "/online-booking", "/payments", "/pricing", "/why-clipwise"].includes(pathname)) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
     // Signup lives on the website only; app users already have accounts.
@@ -35,7 +35,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Public routes — no auth needed
-  const publicPaths = ["/", "/login", "/signup", "/forgot-password", "/admin/login"];
+  const publicPaths = ["/", "/features", "/online-booking", "/payments", "/pricing", "/why-clipwise", "/login", "/signup", "/forgot-password", "/admin/login"];
   const isPublic =
     publicPaths.includes(pathname) ||
     pathname.startsWith("/book/") ||
@@ -82,5 +82,5 @@ export const config = {
   // /admin page now gets the same auth gate + destination memory as the portals.
   // "/" and "/signup" are matched too so the native-app billing redirects above can
   // fire on them; both stay in publicPaths so web users keep the fast early-return.
-  matcher: ["/", "/signup", "/dashboard/:path*", "/onboarding/:path*", "/barber-dashboard/:path*", "/admin/:path*"],
+  matcher: ["/", "/features", "/online-booking", "/payments", "/pricing", "/why-clipwise", "/signup", "/dashboard/:path*", "/onboarding/:path*", "/barber-dashboard/:path*", "/admin/:path*"],
 };

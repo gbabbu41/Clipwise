@@ -24,16 +24,20 @@ export function ShopsDirectory() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [city, setCity] = useState("All");
+  const [loadError, setLoadError] = useState(false);
+  const [retry, setRetry] = useState(0);
 
   useEffect(() => {
     (async () => {
+      setLoading(true); setLoadError(false);
       const { data, error } = await supabase
         .from("shops")
         .select("id, name, slug, city, province, address, description, logo")
         .eq("status", "approved")
         .eq("is_active", true)
         .order("name");
-      if (error || !data) { setLoading(false); return; }
+      if (error || !data) { setLoadError(true); setLoading(false); return; }
+      if (!data.length) { setShops([]); setLoading(false); return; }
 
       // Ratings, active barbers, and active services in parallel. A shop only
       // belongs in the public directory once it's actually bookable — at least
@@ -76,8 +80,8 @@ export function ShopsDirectory() {
           }))
       );
       setLoading(false);
-    })();
-  }, []);
+    })().catch(() => { setLoadError(true); setLoading(false); });
+  }, [retry]);
 
   const cities = useMemo(() => {
     const c = new Set(shops.map(s => s.city).filter(Boolean));
@@ -127,7 +131,9 @@ export function ShopsDirectory() {
 
           <p className="fine" style={{ marginBottom: 20 }}>{loading ? "Finding shops…" : `${filtered.length} shop${filtered.length !== 1 ? "s" : ""} found`}</p>
 
-          {loading ? (
+          {loadError ? (
+            <div className="center" role="alert" style={{ paddingBlock: 48 }}><h2>We couldn’t load the shops.</h2><p className="lead" style={{ margin: "16px auto" }}>Please try again in a moment.</p><button className="pill g" onClick={() => setRetry(n => n + 1)}>Try again</button></div>
+          ) : loading ? (
             <div className="grid3">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="sk" />)}</div>
           ) : filtered.length === 0 ? (
             <div className="center" style={{ paddingBlock: 64 }}>

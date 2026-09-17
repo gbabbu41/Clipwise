@@ -35,6 +35,19 @@ export default function SignupPage() {
   const [code, setCode] = useState("");
   const [captchaToken, setCaptchaToken] = useState("");
 
+  // A short-lived HttpOnly capability supplies a draft, not authentication.
+  // Keep the email out of URLs and browser storage; never overwrite typing.
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/marketing/start", { cache: "no-store", signal: controller.signal })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (controller.signal.aborted || typeof data?.draft?.email !== "string") return;
+        setForm(previous => previous.email ? previous : { ...previous, email: data.draft.email });
+      }).catch(() => null);
+    return () => controller.abort();
+  }, []);
+
   const turnstileRef = useRef<HTMLDivElement | null>(null);
   const widgetRendered = useRef(false);
 
@@ -176,6 +189,8 @@ export default function SignupPage() {
     if (!res.ok) { setLoading(false); setError(data.error || "Couldn't verify your code. Please try again."); return; }
 
     // Account created + confirmed → sign in to get a session, then route on.
+    // Remove the prefill capability after verification; it never grants access.
+    void fetch("/api/marketing/start", { method: "DELETE" }).catch(() => null);
     const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({ email: form.email.trim().toLowerCase(), password: form.password });
     if (signInErr) { setLoading(false); router.push("/login"); return; }
 

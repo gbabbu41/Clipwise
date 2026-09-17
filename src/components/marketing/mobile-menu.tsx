@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Menu, X } from "lucide-react";
 
@@ -10,6 +10,11 @@ import { Menu, X } from "lucide-react";
 export function MobileMenu() {
   const [open, setOpen] = useState(false);
   const close = () => setOpen(false);
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") setOpen(false); };
+    if (open) document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open]);
   return (
     <>
       <button
@@ -17,16 +22,17 @@ export function MobileMenu() {
         className="burger"
         aria-label={open ? "Close menu" : "Open menu"}
         aria-expanded={open}
+        aria-controls="public-mobile-menu"
         onClick={() => setOpen((o) => !o)}
       >
         {open ? <X size={18} /> : <Menu size={18} />}
       </button>
       {open && (
-        <div className="mobmenu">
-          <Link href="/#app" onClick={close}>Product</Link>
-          <Link href="/#book" onClick={close}>Booking</Link>
-          <Link href="/#pay" onClick={close}>Payments</Link>
-          <Link href="/#price" onClick={close}>Pricing</Link>
+        <div className="mobmenu" id="public-mobile-menu">
+          <Link href="/features" onClick={close}>Product</Link>
+          <Link href="/online-booking" onClick={close}>Booking</Link>
+          <Link href="/payments" onClick={close}>Payments</Link>
+          <Link href="/pricing" onClick={close}>Pricing</Link>
           <Link href="/shops" onClick={close}>Find a Barber</Link>
           <Link href="/login" onClick={close}>Log in</Link>
         </div>

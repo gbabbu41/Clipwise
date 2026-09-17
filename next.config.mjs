@@ -43,8 +43,13 @@ const nextConfig = {
       { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
     ];
     const denyFrame = [{ key: "X-Frame-Options", value: "DENY" }];
+    // Only signup embeds Turnstile. Keep portal CSP unchanged.
+    const signupCsp = csp
+      .replace("script-src 'self' 'unsafe-inline' 'unsafe-eval'", "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com")
+      .replace("frame-src 'self' https://*.stripe.com", "frame-src 'self' https://*.stripe.com https://challenges.cloudflare.com");
     return [
       { source: "/:path*", headers: base },
+      { source: "/signup", headers: [{ key: "Content-Security-Policy", value: signupCsp }] },
       { source: "/dashboard/:path*", headers: denyFrame },
       { source: "/barber-dashboard/:path*", headers: denyFrame },
       { source: "/admin/:path*", headers: denyFrame },

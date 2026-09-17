@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 export default function ShopsPage() {
   return (
     <MarketingShell>
-      <ShopsDirectory />
+      <main id="public-main"><ShopsDirectory /></main>
     </MarketingShell>
   );
 }
