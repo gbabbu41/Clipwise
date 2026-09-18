@@ -242,7 +242,7 @@ export async function POST(request: NextRequest) {
     const { data: svc } = appt.service_id
       ? await supabaseAdmin.from("services").select("name").eq("id", appt.service_id).maybeSingle()
       : { data: null as { name: string } | null };
-    const baseUrl = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca";
+    const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca").replace(/\/+$/, "");
 
     // Record a transaction row so the charge shows up in Payments / revenue /
     // analytics (appointment payment_status alone isn't in the transactions
