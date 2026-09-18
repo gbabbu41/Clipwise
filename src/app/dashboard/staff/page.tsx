@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import {
@@ -172,6 +172,12 @@ export default function StaffPage() {
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [confirmRemove, setConfirmRemove] = useState<BarberWithSchedule | null>(null);
   const [resendingInviteId, setResendingInviteId] = useState<string | null>(null);
+  const staffEmailPending = useRef(false);
+  const staffEmailContext = useRef(0);
+  useEffect(() => {
+    const context = ++staffEmailContext.current;
+    return () => { staffEmailContext.current = context + 1; };
+  }, [shop?.id]);
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
@@ -472,44 +478,64 @@ export default function StaffPage() {
 
   // ── Password reset ──────────────────────────────────────────────────────────
   const resetPassword = async (barber: BarberWithSchedule) => {
-    if (!accessToken) return;
+    if (!accessToken || staffEmailPending.current) return;
+    staffEmailPending.current = true;
+    const context = staffEmailContext.current;
     setResettingId(barber.id);
-    const res = await fetch("/api/admin/barber/reset-password", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ barber_id: barber.id }),
-    });
-    const data = await res.json();
-    setResettingId(null);
-    if (!res.ok) { showToast(`Error: ${data.error}`); return; }
-    setResetModal(data);
+    try {
+      const res = await fetch("/api/admin/barber/reset-password", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ barber_id: barber.id }),
+      });
+      const data = await res.json();
+      if (context !== staffEmailContext.current) return;
+      if (!res.ok) { showToast(typeof data?.error === "string" ? `Error: ${data.error}` : "Couldn't request a reset. Check the barber's inbox before trying again."); return; }
+      if (data?.ok !== true || typeof data.emailed !== "boolean" || typeof data.email !== "string" || typeof data.name !== "string") throw new Error("Unconfirmed reset response");
+      setResetModal(data);
+    } catch {
+      if (context === staffEmailContext.current) showToast("Couldn't confirm whether the reset email was sent. Check the barber's inbox before requesting another.");
+    } finally {
+      staffEmailPending.current = false;
+      setResettingId(null);
+    }
   };
 
   // ── Resend invite ───────────────────────────────────────────────────────────
   const resendInvite = async (barber: BarberWithSchedule) => {
-    if (!accessToken) return;
+    if (!accessToken || staffEmailPending.current) return;
+    staffEmailPending.current = true;
+    const context = staffEmailContext.current;
     setResendingInviteId(barber.id);
-    const res = await fetch("/api/admin/barber/resend-invite", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ barber_id: barber.id }),
-    });
-    const data = await res.json();
-    setResendingInviteId(null);
-    if (!res.ok) { showToast(`Error: ${data.error}`); return; }
-    if (data.inviteLink && barber.email) {
-      setInviteLinkModal({
-        link: data.inviteLink,
-        email: barber.email,
-        name: barber.name,
-        existingAccount: !!data.existingAccount,
-        emailed: !!data.emailed,
-        emailError: data.emailError ?? null,
+    try {
+      const res = await fetch("/api/admin/barber/resend-invite", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ barber_id: barber.id }),
       });
-    } else {
-      showToast(data.emailed
-        ? `Invite resent to ${barber.email}`
-        : `Couldn't send the email to ${barber.email}${data.emailError ? ` (${data.emailError})` : ""}.`);
+      const data = await res.json();
+      if (context !== staffEmailContext.current) return;
+      if (!res.ok) { showToast(typeof data?.error === "string" ? `Error: ${data.error}` : "Couldn't resend the invite. Check the barber's inbox before trying again."); return; }
+      if (data?.ok !== true || typeof data.emailed !== "boolean" || typeof data.existingAccount !== "boolean" || (data.inviteLink !== null && typeof data.inviteLink !== "string")) throw new Error("Unconfirmed invitation response");
+      if (data.inviteLink && barber.email) {
+        setInviteLinkModal({
+          link: data.inviteLink,
+          email: barber.email,
+          name: barber.name,
+          existingAccount: !!data.existingAccount,
+          emailed: !!data.emailed,
+          emailError: data.emailError ?? null,
+        });
+      } else {
+        showToast(data.emailed
+          ? `Invite resent to ${barber.email}`
+          : `Couldn't send the email to ${barber.email}${data.emailError ? ` (${data.emailError})` : ""}.`);
+      }
+    } catch {
+      if (context === staffEmailContext.current) showToast("Couldn't confirm whether the invitation was sent. Check the barber's inbox before requesting another.");
+    } finally {
+      staffEmailPending.current = false;
+      setResendingInviteId(null);
     }
   };
 
@@ -810,6 +836,7 @@ export default function StaffPage() {
                     size="sm"
                     className="flex-1 text-orange-400 border-orange-500/30 hover:bg-orange-500/10"
                     loading={resendingInviteId === barber.id}
+                    disabled={resettingId !== null || resendingInviteId !== null}
                     onClick={() => resendInvite(barber)}
                   >
                     ✉️ Resend Invite
@@ -820,6 +847,7 @@ export default function StaffPage() {
                     size="sm"
                     className="flex-1"
                     loading={resettingId === barber.id}
+                    disabled={resettingId !== null || resendingInviteId !== null}
                     onClick={() => resetPassword(barber)}
                   >
                     <KeyRound size={13} className="mr-1.5" />
