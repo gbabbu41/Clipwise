@@ -60,9 +60,11 @@ Lifecycle six-type closure: endpoint failure reproduced before fix, focused/full
 | new_booking_owner, new_booking_barber | notify-booking-emails, finalize-booking-session and reassignment internal paths found | Saved recipients/account fallback; generic HTTP remains exposed; candidate server-only closure. Preserve owner-as-barber duplicate suppression |
 | schedule_updated, time_off_request, time_off_decision | Dedicated schedule/block/time-off internal routes found | Generic staff role only despite internal callers; candidate server-only closure after all route variants verified |
 | waitlist_slot_open | waitlist-notify-server internal caller found | Generic role-only access; dedicated waitlist tests exist. Candidate server-only closure after caller verification |
-| marketing_campaign | Dedicated marketing/send plus gift-card helpers/routes use internal engine | Generic gate only establishes ownership of ANY paid shop, not submitted tenant/recipient/consent. Candidate closure after exhaustive caller search; gift-card operational email must remain distinct from promotional consent policy |
+| marketing_campaign | Dedicated marketing/send plus gift-card helpers/routes use internal engine; generic HTTP closure in follow-on batch | Generic bypass reproduced and blocked; legitimate direct callers unchanged. Dedicated campaign consent-to-recipient mismatch remains separately source-supported: saved client eligibility is checked but original browser email is sent. Gift-card operational recipient overrides remain intentional and separate |
 
 These remaining gaps are source findings, not all reproduced or fixed. Existing endpoint inventory does not imply every dedicated sender's full authorization has been audited. Public booking ownership coordinated with software developer; their loader changes do not alter notification senders.
+
+Follow-on priority: reproduce and bind the dedicated campaign's actual recipient to the consent-checked saved client. Admin email source tracing confirms the generic notification path does not mutate approval: both actual status PATCH routes requireSuperAdmin. All three admin browser callers already have bearer tokens but omit them on email requests. Implement canonical admin-email migration only with matched caller changes and negative/positive regressions; do not modify approval business rules. See MARKETING-EMAIL-BOUNDARY-2026-09-18.md.
 
 ## Review-delivery launch-risk proposal — approval required before implementation
 

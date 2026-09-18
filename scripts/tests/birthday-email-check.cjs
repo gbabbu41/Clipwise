@@ -42,6 +42,9 @@ const payload = { type: 'birthday_wish', data: { shopId: 'shop', clientEmail: 'c
 const call = (body = payload, token = 'valid', internal = true) => POST(new NextRequest('https://clipwise.ca/api/send-email', { method: 'POST', headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(internal ? { 'x-internal-secret': 'dummy-cron' } : {}) }, body: JSON.stringify(body) }));
 (async () => {
   process.env.RESEND_API_KEY = 'dummy'; process.env.CRON_SECRET = 'dummy-cron';
+  reset();
+  assert.equal((await call({ type: 'marketing_campaign', data: { to: 'unrelated@example.invalid', subject: 'Forged campaign', htmlBody: '<a href="https://example.invalid">Forged</a>' } }, '', true)).status, 403, 'generic marketing must not bypass the dedicated campaign route');
+  assert.equal(sends.length, 0);
   const direct = { type: 'direct_message', data: { ...payload.data, content: 'Your chosen message\nkeeps its content.' } };
   for (const internal of [false, true]) {
     for (const token of ['', 'expired']) { reset(); assert.equal((await call(direct, token, internal)).status, 401); assert.equal(sends.length, 0); }
@@ -71,7 +74,7 @@ const call = (body = payload, token = 'valid', internal = true) => POST(new Next
   reset(); storedEmail = 'a_b%test@example.invalid'; assert.equal((await call({ type: 'birthday_wish', data: { shopId: 'shop', clientEmail: storedEmail } })).status, 200);
   assert.ok(queries.some(q => q.filters.some(([k, v]) => k === 'email' && v === 'a\\_b\\%test@example.invalid')));
   reset(); assert.equal((await call({ type: 'subscription_started', data: {} })).status, 403); assert.equal(sends.length, 0);
-  for (const type of ['signup_code', 'subscription_card_updated', 'owner_weekly_digest', 'connect_reminder', 'password_reset', 'barber_password_reset', 'barber_invite', 'payment_link', 'refund_issued', 'payment_receipt', 'owner_payment_received', 'new_shop_application', 'shop_submitted_confirmation', 'shop_welcome', 'weekly_schedule', 'trial_reminder', 'trial_ended']) {
+  for (const type of ['signup_code', 'subscription_card_updated', 'owner_weekly_digest', 'connect_reminder', 'password_reset', 'barber_password_reset', 'barber_invite', 'payment_link', 'refund_issued', 'payment_receipt', 'owner_payment_received', 'new_shop_application', 'shop_submitted_confirmation', 'shop_welcome', 'weekly_schedule', 'trial_reminder', 'trial_ended', 'marketing_campaign']) {
     for (const token of ['', 'valid']) for (const internal of [false, true]) {
       reset(); assert.equal((await call({ type, data: { email: 'target@example.invalid', code: '111111' } }, token, internal)).status, 403, `${type} must reject HTTP sends, including shared-secret callers`);
       assert.equal(sends.length, 0); assert.equal(queries.length, 0);
@@ -104,6 +107,14 @@ const call = (body = payload, token = 'valid', internal = true) => POST(new Next
   assert.match(shopCreation, /sendAppEmail\(ownerType,/);
   assert.match(shopCreation, /sendAppEmail\("new_shop_application",/);
   assert.doesNotMatch(shopCreation, /\/api\/send-email/);
+  const marketingPage = fs.readFileSync(path.join(root, 'src/app/dashboard/marketing/page.tsx'), 'utf8');
+  assert.match(marketingPage, /fetch\("\/api\/marketing\/send"/);
+  assert.doesNotMatch(marketingPage, /\/api\/send-email/);
+  for (const file of ['src/app/api/marketing/send/route.ts', 'src/app/api/gift-card/send-link/route.ts', 'src/app/api/gift-card/resend/route.ts', 'src/lib/gift-card-server.ts']) {
+    const caller = fs.readFileSync(path.join(root, file), 'utf8');
+    assert.match(caller, /sendAppEmail\("marketing_campaign",/);
+    assert.doesNotMatch(caller, /\/api\/send-email/);
+  }
   for (const [file, type] of [['src/app/api/auth/request-code/route.ts', 'signup_code'], ['src/app/api/stripe/notify-card-updated/route.ts', 'subscription_card_updated']]) {
     const caller = fs.readFileSync(path.join(root, file), 'utf8'); assert.ok(caller.includes(`sendAppEmail("${type}"`)); assert.doesNotMatch(caller, /\/api\/send-email/);
   }

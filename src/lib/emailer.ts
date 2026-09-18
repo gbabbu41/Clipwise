@@ -24,6 +24,7 @@ export const SERVER_ONLY_EMAIL_TYPES = new Set([
   "owner_payment_received",
   "new_shop_application", "shop_submitted_confirmation", "shop_welcome",
   "weekly_schedule", "trial_reminder", "trial_ended",
+  "marketing_campaign",
 ]);
 export const PRIVILEGED_EMAIL_TYPES = new Set([
   "schedule_updated", "time_off_request", "time_off_decision",
