@@ -153,20 +153,13 @@ export async function POST(request: NextRequest) {
             }
 
             if (balShop?.email) {
-              fetch(`${BASE_URL}/api/send-email`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  type: "owner_payment_received",
-                  data: {
-                    ownerEmail: balShop.email,
-                    clientName: bAppt?.client_name ?? "A client",
-                    serviceName: balSvcLabel,
-                    amount: `$${balTotal.toFixed(2)}`,
-                    date: bAppt?.date ?? "",
-                    time: bAppt?.time_slot ?? "",
-                  },
-                }),
+              await sendAppEmail("owner_payment_received", {
+                ownerEmail: balShop.email,
+                clientName: bAppt?.client_name ?? "A client",
+                serviceName: balSvcLabel,
+                amount: `$${balTotal.toFixed(2)}`,
+                date: bAppt?.date ?? "",
+                time: bAppt?.time_slot ?? "",
               }).catch(() => null);
             }
           }
@@ -339,20 +332,13 @@ export async function POST(request: NextRequest) {
             // that skipped it. The .neq("payment_status","paid") claim above
             // means only ONE path wins the transition, so there's no double send.
             if (shopRow?.email) {
-              fetch(`${BASE_URL}/api/send-email`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  type: "owner_payment_received",
-                  data: {
-                    ownerEmail: shopRow.email,
-                    clientName: paidAppt.client_name ?? "A client",
-                    serviceName: svcName || "Service",
-                    amount: `$${(paidAppt.total_amount ?? 0).toFixed(2)}`,
-                    date: paidAppt.date,
-                    time: paidAppt.time_slot,
-                  },
-                }),
+              await sendAppEmail("owner_payment_received", {
+                ownerEmail: shopRow.email,
+                clientName: paidAppt.client_name ?? "A client",
+                serviceName: svcName || "Service",
+                amount: `$${(paidAppt.total_amount ?? 0).toFixed(2)}`,
+                date: paidAppt.date ?? "",
+                time: paidAppt.time_slot ?? "",
               }).catch(() => null);
             }
 

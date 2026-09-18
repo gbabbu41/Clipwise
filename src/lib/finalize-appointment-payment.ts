@@ -6,6 +6,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { sendPaymentReceipt, notifyNoShowCharged } from "@/lib/payment-notify";
 import { stripeFeeCents } from "@/lib/stripe";
 import { runServerCompletionEffects } from "@/lib/completion-server";
+import { sendAppEmail } from "@/lib/emailer";
 import type { TaxConfig } from "@/lib/pricing";
 
 export interface PayableAppt {
@@ -195,20 +196,13 @@ export async function markAppointmentPaid(args: {
   });
 
   if (shop.email) {
-    fetch(`${baseUrl}/api/send-email`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        type: "owner_payment_received",
-        data: {
-          ownerEmail: shop.email,
-          clientName: appt.client_name ?? "A client",
-          serviceName,
-          amount: `$${(amountCents / 100).toFixed(2)}`,
-          date: appt.date,
-          time: appt.time_slot,
-        },
-      }),
+    await sendAppEmail("owner_payment_received", {
+      ownerEmail: shop.email,
+      clientName: appt.client_name ?? "A client",
+      serviceName,
+      amount: `$${(amountCents / 100).toFixed(2)}`,
+      date: appt.date,
+      time: appt.time_slot,
     }).catch(() => null);
   }
 
