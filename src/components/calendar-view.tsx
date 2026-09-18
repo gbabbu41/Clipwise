@@ -3535,7 +3535,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
           sidebar's fixed top bar still carries the bell+avatar (HeaderControls
           is max-lg:hidden), so nothing doubles up. */}
       <div data-calendar-toolbar className="shrink-0 border-b border-border px-2 sm:px-6 py-2 lg:pt-4 flex flex-nowrap items-center justify-between gap-1 sm:gap-3">
-        <div className="flex flex-1 items-center gap-1 sm:gap-1.5 min-w-0">
+        <div className="flex flex-1 items-center gap-2.5 sm:gap-3 min-w-0">
           {backLabel && (
             <button onClick={goBack} aria-label={`Back to ${backLabel}`}
               className="flex items-center gap-0.5 text-sm font-medium text-[#9a9a9a] hover:text-foreground transition-colors flex-shrink-0 -ml-1">
@@ -3550,7 +3550,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
               (a window of days in 3-Day, one day in Day, a month, a year). Same
               action as swiping. Spaced apart with roomy padding so each is an
               easy, safe tap target (no mis-taps between them). */}
-          <div className="flex items-center gap-0 sm:gap-2 flex-shrink-0 sm:ml-1">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
             <button onClick={() => goPeriod(-1)} aria-label="Previous"
               className="p-1.5 sm:p-2 rounded-lg text-grey hover:text-foreground hover:bg-card-raised active:bg-surface-overlay transition-colors">
               <ChevronLeft size={20} />
@@ -3563,7 +3563,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
           {loading && <span className="text-xs text-grey-muted animate-pulse flex-shrink-0">…</span>}
         </div>
 
-        <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0 whitespace-nowrap">
+        <div className="flex items-center gap-2.5 sm:gap-3 flex-shrink-0 whitespace-nowrap">
           {/* Barber picker (avatar + caret → menu). Phone day view uses it; the
               multi-day view is always single-barber, so it shows there on every
               screen size (that's how you choose whose 3/5 days you're seeing). */}
