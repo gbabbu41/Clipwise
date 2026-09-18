@@ -156,6 +156,8 @@ export default function BookingClient() {
   const params = useParams();
   const searchParams = useSearchParams();
   const shopslug = params?.shopslug as string;
+  const currentShopSlug = useRef(shopslug);
+  currentShopSlug.current = shopslug;
 
   // ── Page-level state ───────────────────────────────────────────────────────
   const [pageLoading, setPageLoading] = useState(true);
@@ -163,6 +165,7 @@ export default function BookingClient() {
   const [shop, setShop] = useState<Shop | null>(null);
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [services, setServices] = useState<Service[]>([]);
+  const bookingReady = !pageLoading && !loadError && shop?.slug === shopslug && shop.status === "approved";
   // Public testimonials for the cinematic landing (best-rated, with a comment).
   const [reviews, setReviews] = useState<{ name: string; rating: number; comment: string }[]>([]);
   const [toast, setToast] = useState<Toast | null>(null);
@@ -306,9 +309,15 @@ export default function BookingClient() {
   // ── Load shop + barbers + services ─────────────────────────────────────────
   useEffect(() => {
     if (!shopslug) return;
+    let cancelled = false;
+    const current = () => !cancelled && currentShopSlug.current === shopslug;
     (async () => {
       setPageLoading(true);
       setLoadError(false);
+      setShop(null);
+      setBarbers([]);
+      setServices([]);
+      setReviews([]);
       try {
         // maybeSingle (not single): 0 rows → data null + error null (a genuinely
         // invalid link → "Shop Not Found"); a real DB/network error → error set
@@ -323,10 +332,11 @@ export default function BookingClient() {
           .select("id, name, slug, status, description, logo, address, city, province, postal_code, phone, email, website, instagram, google_place_id, allow_pay_in_person, booking_settings, subscription_plan, subscription_status, stripe_account_id, stripe_connected")
           .eq("slug", shopslug)
           .maybeSingle();
-        if (error) { setLoadError(true); setPageLoading(false); return; }
+        if (!current()) return;
+        if (error) throw new Error("Shop lookup failed");
         setShop(shopData as Shop | null);
         if (shopData && shopData.status === "approved") {
-          const [{ data: b }, { data: s }, { data: rv }] = await Promise.all([
+          const [{ data: b, error: barbersError }, { data: s, error: servicesError }, { data: rv }] = await Promise.all([
             // Public booking page — never expose staff PII (email/phone),
             // commission rates, or user_id (the latter was the signal an attacker
             // used to spot a claimable barber row). Select only display fields.
@@ -334,10 +344,12 @@ export default function BookingClient() {
             supabase.from("services").select("*").eq("shop_id", shopData.id).eq("is_active", true),
             // Public testimonials for the landing. Guarded: if RLS blocks anon
             // reads, `rv` is null and the reviews section simply doesn't render.
-            supabase.from("reviews").select("client_name, rating, comment").eq("shop_id", shopData.id).not("comment", "is", null).order("created_at", { ascending: false }).limit(8),
+            Promise.resolve(supabase.from("reviews").select("client_name, rating, comment").eq("shop_id", shopData.id).not("comment", "is", null).order("created_at", { ascending: false }).limit(8)).catch(() => ({ data: null })),
           ]);
-          setBarbers((b ?? []) as Barber[]);
-          setServices((s ?? []) as Service[]);
+          if (!current()) return;
+          if (barbersError || servicesError || !b || !s) throw new Error("Booking options lookup failed");
+          setBarbers(b as Barber[]);
+          setServices(s as Service[]);
           setReviews(
             ((rv ?? []) as { client_name?: string; rating: number; comment?: string }[])
               .filter((r) => r.rating >= 4 && !!r.comment && r.comment.trim().length > 0)
@@ -345,11 +357,12 @@ export default function BookingClient() {
           );
         }
       } catch {
-        setLoadError(true); // network failure — not an invalid link
+        if (current()) setLoadError(true); // network failure — not an invalid link
       } finally {
-        setPageLoading(false);
+        if (current()) setPageLoading(false);
       }
     })();
+    return () => { cancelled = true; };
   }, [shopslug]);
 
   // ── Handle return from Stripe payment ──────────────────────────────────────
@@ -824,6 +837,7 @@ export default function BookingClient() {
   // setPayMethodChoice (React hasn't re-rendered yet), so the gate would
   // re-open the modal / re-enter forever. Passing it in sidesteps that entirely.
   const confirmBooking = async (methodOverride?: "online" | "in_person") => {
+    if (!bookingReady) return;
     if (!shop || selectedServices.length === 0 || !selectedDate || !selectedTime) return;
     if (isDateInPast(selectedDate)) { showToast("Please select a future date.", false); return; }
     const advDays = Math.min(60, Math.max(1, Number((shop.booking_settings as { advance_days?: number } | null)?.advance_days ?? 15)));
@@ -1247,6 +1261,7 @@ export default function BookingClient() {
   };
 
   const joinWaitlist = async () => {
+    if (!bookingReady) return;
     if (!shop || !selectedDate) return;
     if (!waitlistForm.name.trim()) { setToast({ msg: "Enter your name", ok: false }); return; }
     if (!waitlistForm.email.trim() && !waitlistForm.phone.trim()) {
@@ -1340,7 +1355,7 @@ export default function BookingClient() {
   }, [lockedBarber, STEPS.length]);
 
   // ── Loading screen ─────────────────────────────────────────────────────────
-  if (pageLoading) {
+  if (pageLoading || (shop && shop.slug !== shopslug)) {
     return (
       <div className="min-h-screen bg-black p-6 space-y-4 max-w-2xl mx-auto">
         <Skeleton className="h-24 w-full" />
@@ -1352,7 +1367,7 @@ export default function BookingClient() {
 
   // A load/network error is NOT the same as an invalid link — offer a retry
   // instead of telling a real customer the shop doesn't exist.
-  if (loadError) {
+  if (loadError && !confirmed) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center px-4">
         <div className="text-center max-w-sm">

@@ -46,5 +46,5 @@ export default async function BookingPage({ params }: { params: { shopslug: stri
   // own retry screen).
   if (!error && !data) notFound();
 
-  return <BookingClient />;
+  return <BookingClient key={params.shopslug} />;
 }
