@@ -57,6 +57,16 @@ export default function OnboardingPage() {
   const [shop, setShop] = useState({ name: "", address: "", city: "", province: "NB", postal_code: "", phone: "", description: "" });
   const [createdShopId, setCreatedShopId] = useState("");
   const [createdShopSlug, setCreatedShopSlug] = useState("");
+  const [resumeLoading, setResumeLoading] = useState(true);
+  const [resumeError, setResumeError] = useState("");
+  const [resumeAttempt, setResumeAttempt] = useState(0);
+  const [resumeReadyFor, setResumeReadyFor] = useState("");
+  const resumeUserId = user?.id;
+  const resumeEmail = user?.email;
+  const activeResumeUser = useRef(resumeUserId);
+  activeResumeUser.current = resumeUserId;
+  const initialResumeUser = useRef<string>();
+  const resumeReady = !!resumeUserId && resumeReadyFor === resumeUserId && !resumeLoading && !resumeError;
   // The server-decided status ("approved" when auto-approve is on, or a paid/
   // trial plan; "pending" otherwise). Drives which finish-up emails we send.
   const [createdShopStatus, setCreatedShopStatus] = useState("");
@@ -107,30 +117,55 @@ export default function OnboardingPage() {
   // If the user reopens onboarding mid-flow (browser refresh / session blip), restore
   // any state we can from the DB so the rest of the flow doesn't silently drop data.
   useEffect(() => {
-    if (!user) return;
-    if (createdShopId) return; // already loaded
+    setResumeReadyFor("");
+    if (!resumeUserId) return;
+    // This mounted wizard's drafts belong to one account. Reload before setting
+    // up a different account rather than carrying the old account's draft over.
+    if (initialResumeUser.current && initialResumeUser.current !== resumeUserId) {
+      setResumeError("Your account changed. Reload setup to continue with this account.");
+      setResumeLoading(false);
+      return;
+    }
+    initialResumeUser.current = resumeUserId;
+    let cancelled = false;
+    const current = () => !cancelled && activeResumeUser.current === resumeUserId;
+    setResumeLoading(true);
+    setResumeError("");
     (async () => {
-      // .limit(1)+[0] (not .maybeSingle) — a returning multi-location owner has
-      // 2+ shops, and .maybeSingle() throws on multiple rows.
-      const { data: existingShops } = await supabase
-        .from("shops").select("id, slug, status").eq("owner_id", user.id).order("created_at", { ascending: true }).limit(1);
-      const existingShop = existingShops?.[0];
-      if (!existingShop) return;
-      setCreatedShopId(existingShop.id);
-      setCreatedShopSlug(existingShop.slug);
-      setCreatedShopStatus(existingShop.status ?? "pending");
-      const { data: existingBarbers } = await supabase
-        .from("barbers").select("id, name, email").eq("shop_id", existingShop.id)
-        .order("created_at", { ascending: true });
-      if (existingBarbers && existingBarbers.length > 0) {
+      try {
+        // Keep the existing oldest-shop selection for multi-location owners.
+        const { data: existingShops, error: shopError } = await supabase
+          .from("shops").select("id, slug, status").eq("owner_id", resumeUserId).order("created_at", { ascending: true }).limit(1);
+        if (!current()) return;
+        if (shopError || !existingShops) throw new Error("Shop lookup failed");
+        const existingShop = existingShops[0];
+        let existingBarbers: { id: string; name: string; email: string | null }[] = [];
+        if (existingShop) {
+          const { data: team, error: teamError } = await supabase
+            .from("barbers").select("id, name, email").eq("shop_id", existingShop.id)
+            .order("created_at", { ascending: true });
+          if (!current()) return;
+          if (teamError || !team) throw new Error("Team lookup failed");
+          existingBarbers = team;
+        }
+        // Publish the shop and team together only after all reads succeeded.
+        setCreatedShopId(existingShop?.id ?? "");
+        setCreatedShopSlug(existingShop?.slug ?? "");
+        setCreatedShopStatus(existingShop?.status ?? "pending");
         setCreatedBarberIds(existingBarbers.map(b => b.id));
         setAddedBarbers(existingBarbers.map(b => ({
           id: b.id, name: b.name, email: b.email ?? "",
-          self: !!user.email && (b.email ?? "").toLowerCase() === user.email.toLowerCase(),
+          self: !!resumeEmail && (b.email ?? "").toLowerCase() === resumeEmail.toLowerCase(),
         })));
+        setResumeReadyFor(resumeUserId);
+      } catch {
+        if (current()) setResumeError("Couldn't load your saved setup. Please retry before continuing.");
+      } finally {
+        if (current()) setResumeLoading(false);
       }
     })();
-  }, [user, createdShopId]);
+    return () => { cancelled = true; };
+  }, [resumeUserId, resumeEmail, resumeAttempt]);
 
   // Autofocus the first text field when a step opens, so keyboard/mobile users can
   // start typing right away instead of reaching for the mouse. Skips file/checkbox
@@ -138,7 +173,7 @@ export default function OnboardingPage() {
   useEffect(() => {
     const el = contentRef.current?.querySelector<HTMLElement>("input:not([type=file]):not([type=checkbox]), textarea");
     el?.focus();
-  }, [step]);
+  }, [step, resumeReady]);
 
   const canProceed = () => {
     if (step === 0) return shop.name && shop.address && shop.city;
@@ -170,6 +205,7 @@ export default function OnboardingPage() {
   };
 
   const handleNext = async () => {
+    if (!resumeReady) return;
     setError("");
     setSaving(true);
     try {
@@ -263,6 +299,7 @@ export default function OnboardingPage() {
   // Enter-to-continue on the data-entry step. Greyed-but-tappable: a blocked step
   // explains WHY instead of silently doing nothing.
   const proceed = () => {
+    if (!resumeReady) return;
     if (saving) return;
     if (step === 1 && barberRequestState.current !== "idle") {
       setBlockHint(barberRequestState.current === "pending" ? "Wait for the barber request to finish." : "Refresh and check the saved team before continuing.");
@@ -283,6 +320,7 @@ export default function OnboardingPage() {
   const selfBarberName = profile?.name?.trim() || user?.email?.split("@")[0] || "Me";
 
   const inviteBarber = async (name: string, email: string, commission_percent: number) => {
+    if (!resumeReady) return;
     if (barberRequestState.current !== "idle") return;
     if (!createdShopId) { setBarberError("Please finish step 1 first."); return; }
     if (!accessToken) { setBarberError("Session expired — please sign in again."); return; }
@@ -352,6 +390,21 @@ export default function OnboardingPage() {
   };
 
   const bookingUrl = `${typeof window !== "undefined" ? window.location.origin : "https://app.clipwise.ca"}/book/${createdShopSlug}`;
+
+  if (!resumeReady) {
+    const accountChanged = !!initialResumeUser.current && initialResumeUser.current !== resumeUserId;
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4 p-6 text-center">
+        <Logo size="sm" />
+        {resumeError ? <div role="alert" className="max-w-md space-y-4">
+          <p className="text-sm text-grey">{resumeError}</p>
+          <Button onClick={() => accountChanged ? window.location.reload() : setResumeAttempt(value => value + 1)}>
+            {accountChanged ? "Reload setup" : "Retry loading setup"}
+          </Button>
+        </div> : <p role="status" className="text-sm text-grey">Checking your saved setup…</p>}
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col">

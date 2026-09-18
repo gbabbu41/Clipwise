@@ -5,7 +5,7 @@ const code = ts.transpileModule(source.slice(start, end), { compilerOptions: { t
 function setup(mode = 'success', overrides = {}) {
   let release; const held = new Promise(resolve => { release = resolve; });
   const state = { busy: false, error: '', uncertain: false, rows: [], ids: [], clears: 0, requests: [] };
-  const env = { createdShopId: 'shop', accessToken: 'token', addedBarbers: [], planLimit: 3,
+  const env = { resumeReady: true, createdShopId: 'shop', accessToken: 'token', addedBarbers: [], planLimit: 3,
     barberRequestState: { current: 'idle' }, barberRequestContext: { current: 1 },
     setAddingBarber: v => { state.busy = v; }, setBarberError: v => { state.error = v; }, setBarberUncertain: v => { state.uncertain = v; },
     setAddedBarbers: fn => { state.rows = fn(state.rows); }, setCreatedBarberIds: fn => { state.ids = fn(state.ids); },
@@ -39,7 +39,7 @@ const send = p => p.invite('Barber', 'barber@example.invalid', 65);
   const proceedCode = ts.transpileModule(source.slice(proceedStart, proceedEnd), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
   for (const requestState of ['pending', 'uncertain', 'idle']) {
     let advances = 0, hint = '';
-    const env = { saving: false, step: 1, barberRequestState: { current: requestState }, canProceed: () => true, blockReason: () => 'blocked', setBlockHint: v => { hint = v; }, handleNext: () => { advances++; } };
+    const env = { resumeReady: true, saving: false, step: 1, barberRequestState: { current: requestState }, canProceed: () => true, blockReason: () => 'blocked', setBlockHint: v => { hint = v; }, handleNext: () => { advances++; } };
     new Function(...Object.keys(env), `${proceedCode}; return proceed;`)(...Object.values(env))();
     assert.equal(advances, requestState === 'idle' ? 1 : 0); if (requestState !== 'idle') assert(hint);
   }
