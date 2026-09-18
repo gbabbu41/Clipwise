@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { cn, formatCurrency } from "@/lib/utils";
@@ -66,6 +66,9 @@ export default function ServicesPage() {
   const [editService, setEditService] = useState<Service | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const serviceSaveInFlight = useRef(false);
+  const activeShopId = useRef(shop?.id);
+  activeShopId.current = shop?.id;
   const [showTemplates, setShowTemplates] = useState(false);
   const [selectedTemplates, setSelectedTemplates] = useState<Set<string>>(new Set());
   const [addingTemplates, setAddingTemplates] = useState(false);
@@ -113,12 +116,14 @@ export default function ServicesPage() {
   };
 
   const saveService = async () => {
-    if (!shop) return;
+    if (!shop || serviceSaveInFlight.current) return;
+    if (editService && editService.shop_id !== shop.id) { showToast("Please reopen this service in its original shop."); return; }
     if (!newSvc.name.trim() || newSvc.name.trim().length < 3) { showToast("Service name must be at least 3 characters"); return; }
     const priceErr = validatePrice(newSvc.price);
     if (priceErr) { showToast(priceErr); return; }
     const durErr = validateDuration(newSvc.duration_minutes);
     if (durErr) { showToast(durErr); return; }
+    serviceSaveInFlight.current = true;
     setSaving(true);
     const payload = {
       shop_id: shop.id,
@@ -133,19 +138,28 @@ export default function ServicesPage() {
       deposit_required: false,
       deposit_amount: 0,
     };
-    if (editService) {
-      const { error } = await supabase.from("services").update(payload).eq("id", editService.id);
-      if (!error) { showToast("Service updated!"); loadData(); }
-      else showToast("Error: " + error.message);
-    } else {
-      const { error } = await supabase.from("services").insert(payload);
-      if (!error) { showToast("Service added!"); loadData(); }
-      else showToast("Error: " + error.message);
+    try {
+      if (editService) {
+        const { data, error } = await supabase.from("services").update(payload)
+          .eq("id", editService.id).eq("shop_id", shop.id).select("id").maybeSingle();
+        if (shop.id !== activeShopId.current) return;
+        if (error || !data) { showToast("Couldn't update the service. Your changes are still here; refresh the list before trying again."); return; }
+      } else {
+        const { error } = await supabase.from("services").insert(payload);
+        if (shop.id !== activeShopId.current) return;
+        if (error) { showToast("Couldn't add the service. Your changes are still here."); return; }
+      }
+      showToast(editService ? "Service updated!" : "Service added!");
+      setShowServiceModal(false);
+      setEditService(null);
+      setNewSvc(BLANK_SVC);
+      loadData();
+    } catch {
+      if (shop.id === activeShopId.current) showToast("Couldn't confirm the save. Refresh the service list before trying again.");
+    } finally {
+      serviceSaveInFlight.current = false;
+      setSaving(false);
     }
-    setSaving(false);
-    setShowServiceModal(false);
-    setEditService(null);
-    setNewSvc(BLANK_SVC);
   };
 
   const toggleTemplate = (name: string) => {
@@ -365,13 +379,14 @@ export default function ServicesPage() {
       {/* Service Modal */}
       {showServiceModal && (
         <>
-          <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setShowServiceModal(false)} />
+          <div className="fixed inset-0 bg-black/70 z-40" onClick={() => { if (!serviceSaveInFlight.current) setShowServiceModal(false); }} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
             <div className="bg-card shadow-sm border border-border rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-foreground">{editService ? "Edit Service" : "Add Service"}</h2>
-                <button onClick={() => setShowServiceModal(false)} className="text-grey hover:text-foreground">✕</button>
+                <button disabled={saving} onClick={() => setShowServiceModal(false)} className="text-grey hover:text-foreground" aria-label="Close service editor">✕</button>
               </div>
+              <fieldset disabled={saving} className="space-y-4">
               <Input label="Service Name" value={newSvc.name} onChange={e => setNewSvc(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Skin Fade" />
               <div className="grid grid-cols-2 gap-3">
                 <Input label="Price ($)" type="number" value={newSvc.price} onChange={e => setNewSvc(p => ({ ...p, price: e.target.value }))} placeholder="35" />
@@ -395,6 +410,7 @@ export default function ServicesPage() {
                 <Button variant="outline" className="flex-1" onClick={() => setShowServiceModal(false)}>Cancel</Button>
                 <Button className="flex-1" loading={saving} onClick={saveService}>{editService ? "Update" : "Add"} Service</Button>
               </div>
+              </fieldset>
             </div>
           </div>
         </>
