@@ -16,3 +16,11 @@ Reported: iPhone PWA, today's calendar only, intermittent two-direction scrollin
 Targeted tests cover late-evening bounds, one-write maximum, input cancellation, loading/geometry readiness, backgrounding/detachment, date-rail isolation and day/multi-day wiring. The complete regression suite and production build are the shipping gates.
 
 Device acceptance still needed: on an iPhone home-screen PWA, open today's Day and 3-Day calendar around 9:50pm, 10pm and after 10pm; immediately drag in both directions, repeat after background/resume, compare another date, and repeat with slow loading. A full two-way freeze surviving this change requires inspection of the affected device's touch target, scroll dimensions and overlay state, not more speculative scroll writes.
+
+## Follow-up: fixed 24-hour timeline
+
+The owner reports that freezing still occurs. The initial autofocus mitigation must therefore NOT be treated as a confirmed resolution.
+
+At the owner's request, Day and multi-day timelines now always show 00:00 through the next midnight (24 hour rows). They no longer resize their time range from schedules/bookings or end at the default 10pm boundary. Working-hours and booking-conflict rules are unchanged. Both timeline flex wrappers explicitly allow shrinking within the scroll viewport.
+
+Regression coverage now includes the full-day range, midnight/noon/10pm/11:59pm positioning bounds and user scrolling after late-night autofocus. Autofocus remains a single interruptible positioning attempt; there is no continuous time tracking. This is a range/layout change, not proof that the physical iPhone freeze is resolved. Re-test both scrolling directions after deployment with the full 24-hour grid visible.

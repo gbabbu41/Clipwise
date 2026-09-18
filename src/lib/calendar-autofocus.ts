@@ -1,4 +1,10 @@
 /** One initial positioning only. Never run a scroll animation or chase the clock. */
+export function fullDayCalendarWindow(): { winStart: number; winEnd: number; hours: number[] } {
+  // 00:00 inclusive to the next midnight exclusive: 24 complete hour rows.
+  // Keep geometry independent of working hours, bookings and realtime reloads.
+  return { winStart: 0, winEnd: 24, hours: Array.from({ length: 24 }, (_, hour) => hour) };
+}
+
 export function calendarFocusTop(target: number, viewport: number, content: number): number {
   return Math.max(0, Math.min(Math.max(0, content - viewport), target - viewport / 2));
 }

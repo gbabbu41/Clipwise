@@ -3,7 +3,13 @@ const root = path.resolve(__dirname, '../..'), appReq = Module.createRequire(pat
 const filename = path.join(root, 'src/lib/calendar-autofocus.ts'), m = new Module(filename, module);
 m.filename = filename; m.require = appReq;
 m._compile(ts.transpileModule(fs.readFileSync(filename, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, filename);
-const { calendarFocusTop, startCalendarAutofocus } = m.exports;
+const { fullDayCalendarWindow, calendarFocusTop, startCalendarAutofocus } = m.exports;
+const dayWindow = fullDayCalendarWindow();
+assert.equal(dayWindow.winStart, 0); assert.equal(dayWindow.winEnd, 24);
+assert.deepEqual(dayWindow.hours, Array.from({ length: 24 }, (_, hour) => hour));
+for (const hour of [0, 7, 12, 21.99, 22, 23.99, 24]) {
+  assert.equal(calendarFocusTop(hour * 62, 400, 24 * 62), Math.max(0, Math.min(1088, hour * 62 - 200)));
+}
 class Target {
   constructor() { this.listeners = new Map(); }
   addEventListener(type, fn) { if (!this.listeners.has(type)) this.listeners.set(type, new Set()); this.listeners.get(type).add(fn); }
@@ -55,9 +61,14 @@ for (const end of ['hidden', 'pagehide', 'detach', 'cleanup', 'timeout']) {
 reset(); target = 0; begin(); settle(); assert.equal(writes.length, 0); // non-today already at top: no write
 reset(); doc.hidden = true; begin(); doc.hidden = false; settle(); assert.equal(writes.length, 0); assert.equal(queued.size, 0);
 reset(); el.clientHeight = 0; begin(); settle(); assert.equal(writes.length, 0); el.clientHeight = 400; settle(); assert.equal(writes.length, 1);
+// A full-day late-night focus leaves the timeline entirely under user control.
+reset(); el.scrollHeight = 24 * 62; target = 23.99 * 62; begin(); settle();
+assert.deepEqual(writes, [1088]); el.scrollTop = 500; settle(); assert.deepEqual(writes, [1088, 500]);
 const source = fs.readFileSync(path.join(root, 'src/components/calendar-view.tsx'), 'utf8');
 assert.equal((source.match(/data-calendar-time-grid data-start-hour/g) || []).length, 2);
 assert.equal((source.match(/data-focus-key=\{focusKey\}/g) || []).length, 2);
 assert(!source.includes('lastProgScrollRef')); assert(!source.includes('[50, 400]'));
 assert(source.includes('onAnimationComplete')); assert(source.includes('el.dataset.focusKey !== focusKey'));
+assert.equal((source.match(/const \{ winStart, winEnd, hours \} = fullDayCalendarWindow\(\)/g) || []).length, 2);
+assert(!source.includes('Math.max(winEnd, 22)'));
 console.log('PASS calendar one-shot focus, late-night bounds, user takeover without grace period, loading/animation geometry, background/detach cleanup and day/multiday integration');

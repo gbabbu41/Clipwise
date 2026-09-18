@@ -15,7 +15,7 @@ import {
 import { freesSlot, apptDuration } from "@/lib/availability";
 import { clientMatchesQuery } from "@/lib/client-search";
 import { safeTz, todayInTz, nowMinutesInTz } from "@/lib/timezone";
-import { startCalendarAutofocus } from "@/lib/calendar-autofocus";
+import { fullDayCalendarWindow, startCalendarAutofocus } from "@/lib/calendar-autofocus";
 import { calendarEditTotals, type CalendarAddContext } from "@/lib/calendar-workflow";
 import { clampNoShowPct, NO_SHOW_LEAD_MINUTES, formatPhone } from "@/lib/validation";
 
@@ -2689,22 +2689,9 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
       );
     }
 
-    // Working window from ALL barbers + bookings, so the time rail stays put
-    // when you page between barber sets.
-    const starts: number[] = [], ends: number[] = [];
-    allCols.forEach(b => {
-      const s = schedules.get(b.id);
-      if (s) { starts.push(hourOfDb(s.start)); ends.push(hourOfDb(s.end)); }
-    });
-    dayAppts.forEach(a => { const sh = parseTime(a.time_slot); starts.push(sh); ends.push(sh + apptDuration(a) / 60); });
-    let winStart = starts.length ? Math.floor(Math.min(...starts)) : 7;
-    let winEnd = ends.length ? Math.ceil(Math.max(...ends)) : 18;
-    winStart = Math.min(7, Math.max(0, winStart));
-    // Always run the grid down to at least 10 PM so the canvas fills the
-    // viewport (no black gap below) and there's room to book evening slots.
-    winEnd = Math.min(24, Math.max(winEnd, 22));
-    const hours: number[] = [];
-    for (let h = winStart; h < winEnd; h++) hours.push(h);
+    // Always midnight to midnight. Working hours remain availability indicators,
+    // not changing scroll boundaries that move as schedules/bookings load.
+    const { winStart, winEnd, hours } = fullDayCalendarWindow();
 
     // Stretch the hour rows so the grid always fills the visible scroll area —
     // on a tall desktop a short day would otherwise end mid-screen and leave a
@@ -2716,7 +2703,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
       : ROW_PX;
 
     return (
-      <div ref={colWrapRef} className="flex flex-col h-full">
+      <div ref={colWrapRef} className="flex flex-col h-full min-h-0">
         {renderWeekStrip()}
         {/* Only when some barbers ARE scheduled (so the off ones are actually
             hidden). If nobody's scheduled we already show everyone as a
@@ -2972,28 +2959,15 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     const setStrs = new Set(dayStrs);
     const visAppts = appointments.filter(a => setStrs.has(a.date) && a.barber_id === barber.id && !freesSlot(a));
 
-    // One shared hour window across every visible day, so rows line up column to
-    // column. Seed from the barber's hours today + all visible appts/blocks, then
-    // clamp to business hours (open by 9, run to at least 10 PM).
-    const starts: number[] = [], ends: number[] = [];
-    const sched = schedules.get(barber.id);
-    if (sched) { starts.push(hourOfDb(sched.start)); ends.push(hourOfDb(sched.end)); }
-    visAppts.forEach(a => { const sh = parseTime(a.time_slot); starts.push(sh); ends.push(sh + apptDuration(a) / 60); });
-    blocks.filter(b => b.barber_id === barber.id && setStrs.has(b.start_date) && b.start_time && b.end_time)
-      .forEach(b => { starts.push(timeToMinutes(dbTimeToDisplay(b.start_time!)) / 60); ends.push(timeToMinutes(dbTimeToDisplay(b.end_time!)) / 60); });
-    let winStart = starts.length ? Math.floor(Math.min(...starts)) : 7;
-    let winEnd = ends.length ? Math.ceil(Math.max(...ends)) : 18;
-    winStart = Math.min(7, Math.max(0, winStart));
-    winEnd = Math.min(24, Math.max(winEnd, 22));
-    const hours: number[] = [];
-    for (let h = winStart; h < winEnd; h++) hours.push(h);
+    // Same fixed 24-hour rail as Day view, regardless of selected staff/date.
+    const { winStart, winEnd, hours } = fullDayCalendarWindow();
     const gridWin = { start: `${String(winStart).padStart(2, "0")}:00:00`, end: `${String(winEnd).padStart(2, "0")}:00:00` };
 
     const gridCols = `48px repeat(${multiDayCount}, minmax(0, 1fr))`;
     const anyToday = multiDays.some(isToday);
 
     return (
-      <div className="flex flex-col h-full">
+      <div className="flex flex-col h-full min-h-0">
         <div ref={attachScroll} data-focus-key={focusKey} className="overflow-auto flex-1 min-h-0" style={{ overflowAnchor: "none" }}>
           {/* Day headers — tap a day to open it in your day-level view (re-anchors
               the 3-Day window to start on that day). */}
