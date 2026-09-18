@@ -132,7 +132,7 @@ export function CalendarSetupNudge() {
           </button>
         </div>
       </div>
-      {sheet && <SetupSheet step={sheet} onClose={() => setSheet(null)} />}
+      {sheet && <SetupSheet key={`${shop.id}:${sheet}`} step={sheet} onClose={() => setSheet(null)} />}
     </>
   );
 }

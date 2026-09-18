@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth-context";
@@ -26,24 +26,46 @@ export function SetupSheet({ step, onClose }: { step: "location" | "hours"; onCl
   });
   const [hours, setHours] = useState(DAYS.map((_, i) => ({ open: i >= 1 && i <= 6, start: "09:00", end: i <= 5 ? "19:00" : "17:00" })));
 
+  const saveInFlight = useRef(false);
+  const saveContext = useRef(0);
+  const scopeId = `${shop?.id}:${step}`;
+  const activeScope = useRef(scopeId);
+  activeScope.current = scopeId;
+  useEffect(() => () => { saveContext.current += 1; }, [scopeId]);
+
   if (!shop) return null;
 
-  const saveLocation = async () => {
-    if (!loc.address.trim()) { setError("Please enter your street address."); return; }
-    setSaving(true); setError("");
-    const { error: err } = await supabase.from("shops").update({
-      address: loc.address.trim(),
-      city: loc.city.trim() || null,
-      province: (loc.province || "").trim() || null,
-      postal_code: loc.postal_code.trim() || null,
-      phone: loc.phone.trim() || null,
-    }).eq("id", shop.id);
-    setSaving(false);
-    if (err) { setError("Couldn't save — please try again."); return; }
-    try { await refreshShop(); } catch { /* re-synced on next load */ }
+  const closeSheet = () => {
+    if (saving || saveInFlight.current) return;
     onClose();
   };
 
+  const saveLocation = async () => {
+    if (saveInFlight.current) return;
+    if (!loc.address.trim()) { setError("Please enter your street address."); return; }
+    saveInFlight.current = true;
+    const context = saveContext.current;
+    const current = () => saveContext.current === context && activeScope.current === scopeId;
+    setSaving(true); setError("");
+    try {
+      const { data, error: err } = await supabase.from("shops").update({
+        address: loc.address.trim(),
+        city: loc.city.trim() || null,
+        province: (loc.province || "").trim() || null,
+        postal_code: loc.postal_code.trim() || null,
+        phone: loc.phone.trim() || null,
+      }).eq("id", shop.id).select("id").maybeSingle();
+      if (!current()) return;
+      if (err || !data || data.id !== shop.id) { setError("Couldn't confirm your saved location. Please review and retry."); return; }
+      try { await refreshShop(); } catch { /* re-synced on next load */ }
+      if (current()) onClose();
+    } catch {
+      if (current()) setError("Couldn't confirm your saved location. Please review and retry.");
+    } finally {
+      saveInFlight.current = false;
+      if (current()) setSaving(false);
+    }
+  };
   const saveHours = async () => {
     setSaving(true); setError("");
     try {
@@ -82,16 +104,17 @@ export function SetupSheet({ step, onClose }: { step: "location" | "hours"; onCl
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/70 z-[60]" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/70 z-[60]" onClick={closeSheet} />
       <div className="fixed inset-x-0 bottom-0 z-[61] bg-surface border-t border-border rounded-t-3xl p-5 pb-[calc(20px+env(safe-area-inset-bottom))] max-h-[85vh] overflow-y-auto animate-fade-in">
         <div className="mx-auto max-w-lg">
           <div className="flex items-center justify-between mb-1">
             <h2 className="text-lg font-bold text-white">{step === "location" ? "Business location" : "Your working hours"}</h2>
-            <button onClick={onClose} aria-label="Close" className="text-grey hover:text-white p-1"><X size={18} /></button>
+            <button onClick={closeSheet} disabled={saving} aria-label="Close" className="text-grey hover:text-white p-1"><X size={18} /></button>
           </div>
           <p className="text-xs text-grey mb-4">{step === "location" ? "So clients know where to find you." : "When you're open for bookings."}</p>
           {error && <div className="mb-3 text-sm text-red-400">{error}</div>}
 
+          <fieldset disabled={saving} className="min-w-0">
           {step === "location" ? (
             <div className="space-y-3">
               <div><label className="text-xs text-grey block mb-1.5">Street address</label><input className={inputCls} value={loc.address} onChange={e => setLoc(p => ({ ...p, address: e.target.value }))} placeholder="123 Main St" autoFocus /></div>
@@ -126,6 +149,7 @@ export function SetupSheet({ step, onClose }: { step: "location" | "hours"; onCl
               <Button className="w-full mt-2" size="lg" loading={saving} onClick={saveHours}>Save hours</Button>
             </div>
           )}
+          </fieldset>
         </div>
       </div>
     </>
