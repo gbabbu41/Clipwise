@@ -5,7 +5,7 @@ const handler = source.slice(source.indexOf('  const book = async'), source.inde
 const ok = () => new Response(JSON.stringify({ ok: true, appointment_id: 'saved' }));
 function setup(fetcher = async () => ok(), overrides = {}) {
   const state = { busy: false, uncertain: false, errors: [], done: [], closed: 0, calls: [] };
-  const env = { barberId: 'barber', slot: '10:00 AM', busy: false, services: [], serviceId: 'service', accessToken: 'valid', request: { id: 'waiter' }, onBook: null,
+  const env = { availabilityReady: true, barberId: 'barber', slot: '10:00 AM', busy: false, services: [], serviceId: 'service', accessToken: 'valid', request: { id: 'waiter' }, onBook: null,
     bookingInFlight: { current: false }, bookingBlocked: { current: false },
     setBusy: value => { state.busy = value; }, setUncertain: value => { state.uncertain = value; }, setErr: value => state.errors.push(value), onDone: value => state.done.push(value), close: () => state.closed++,
     fetch: async (...args) => { state.calls.push(args); return fetcher(...args); }, ...overrides };
@@ -26,7 +26,7 @@ function setup(fetcher = async () => ok(), overrides = {}) {
     else { assert.equal(p.state.closed, 0); assert.equal(p.state.uncertain, typeof result !== 'string'); }
     if (typeof result !== 'string') { await p.book(); assert.equal(calls, 1); }
   }
-  for (const overrides of [{ barberId: null }, { slot: null }, { services: [{}], serviceId: null }]) { const p = setup(undefined, overrides); await p.book(); assert.equal(p.state.calls.length, 0); }
+  for (const overrides of [{ availabilityReady: false }, { barberId: null }, { slot: null }, { services: [{}], serviceId: null }]) { const p = setup(undefined, overrides); await p.book(); assert.equal(p.state.calls.length, 0); }
   // Exercise both actual walk-in callbacks; uncertain replies must reach the
   // shared sheet as exceptions, not false success or ordinary retryable errors.
   for (const [file, name] of [['src/app/dashboard/waitlist/page.tsx', 'seatWalkin'], ['src/app/barber-dashboard/waitlist/page.tsx', 'seatMine']]) {
@@ -43,7 +43,7 @@ function setup(fetcher = async () => ok(), overrides = {}) {
       }
     }
   }
-  assert.match(source, /disabled=\{!slot \|\| busy \|\| uncertain\}/);
+  assert.match(source, /disabled=\{!availabilityReady \|\| !slot \|\| busy \|\| uncertain\}/);
   assert.match(source, /const close = \(\) => \{ if \(bookingInFlight.current\) return/);
   console.log('PASS waitlist form: duplicate/success guards, retryable rejection, uncertain network/server/malformed lock, recovered busy state, both walk-in callbacks and unchanged payload');
 })().catch(error => { console.error(error); process.exitCode = 1; });

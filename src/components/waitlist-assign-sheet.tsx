@@ -63,6 +63,11 @@ export function WaitlistAssignSheet({
   const { dragY, dragging } = useSheetDrag(sheetRef, close);
 
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [availabilityRetry, setAvailabilityRetry] = useState(0);
+  const availabilityKey = JSON.stringify([request.id, request.shop_id, request.desired_date, request.barber_id, allowBarberSwitch]);
+  const [loadedAvailabilityKey, setLoadedAvailabilityKey] = useState("");
+  const availabilityReady = loadedAvailabilityKey === availabilityKey && !loading && !loadError;
   const [barbers, setBarbers] = useState<AvailBarber[]>([]);
   const [barberId, setBarberId] = useState<string | null>(request.barber_id);
   const [serviceId, setServiceId] = useState<string | null>(request.service_id ?? services?.[0]?.id ?? null);
@@ -93,6 +98,9 @@ export function WaitlistAssignSheet({
     let alive = true;
     (async () => {
       setLoading(true);
+      setLoadError("");
+      setBarbers([]);
+      setSlot(null);
       try {
         // When the shop may reassign, fetch every barber's availability so the
         // dropdown can offer whoever's free — not just the customer's pick.
@@ -101,9 +109,16 @@ export function WaitlistAssignSheet({
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ shop_id: request.shop_id, date: request.desired_date, barber_id: fetchBarber }),
         });
-        const d = r.ok ? await r.json() : { barbers: [] };
+        if (!r.ok) throw new Error("Availability unavailable");
+        const d = await r.json();
         if (!alive) return;
-        const list = (d.barbers ?? []) as AvailBarber[];
+        if (!d || !Array.isArray(d.barbers)) throw new Error("Invalid availability");
+        const list = d.barbers as AvailBarber[];
+        if (list.some(b => !b || typeof b.id !== "string" || !Array.isArray(b.busy) || !Array.isArray(b.blocked) ||
+          b.busy.some(a => !a || typeof a.time_slot !== "string" || typeof a.duration !== "number" || !Number.isFinite(a.duration)) ||
+          b.blocked.some(o => !o || typeof o.start_time !== "string" || typeof o.end_time !== "string"))) {
+          throw new Error("Invalid availability");
+        }
         setBarbers(list);
         // Default selection: keep a valid current pick; otherwise prefer the
         // customer's chosen barber, then the first barber that actually has open
@@ -114,10 +129,17 @@ export function WaitlistAssignSheet({
           const withSlots = list.find(b => slotsFor(b).length > 0);
           return preferred?.id ?? withSlots?.id ?? list[0]?.id ?? null;
         });
-      } finally { if (alive) setLoading(false); }
+      } catch {
+        if (!alive) return;
+        setBarbers([]);
+        setSlot(null);
+        setLoadError("Couldn't load open slots. Please try again.");
+      } finally {
+        if (alive) { setLoadedAvailabilityKey(availabilityKey); setLoading(false); }
+      }
     })();
     return () => { alive = false; };
-  }, [request.shop_id, request.desired_date, request.barber_id, allowBarberSwitch, slotsFor]);
+  }, [request.shop_id, request.desired_date, request.barber_id, allowBarberSwitch, slotsFor, availabilityKey, availabilityRetry]);
 
   const active = useMemo(() => barbers.find(b => b.id === barberId) ?? null, [barbers, barberId]);
   const openSlots = useMemo(() => slotsFor(active), [slotsFor, active]);
@@ -125,7 +147,7 @@ export function WaitlistAssignSheet({
   useEffect(() => { setSlot(s => (s && openSlots.includes(s) ? s : null)); }, [openSlots]);
 
   const book = async () => {
-    if (!barberId || !slot || busy || bookingInFlight.current || bookingBlocked.current) return;
+    if (!availabilityReady || !barberId || !slot || busy || bookingInFlight.current || bookingBlocked.current) return;
     if (services && services.length > 0 && !serviceId) { setErr("Pick a service."); return; }
     bookingInFlight.current = true;
     setBusy(true); setErr("");
@@ -197,8 +219,14 @@ export function WaitlistAssignSheet({
 
             <div className="mt-3">
               <label className="text-[10px] font-semibold uppercase tracking-wider text-grey block mb-1">Open slots</label>
-              {loading ? (
+              {loading || loadedAvailabilityKey !== availabilityKey ? (
                 <p className="text-sm text-grey py-6 text-center">Loading open slots…</p>
+              ) : loadError ? (
+                <div className="py-4 text-center" role="alert">
+                  <p className="text-sm text-grey">{loadError}</p>
+                  <button type="button" disabled={busy || uncertain} onClick={() => { setLoading(true); setAvailabilityRetry(n => n + 1); }}
+                    className="mt-2 text-sm text-foreground underline disabled:opacity-40">Retry loading slots</button>
+                </div>
               ) : openSlots.length === 0 ? (
                 <p className="text-sm text-grey py-6 text-center">No open slots{allowBarberSwitch ? " left today" : " that day"}. Pick another barber or free up time.</p>
               ) : (
@@ -216,7 +244,7 @@ export function WaitlistAssignSheet({
 
             {err && <p className="text-xs text-rose-400 mt-3">{err}</p>}
 
-            <button type="button" disabled={!slot || busy || uncertain} onClick={book}
+            <button type="button" disabled={!availabilityReady || !slot || busy || uncertain} onClick={book}
               className="mt-4 w-full rounded-xl bg-[#00e5a0] text-black text-sm font-bold py-3 disabled:opacity-40 transition-opacity">
               {busy ? "Booking…" : slot ? `Book ${slot}` : "Pick a slot"}
             </button>
