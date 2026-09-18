@@ -25,14 +25,17 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { type, data } = body as { type: string; data: Record<string, string> };
     let emailData = data;
-    // Manual birthday sends belong to the owner Clients page. Cron calls the
-    // email engine directly and does not need (or bypass) this HTTP permission.
-    if (type === "birthday_wish") {
+    // Browser messages must belong to this shop and a known recipient.
+    // Birthday sends remain owner-only; direct messages also allow active staff.
+    if (type === "birthday_wish" || type === "direct_message") {
       if (!data || typeof data.shopId !== "string" || typeof data.clientEmail !== "string" ||
           !/^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+$/.test(data.clientEmail) || data.clientEmail.length > 254) {
-        return NextResponse.json({ error: "Invalid birthday email request." }, { status: 400 });
+        return NextResponse.json({ error: "Invalid client email request." }, { status: 400 });
       }
-      const auth = await authorizeShop(req, data.shopId, { ownerOnly: true });
+      if (type === "direct_message" && (typeof data.content !== "string" || !data.content.trim())) {
+        return NextResponse.json({ error: "Message content is required." }, { status: 400 });
+      }
+      const auth = await authorizeShop(req, data.shopId, { ownerOnly: type === "birthday_wish" });
       if ("error" in auth) return auth.error;
       const email = data.clientEmail.toLowerCase();
       const pattern = email.replace(/[\\%_]/g, "\\$&");
@@ -62,6 +65,7 @@ export async function POST(req: NextRequest) {
         clientName: recipient.name, clientEmail: recipient.email,
         shopName: String(auth.shop.name ?? ""), shopEmail: String(auth.shop.email ?? ""),
         shopSlug: String(auth.shop.slug ?? ""),
+        ...(type === "direct_message" ? { content: data.content } : {}),
       };
     }
     // These notices are generated only by dedicated server workflows.

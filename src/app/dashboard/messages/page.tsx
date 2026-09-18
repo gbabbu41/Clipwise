@@ -144,6 +144,7 @@ export default function MessagesPage() {
         body: JSON.stringify({
           type: "direct_message",
           data: {
+            shopId: shop.id,
             clientName,
             clientEmail,
             shopName: shop.name,
@@ -287,6 +288,7 @@ export default function MessagesPage() {
           body: JSON.stringify({
             type: "direct_message",
             data: {
+              shopId: shop.id,
               clientName: composeClient.name,
               clientEmail: composeClient.email,
               shopName: shop.name,
