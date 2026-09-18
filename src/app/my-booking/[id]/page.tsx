@@ -129,7 +129,13 @@ export default function MyBookingPage() {
         body: JSON.stringify({ action: "reschedule", date: newDateStr, time_slot: newTime }),
       });
       if (res.ok) {
-        setAppt(prev => prev ? { ...prev, date: newDateStr, time_slot: newTime, status: "pending" } : prev);
+        const result = await res.json();
+        setAppt(prev => prev ? {
+          ...prev,
+          date: result.date ?? newDateStr,
+          time_slot: result.time_slot ?? newTime,
+          status: result.status ?? prev.status,
+        } : prev);
         setView("detail");
         setNewDate(null);
         setNewTime(null);

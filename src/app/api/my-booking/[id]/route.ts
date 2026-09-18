@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { insertNotifications } from "@/lib/notify-server";
 import { getSlotsInRange, timeToMinutes, prettyDate } from "@/lib/utils";
-import { barberHasConflict } from "@/lib/booking-conflict";
+import { barberHasConflict, isDoubleBookError } from "@/lib/booking-conflict";
 import { OCCUPYING_STATUSES, holdsSlot } from "@/lib/availability";
 import { scheduleBlockReason } from "@/lib/schedule-block";
 import { safeTz, todayInTz, nowMinutesInTz, isBookingInPast, hoursUntilBooking } from "@/lib/timezone";
@@ -109,7 +109,16 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const base = req.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca";
 
   if (body.action === "cancel") {
-    await supabaseAdmin.from("appointments").update({ status: "cancelled" }).eq("id", id);
+    const { data: cancelled, error: cancelError } = await supabaseAdmin
+      .from("appointments").update({ status: "cancelled" }).eq("id", id)
+      .eq("status", appt.status).eq("date", appt.date).eq("time_slot", appt.time_slot)
+      .select("id, status").maybeSingle();
+    if (cancelError) {
+      return NextResponse.json({ error: "Couldn't save the cancellation. Please refresh your booking and try again." }, { status: 503 });
+    }
+    if (!cancelled) {
+      return NextResponse.json({ error: "This booking changed while you were cancelling it. Please refresh and try again." }, { status: 409 });
+    }
     // Auto money-back on a customer self-cancel. Self-cancel is ONLY permitted with
     // enough notice (the window check above), so an in-window cancel earns a FULL
     // refund — the Squire model. A paid/captured booking is refunded; a legacy
@@ -242,7 +251,20 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     // request to approve. The card hold / payment_intent is untouched and still
     // applies to the new time. Only a still-pending booking stays pending.
     const oldDate = appt.date;
-    await supabaseAdmin.from("appointments").update({ date: body.date, time_slot: body.time_slot }).eq("id", id);
+    const { data: updated, error: updateError } = await supabaseAdmin
+      .from("appointments").update({ date: body.date, time_slot: body.time_slot }).eq("id", id)
+      .eq("status", appt.status).eq("date", appt.date).eq("time_slot", appt.time_slot)
+      .select("id, date, time_slot, status").maybeSingle();
+    if (updateError) {
+      return NextResponse.json({
+        error: isDoubleBookError(updateError)
+          ? "That time was just booked — please pick another slot."
+          : "Couldn't save the new time. Please refresh your booking and try again.",
+      }, { status: isDoubleBookError(updateError) ? 409 : 503 });
+    }
+    if (!updated) {
+      return NextResponse.json({ error: "This booking changed while you were rescheduling it. Please refresh and try again." }, { status: 409 });
+    }
     // Reschedule vacates the OLD slot — ping the waitlist for that date/barber so
     // anyone waiting on the original day gets a shot (every other freeing
     // transition — cancel/reject/no-show — already does this).
@@ -294,7 +316,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         user_id: uid, shop_id: appt.shop_id, title: "Appointment Rescheduled", message: msg, type: "booking",
       });
     }
-    return NextResponse.json({ ok: true, date: body.date, time_slot: body.time_slot, status: appt.status });
+    return NextResponse.json({ ok: true, date: updated.date, time_slot: updated.time_slot, status: updated.status });
   }
 
   return NextResponse.json({ error: "Unknown action" }, { status: 400 });
