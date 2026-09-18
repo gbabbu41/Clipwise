@@ -44,6 +44,10 @@ export default function LoyaltyPage() {
   const [pointsToAdd, setPointsToAdd] = useState("10");
   const [redeemFor, setRedeemFor] = useState<Client | null>(null);
   const [pointsToRedeem, setPointsToRedeem] = useState("100");
+  const [savingPoints, setSavingPoints] = useState(false);
+  const [pointsError, setPointsError] = useState("");
+  const [pointsUncertain, setPointsUncertain] = useState(false);
+  const pointsInFlight = useRef(false);
   const [saving, setSaving] = useState(false);
   const promoSaveInFlight = useRef(false);
   const [savingSettings, setSavingSettings] = useState(false);
@@ -108,24 +112,53 @@ export default function LoyaltyPage() {
     showToast(error ? "Failed to save settings" : "Settings saved!");
   };
 
-  const redeemPoints = async () => {
-    if (!redeemFor || !shop || !accessToken) return;
-    const pts = Number(pointsToRedeem);
-    const res = await fetch("/api/loyalty/points", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ client_id: redeemFor.id, points: -Math.abs(pts), shop_id: shop?.id }),
-    });
-    const data = await res.json();
-    if (res.ok) {
-      setClients(prev => prev.map(c => c.id === redeemFor.id ? { ...c, loyalty_points: data.loyalty_points } : c).sort((a, b) => b.loyalty_points - a.loyalty_points));
-      const dollarValue = settings.redemption ? (pts / 100) * settings.redemption : 0;
-      showToast(`${pts} pts redeemed${dollarValue ? ` ($${dollarValue.toFixed(2)} value)` : ""} for ${redeemFor.name}`);
-    } else {
-      showToast(data.error ?? "Failed to redeem");
+  const savePoints = async (mode: "add" | "redeem") => {
+    const client = mode === "add" ? addPointsFor : redeemFor;
+    if (!client || !shop || pointsInFlight.current || pointsUncertain) return;
+    if (!accessToken) { setPointsError("Please sign in again before changing points."); return; }
+    if (client.shop_id !== shop.id) { setPointsError("Please reopen this client in their shop."); return; }
+    const pts = Number(mode === "add" ? pointsToAdd : pointsToRedeem);
+    if (!Number.isSafeInteger(pts) || pts <= 0) { setPointsError("Enter a positive whole number of points."); return; }
+    pointsInFlight.current = true;
+    setSavingPoints(true);
+    setPointsError("");
+    const uncertain = () => {
+      setPointsUncertain(true);
+      setPointsError("Save status is unknown. Close this window and reload the page to check the balance before submitting again.");
+    };
+    try {
+      const res = await fetch("/api/loyalty/points", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ client_id: client.id, points: mode === "add" ? pts : -pts, shop_id: shop.id }),
+      });
+      const data = await res.json();
+      if (shop.id !== activeShopId.current) return;
+      if (!res.ok) {
+        if (res.status >= 500) { uncertain(); return; }
+        setPointsError(res.status === 401 ? "Please sign in again before changing points." :
+          data.error === "Not enough points to redeem" ? "Not enough points to redeem." : "Couldn't save points. Check the amount and try again.");
+        return;
+      }
+      if (data.ok !== true || !Number.isSafeInteger(data.loyalty_points) || data.loyalty_points < 0) { uncertain(); return; }
+      setClients(prev => prev.map(c => c.id === client.id ? { ...c, loyalty_points: data.loyalty_points } : c).sort((a, b) => b.loyalty_points - a.loyalty_points));
+      if (mode === "redeem") {
+        const dollarValue = settings.redemption ? (pts / 100) * settings.redemption : 0;
+        showToast(`${pts} pts redeemed${dollarValue ? ` ($${dollarValue.toFixed(2)} value)` : ""} for ${client.name}`);
+        setRedeemFor(null);
+      } else {
+        showToast(`${pts} points added to ${client.name}!`);
+        setAddPointsFor(null);
+      }
+    } catch {
+      if (shop.id === activeShopId.current) uncertain();
+    } finally {
+      pointsInFlight.current = false;
+      setSavingPoints(false);
     }
-    setRedeemFor(null);
   };
+
+  const redeemPoints = () => savePoints("redeem");
 
   const loadData = useCallback(async () => {
     if (shop?.id !== activeShopId.current) return;
@@ -196,23 +229,7 @@ export default function LoyaltyPage() {
     setNewPromo(BLANK_PROMO);
   }, [shop?.id]);
 
-  const addPoints = async () => {
-    if (!addPointsFor || !shop || !accessToken) return;
-    const pts = Number(pointsToAdd);
-    const res = await fetch("/api/loyalty/points", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ client_id: addPointsFor.id, points: pts, shop_id: shop?.id }),
-    });
-    const data = await res.json();
-    if (res.ok) {
-      setClients(prev => prev.map(c => c.id === addPointsFor.id ? { ...c, loyalty_points: data.loyalty_points } : c).sort((a, b) => b.loyalty_points - a.loyalty_points));
-      showToast(`${pts} points added to ${addPointsFor.name}!`);
-    } else {
-      showToast(data.error ?? "Failed to add points");
-    }
-    setAddPointsFor(null);
-  };
+  const addPoints = () => savePoints("add");
 
   const savePromo = async () => {
     if (!shop || !newPromo.code.trim() || promoSaveInFlight.current) return;
@@ -666,15 +683,16 @@ export default function LoyaltyPage() {
       {/* Add Points Modal */}
       {addPointsFor && (
         <>
-          <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setAddPointsFor(null)} />
+          <div className="fixed inset-0 bg-black/70 z-40" onClick={() => { if (!pointsInFlight.current) setAddPointsFor(null); }} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
             <div className="bg-card shadow-sm border border-border rounded-2xl p-6 w-full max-w-xs space-y-4">
               <h3 className="text-foreground font-bold">Add Loyalty Points</h3>
               <p className="text-sm text-grey">For: {addPointsFor.name}</p>
-              <Input label="Points to add" type="number" value={pointsToAdd} onChange={e => setPointsToAdd(e.target.value)} />
+              <Input label="Points to add" type="number" min="1" step="1" disabled={savingPoints || pointsUncertain} value={pointsToAdd} onChange={e => setPointsToAdd(e.target.value)} />
+              {pointsError && <p role="alert" className="text-sm text-red-400">{pointsError}</p>}
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" className="flex-1" onClick={() => setAddPointsFor(null)}>Cancel</Button>
-                <Button size="sm" className="flex-1" onClick={addPoints}>Add Points</Button>
+                <Button variant="outline" size="sm" className="flex-1" disabled={savingPoints} onClick={() => setAddPointsFor(null)}>Cancel</Button>
+                <Button size="sm" className="flex-1" loading={savingPoints} disabled={pointsUncertain} onClick={addPoints}>Add Points</Button>
               </div>
             </div>
           </div>
@@ -684,18 +702,19 @@ export default function LoyaltyPage() {
       {/* Redeem Points Modal */}
       {redeemFor && (
         <>
-          <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setRedeemFor(null)} />
+          <div className="fixed inset-0 bg-black/70 z-40" onClick={() => { if (!pointsInFlight.current) setRedeemFor(null); }} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
             <div className="bg-card shadow-sm border border-border rounded-2xl p-6 w-full max-w-xs space-y-4">
               <h3 className="text-foreground font-bold">Redeem Loyalty Points</h3>
               <p className="text-sm text-grey">For: {redeemFor.name} · Balance: {redeemFor.loyalty_points} pts</p>
-              <Input label="Points to redeem" type="number" value={pointsToRedeem} onChange={e => setPointsToRedeem(e.target.value)} />
+              <Input label="Points to redeem" type="number" min="1" step="1" disabled={savingPoints || pointsUncertain} value={pointsToRedeem} onChange={e => setPointsToRedeem(e.target.value)} />
+              {pointsError && <p role="alert" className="text-sm text-red-400">{pointsError}</p>}
               {settings.redemption > 0 && (
                 <p className="text-xs text-grey">≈ ${((Number(pointsToRedeem) / 100) * settings.redemption).toFixed(2)} discount value</p>
               )}
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" className="flex-1" onClick={() => setRedeemFor(null)}>Cancel</Button>
-                <Button size="sm" className="flex-1" onClick={redeemPoints}>Redeem</Button>
+                <Button variant="outline" size="sm" className="flex-1" disabled={savingPoints} onClick={() => setRedeemFor(null)}>Cancel</Button>
+                <Button size="sm" className="flex-1" loading={savingPoints} disabled={pointsUncertain} onClick={redeemPoints}>Redeem</Button>
               </div>
             </div>
           </div>
