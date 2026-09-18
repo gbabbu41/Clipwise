@@ -32,6 +32,12 @@ export default function LoyaltyPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [promos, setPromos] = useState<PromoCode[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [historyUnavailable, setHistoryUnavailable] = useState(false);
+  const [loadedShopId, setLoadedShopId] = useState<string | null>(null);
+  const loadSequence = useRef(0);
+  const activeShopId = useRef(shop?.id);
+  activeShopId.current = shop?.id;
   const [showPromoModal, setShowPromoModal] = useState(false);
   const [editPromo, setEditPromo] = useState<PromoCode | null>(null);
   const [addPointsFor, setAddPointsFor] = useState<Client | null>(null);
@@ -73,17 +79,13 @@ export default function LoyaltyPage() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const bs = (shop as any)?.booking_settings;
     const ls = bs?.loyalty;
-    if (ls) {
       setSettings({
-        enabled: ls.enabled !== false, // default on; only an explicit false turns it off
-        points_per_visit: ls.points_per_visit ?? 10,
-        points_per_dollar: ls.points_per_dollar ?? 1,
-        redemption: ls.redemption_rate ?? 5,
+        enabled: ls?.enabled !== false, // default on; only an explicit false turns it off
+        points_per_visit: ls?.points_per_visit ?? 10,
+        points_per_dollar: ls?.points_per_dollar ?? 1,
+        redemption: ls?.redemption_rate ?? 5,
       });
-    }
-    if (bs?.reminders) {
-      setReminders(r => ({ ...r, ...bs.reminders }));
-    }
+    setReminders({ appointment_24h: true, rebooking_30d: true, birthday: false, winback_60d: false, ...bs?.reminders });
   }, [shop]);
 
   const saveSettings = async () => {
@@ -126,8 +128,20 @@ export default function LoyaltyPage() {
   };
 
   const loadData = useCallback(async () => {
-    if (!shop) { setLoading(false); return; }
+    if (shop?.id !== activeShopId.current) return;
+    const request = ++loadSequence.current;
+    const isCurrent = () => request === loadSequence.current && shop?.id === activeShopId.current;
     setLoading(true);
+    setLoadError("");
+    setHistoryUnavailable(false);
+    setLoadedShopId(shop?.id ?? null);
+    if (!shop) {
+      setClients([]);
+      setPromos([]);
+      setLoading(false);
+      return;
+    }
+    try {
     const [clientRes, promoRes, apptRes, txRes] = await Promise.all([
       supabase.from("clients").select("*").eq("shop_id", shop.id).order("loyalty_points", { ascending: false }),
       // promo_codes has no created_at column — order by active-first then code.
@@ -138,8 +152,16 @@ export default function LoyaltyPage() {
       supabase.from("appointments").select("client_id, client_name, client_email, client_phone, date, status, total_amount").eq("shop_id", shop.id),
       supabase.from("transactions").select("client_name, client_email, created_at, amount, source, refunded, appointment_id").eq("shop_id", shop.id),
     ]);
-    if (clientRes.data) {
-      const baseRows = clientRes.data as Client[];
+    if (!isCurrent()) return;
+    if (clientRes.error || promoRes.error) {
+      setLoadError("Couldn't load clients and promos. Please try again.");
+      return;
+    }
+    const baseRows = (clientRes.data ?? []) as Client[];
+    if (apptRes.error || txRes.error) {
+      setHistoryUnavailable(true);
+      setClients(baseRows);
+    } else {
       // Keep the REAL client rows (point add/redeem targets their id), but overwrite
       // visits/spend/last-visit with the identity-attributed compute from source.
       const computed = groupClients({
@@ -152,11 +174,27 @@ export default function LoyaltyPage() {
         return m ? { ...c, total_visits: m.total_visits, total_spent: m.total_spent, last_visit: m.last_visit ?? c.last_visit } : c;
       }));
     }
-    if (promoRes.data) setPromos(promoRes.data);
-    setLoading(false);
+    setPromos(promoRes.data ?? []);
+    } catch {
+      if (isCurrent()) setLoadError("Couldn't load clients and promos. Check your connection and try again.");
+    } finally {
+      if (isCurrent()) setLoading(false);
+    }
   }, [shop]);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => {
+    const sequence = loadSequence;
+    loadData();
+    return () => { sequence.current++; };
+  }, [loadData]);
+
+  useEffect(() => {
+    setAddPointsFor(null);
+    setRedeemFor(null);
+    setShowPromoModal(false);
+    setEditPromo(null);
+    setNewPromo(BLANK_PROMO);
+  }, [shop?.id]);
 
   const addPoints = async () => {
     if (!addPointsFor || !shop || !accessToken) return;
@@ -272,6 +310,16 @@ export default function LoyaltyPage() {
       />
     );
   }
+
+  // Hide the previous location before effects start the new request/reset editors.
+  if (loadedShopId !== shop.id) return <div className="p-6 text-grey">Loading…</div>;
+
+  const loadFailure = (
+    <div role="alert" className="py-8 text-center space-y-3">
+      <p className="text-grey">{loadError}</p>
+      <Button variant="outline" onClick={loadData}>Try again</Button>
+    </div>
+  );
 
   return (
     <div className="p-6 space-y-6">
@@ -448,12 +496,12 @@ export default function LoyaltyPage() {
           <Card>
             <CardHeader>
               <CardTitle>Points Leaderboard</CardTitle>
-              <Badge variant="gold">{clients.length} clients</Badge>
+              <Badge variant="gold">{loading || loadError ? "—" : clients.length} clients</Badge>
             </CardHeader>
             <CardContent>
               {loading ? (
                 <div className="space-y-2">{Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-12 rounded-xl bg-card-raised animate-pulse" />)}</div>
-              ) : clients.length === 0 ? (
+              ) : loadError ? loadFailure : clients.length === 0 ? (
                 <div className="text-center py-12">
                   <div className="w-12 h-12 rounded-full bg-card-raised flex items-center justify-center mx-auto mb-3 text-grey"><Trophy size={22} /></div>
                   <h3 className="text-base font-semibold text-foreground mb-1">No clients yet</h3>
@@ -461,6 +509,7 @@ export default function LoyaltyPage() {
                 </div>
               ) : (
                 <div className="overflow-x-auto">
+                  {historyUnavailable && <div role="status" className="text-sm text-grey mb-3">Visit history is unavailable. Points are up to date. <button className="underline" onClick={loadData}>Retry</button></div>}
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-border">
@@ -499,8 +548,8 @@ export default function LoyaltyPage() {
                               <p className="text-[11px] text-grey mt-1">≈ ${dollarsOf(client.loyalty_points).toFixed(2)} value</p>
                             )}
                           </td>
-                          <td className="px-3 py-3 text-sm text-grey">{client.total_visits}</td>
-                          <td className="px-3 py-3 text-sm text-grey">{client.last_visit ?? "—"}</td>
+                          <td className="px-3 py-3 text-sm text-grey">{historyUnavailable ? "—" : client.total_visits}</td>
+                          <td className="px-3 py-3 text-sm text-grey">{historyUnavailable ? "—" : client.last_visit ?? "—"}</td>
                           <td className="px-3 py-3">
                             <div className="flex gap-2">
                               <Button variant="outline" size="sm" onClick={() => setAddPointsFor(client)}>+ Points</Button>
@@ -558,7 +607,7 @@ export default function LoyaltyPage() {
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-48 rounded-2xl bg-card-raised animate-pulse" />)}
             </div>
-          ) : promos.length === 0 ? (
+          ) : loadError ? loadFailure : promos.length === 0 ? (
             <div className="text-center py-12">
               <div className="w-12 h-12 rounded-full bg-card-raised flex items-center justify-center mx-auto mb-3 text-grey"><Ticket size={22} /></div>
               <p className="text-grey text-sm">No promo codes yet. Create your first promo above.</p>
