@@ -15,6 +15,7 @@ import {
 import { freesSlot, apptDuration } from "@/lib/availability";
 import { clientMatchesQuery } from "@/lib/client-search";
 import { safeTz, todayInTz, nowMinutesInTz } from "@/lib/timezone";
+import { startCalendarAutofocus } from "@/lib/calendar-autofocus";
 import { clampNoShowPct, NO_SHOW_LEAD_MINUTES, formatPhone } from "@/lib/validation";
 
 // 15-minute slot grid (display strings) for the appointment-edit time picker —
@@ -1753,117 +1754,40 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     return () => { if (reloadTimer.current) clearTimeout(reloadTimer.current); supabase.removeChannel(ch); };
   }, [shop]);
 
-  // Focus the timeline when you open or switch a Day / 3-Day view:
-  //  • a window that INCLUDES today → scroll so the red "now" line sits near the
-  //    top (a little of the past hour above it, everything upcoming below), so you
-  //    land on where the day actually is instead of at 7 AM.
-  //  • any other day → start at the top (7 AM, or earlier if there are earlier
-  //    appointments — the grid window already opens at the first booking).
-  // Only fires on navigation (view / day / barber changes), never on a data
-  // refresh and never while you're mid-scroll, so it won't yank the view.
-  // Scroll a freshly-mounted Day/3-Day timeline to the red "now" line (or the top
-  // for a non-today window). Driven by a callback ref on the scroll container
-  // (attachScroll) so it runs when the NEW view actually attaches — a parent
-  // effect fires against the OLD, exiting view under AnimatePresence mode="wait".
-  const focusTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
-  // The moment the user touches / scrolls the timeline they OWN it — no auto-
-  // focus pass may move the scroll out from under them (that was the "frozen
-  // until you play with it" glitch: the 0/120/300/600ms passes kept snapping
-  // scrollTop back to "now" while a finger was already dragging). Reset only
-  // when a deliberate navigation (view / day / barber change) re-arms focus.
-  const userTookOverRef = useRef(false);
-  // Timestamp of our OWN programmatic scrollTop set, so the scroll backstop below
-  // can tell our centering apart from the user's finger (a user scroll near this
-  // time is the ONLY reliable "hands-on" signal on the iOS PWA).
-  const lastProgScrollRef = useRef(0);
-  const cancelFocusPasses = useCallback(() => {
-    focusTimersRef.current.forEach(clearTimeout);
-    focusTimersRef.current = [];
-  }, []);
-  const focusTimeline = useCallback(() => {
-    cancelFocusPasses();
-    userTookOverRef.current = false; // fresh navigation → we may center once
-    const run = () => {
-      if (userTookOverRef.current) return; // the finger is down / user scrolled — never fight it
-      const el = scrollRef.current;
-      if (!el) return;
-      if (view === "day" && dayLayout === "grid") return; // box layout has no timeline
-      if (view !== "day" && view !== "multiday") return;
-      const count = isMobile ? 3 : 5;
-      const showsToday = view === "day"
-        ? isToday(currentDate)
-        : Array.from({ length: count }, (_, i) => addDays(currentDate, i)).some(isToday);
-      const line = nowLineRef.current;
-      // Mark this as OUR scroll so the scroll backstop doesn't mistake it for the
-      // user grabbing the timeline (it fires a scroll event a frame later).
-      lastProgScrollRef.current = Date.now();
-      if (showsToday && line) {
-        // Scroll ONLY the timeline container (never ancestors). scrollIntoView
-        // bubbles up and scrolls the page/main too, which pushed the month/date/
-        // view controls off the top on load. Computing scrollTop within `el`
-        // keeps the header fixed and just moves the grid to centre "now".
-        const lineTop = line.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop;
-        el.scrollTop = Math.max(0, lineTop - el.clientHeight / 2);
-      } else {
-        el.scrollTop = 0; // non-today → top of the day (7 AM / earliest booking)
-      }
-    };
-    // Two passes only — one after first paint, one after the enter slide (~220ms)
-    // + data settle. Fewer programmatic scrollTop sets means iOS doesn't "eat" the
-    // first user touch trying to halt our scroll (the "works after a few taps"
-    // feel). Both bail the instant the user takes over.
-    focusTimersRef.current = [50, 400].map(d => setTimeout(run, d));
-  }, [view, currentDate, dayLayout, isMobile, cancelFocusPasses]);
-
-  // Callback ref for the timeline scroll container. Focuses "now" when a new view
-  // mounts (the correct moment, after the outgoing one leaves), and hands control
-  // to the user on the very first touch/wheel/pointer on the timeline — cancelling
-  // any pending auto-focus passes so they can never yank the scroll. Listeners
-  // live on the element and are torn down when it swaps out (nav / unmount).
-  const scrollListenersCleanupRef = useRef<(() => void) | null>(null);
+  // One focus attempt per mounted date/view, not per fetch or responsive render.
+  // Keep readiness live without changing the callback ref and re-arming a scroll.
+  const focusKey = `${view}:${formatDateForDb(currentDate)}:${dayLayout}`;
+  const focusStateRef = useRef({ loading, isMobile });
+  focusStateRef.current = { loading, isMobile };
+  const timelineAnimatingRef = useRef(false);
+  const focusCleanupRef = useRef<(() => void) | null>(null);
   const attachScroll = useCallback((el: HTMLDivElement | null) => {
-    scrollListenersCleanupRef.current?.();
-    scrollListenersCleanupRef.current = null;
+    focusCleanupRef.current?.();
+    focusCleanupRef.current = null;
     scrollRef.current = el;
     if (!el) return;
-    const takeOver = () => { userTookOverRef.current = true; cancelFocusPasses(); };
-    // A user scroll is the definitive "hands-on" signal — and on the iOS PWA it
-    // fires even when touchstart handling is flaky. Treat any scroll that isn't
-    // our own recent centering as the user taking over, and give up for good.
-    const onScroll = () => { if (Date.now() - lastProgScrollRef.current > 200) takeOver(); };
-    // capture:true so it fires before any child can swallow the touch.
-    el.addEventListener("touchstart", takeOver, { passive: true, capture: true });
-    el.addEventListener("wheel", takeOver, { passive: true });
-    el.addEventListener("keydown", takeOver, { passive: true });
-    el.addEventListener("scroll", onScroll, { passive: true });
-    scrollListenersCleanupRef.current = () => {
-      el.removeEventListener("touchstart", takeOver, { capture: true } as EventListenerOptions);
-      el.removeEventListener("wheel", takeOver);
-      el.removeEventListener("keydown", takeOver);
-      el.removeEventListener("scroll", onScroll);
-    };
-    focusTimeline();
-  }, [focusTimeline, cancelFocusPasses]);
-
-  // If the screen locks / the app backgrounds while a focusTimeline() timer is still
-  // pending, mobile browsers throttle it rather than drop it — it can fire minutes
-  // later, right as you resume and start scrolling, snapping scrollTop back to "now"
-  // out from under your finger (stuck-scroll feel, today's view only since that's the
-  // only branch that re-centers instead of just resetting to 0). Cancel any pending
-  // passes the moment we go to the background so a stale one can never fire on return.
-  useEffect(() => {
-    const cancelPending = () => {
-      focusTimersRef.current.forEach(clearTimeout);
-      focusTimersRef.current = [];
-    };
-    const onVisibility = () => { if (document.hidden) cancelPending(); };
-    document.addEventListener("visibilitychange", onVisibility);
-    window.addEventListener("pagehide", cancelPending);
-    return () => {
-      document.removeEventListener("visibilitychange", onVisibility);
-      window.removeEventListener("pagehide", cancelPending);
-    };
-  }, []);
+    focusCleanupRef.current = startCalendarAutofocus(el, () => {
+      // AnimatePresence can still hold the outgoing date's DOM. Never measure it
+      // for the incoming date, or scroll while its entry transform is running.
+      if (el.dataset.focusKey !== focusKey || focusStateRef.current.loading || timelineAnimatingRef.current) return null;
+      const grid = el.querySelector<HTMLElement>("[data-calendar-time-grid]");
+      if (!grid) return null;
+      const date = new Date(`${focusKey.split(":")[1]}T00:00:00`);
+      const count = focusStateRef.current.isMobile ? 3 : 5;
+      const showsToday = view === "day" ? isToday(date)
+        : Array.from({ length: count }, (_, i) => addDays(date, i)).some(isToday);
+      if (!showsToday) return 0;
+      const start = Number(grid.dataset.startHour);
+      const end = Number(grid.dataset.endHour);
+      const now = new Date();
+      const hour = Math.max(start, Math.min(end, now.getHours() + now.getMinutes() / 60));
+      // Use the whole grid, not the optional red line: after closing, focus the
+      // end of today instead of falling back to the morning when the line hides.
+      return grid.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop
+        + ((hour - start) / (end - start)) * grid.offsetHeight;
+    });
+  }, [focusKey, view]);
+  useEffect(() => () => focusCleanupRef.current?.(), []);
 
   // Measure the day-columns area so we can page however many barber columns fit.
   useEffect(() => {
@@ -2789,7 +2713,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
             </button>
           );
         })()}
-        <div ref={attachScroll} className="overflow-y-auto overflow-x-hidden flex-1 min-h-0">
+        <div ref={attachScroll} data-focus-key={focusKey} className="overflow-y-auto overflow-x-hidden flex-1 min-h-0" style={{ overflowAnchor: "none" }}>
           <div>
             {!single && (
             <div className="grid sticky top-0 z-10 bg-background border-b border-border" style={{ gridTemplateColumns: `56px repeat(${cols.length}, minmax(0, 1fr))` }}>
@@ -2818,7 +2742,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
             </div>
             )}
 
-          <div className="relative">
+          <div className="relative" data-calendar-time-grid data-start-hour={winStart} data-end-hour={winEnd}>
             {hours.map(hour => (
               <div key={hour} className="grid border-b border-border relative" style={{ gridTemplateColumns: `56px repeat(${cols.length}, minmax(0, 1fr))`, height: `${rowH}px` }}>
                 <div className="relative text-right pr-2">
@@ -3044,7 +2968,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
 
     return (
       <div className="flex flex-col h-full">
-        <div ref={attachScroll} className="overflow-auto flex-1 min-h-0">
+        <div ref={attachScroll} data-focus-key={focusKey} className="overflow-auto flex-1 min-h-0" style={{ overflowAnchor: "none" }}>
           {/* Day headers — tap a day to open it in your day-level view (re-anchors
               the 3-Day window to start on that day). */}
           <div className="grid sticky top-0 z-10 bg-background border-b border-border" style={{ gridTemplateColumns: gridCols }}>
@@ -3072,7 +2996,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
             })}
           </div>
 
-          <div className="relative">
+          <div className="relative" data-calendar-time-grid data-start-hour={winStart} data-end-hour={winEnd}>
             {hours.map(hour => (
               <div key={hour} className="grid border-b border-border" style={{ gridTemplateColumns: gridCols, height: `${ROW_PX}px` }}>
                 <div className="text-[10px] text-grey text-right pr-2 pt-1">
@@ -3742,6 +3666,8 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
               key={transitionKey}
               custom={{ dir: navDir, axis: view === "month" ? "y" : "x" }}
               variants={calVariants}
+              onAnimationStart={() => { timelineAnimatingRef.current = true; }}
+              onAnimationComplete={() => { timelineAnimatingRef.current = false; }}
               initial="enter"
               animate="center"
               exit="exit"
