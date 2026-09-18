@@ -2350,7 +2350,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
       const count = isMobile ? 3 : 5;
       const first = currentDate, last = addDays(currentDate, count - 1);
       const sameMonth = first.getMonth() === last.getMonth() && first.getFullYear() === last.getFullYear();
-      if (sameMonth) return `${first.toLocaleDateString("en-CA", { month: "short" })} ${first.getDate()} – ${last.getDate()}`;
+      if (sameMonth) return `${first.toLocaleDateString("en-CA", { month: "short" })} ${first.getDate()} – ${last.getDate()}`;
       const f = first.toLocaleDateString("en-CA", { month: "short", day: "numeric" });
       const l = last.toLocaleDateString("en-CA", { month: "short", day: "numeric" });
       return `${f} – ${l}`;
