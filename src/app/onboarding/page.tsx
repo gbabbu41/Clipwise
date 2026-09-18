@@ -395,6 +395,24 @@ export default function OnboardingPage() {
     inviteBarber(name, email, commission);
   };
 
+  const finishInFlight = useRef(false);
+  const finishSetup = async () => {
+    if (!resumeReady || finishInFlight.current) return;
+    finishInFlight.current = true;
+    setFinishing(true);
+    let planData: Record<string, unknown> = {};
+    try {
+      planData = JSON.parse(sessionStorage.getItem("clipwise_plan") || "{}") ?? {};
+      sessionStorage.removeItem("clipwise_plan");
+    } catch { /* unavailable/corrupt storage — retain any parsed plan or use defaults */ }
+    // Publish the saved shop before navigating; the dashboard retries a failed refresh.
+    try { await refreshShop(); } catch { /* dashboard will retry */ }
+    if ((planData.autoApprove || planData.trial) && (planData.plan === "pro" || planData.plan === "premium")) {
+      router.push("/onboarding/stripe-connect");
+    } else {
+      router.push("/dashboard");
+    }
+  };
   const handleBack = () => {
     if (!resumeReady || stepSaveInFlight.current || barberRequestState.current === "pending") return;
     setBlockHint("");
@@ -693,24 +711,7 @@ export default function OnboardingPage() {
             </div>
             <div className="flex gap-3">
               <Button variant="outline" className="flex-1" onClick={() => window.open(bookingUrl, "_blank")}><ExternalLink size={16} /> Preview</Button>
-              <Button className="flex-1" loading={finishing} onClick={async () => {
-                let planData: Record<string, unknown> = {};
-                try { planData = JSON.parse(sessionStorage.getItem("clipwise_plan") || "{}"); } catch { /* corrupt session storage — proceed with defaults */ }
-                sessionStorage.removeItem("clipwise_plan");
-                // Sync the freshly-created shop into the auth context BEFORE we
-                // navigate — otherwise /dashboard sees shop=null and shows the
-                // "No shop found → Set Up My Shop" page until a manual refresh.
-                setFinishing(true);
-                try { await refreshShop(); } catch { /* dashboard will retry */ }
-                // Paid or on a Pro/Premium trial → prompt Stripe Connect next, so
-                // they can take online payments right away (and see a payout land
-                // during the trial — the strongest reason to add a card).
-                if ((planData.autoApprove || planData.trial) && (planData.plan === "pro" || planData.plan === "premium")) {
-                  router.push("/onboarding/stripe-connect");
-                } else {
-                  router.push("/dashboard");
-                }
-              }}>Continue <ChevronRight size={16} /></Button>
+              <Button className="flex-1" loading={finishing} onClick={finishSetup}>Continue <ChevronRight size={16} /></Button>
             </div>
           </div>
         )}
