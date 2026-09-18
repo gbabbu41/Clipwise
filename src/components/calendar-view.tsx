@@ -16,6 +16,7 @@ import { freesSlot, apptDuration } from "@/lib/availability";
 import { clientMatchesQuery } from "@/lib/client-search";
 import { safeTz, todayInTz, nowMinutesInTz } from "@/lib/timezone";
 import { startCalendarAutofocus } from "@/lib/calendar-autofocus";
+import { calendarEditTotals, type CalendarAddContext } from "@/lib/calendar-workflow";
 import { clampNoShowPct, NO_SHOW_LEAD_MINUTES, formatPhone } from "@/lib/validation";
 
 // 15-minute slot grid (display strings) for the appointment-edit time picker —
@@ -271,7 +272,7 @@ export type ApptActions = {
   sendBalanceLink: (a: AppointmentWithDetails) => void; // email/text a Stripe link for the balance
   reject: (a: AppointmentWithDetails) => void;
   noShow: (a: AppointmentWithDetails, amountCents: number) => void; // mark no-show (+ charge fee when amountCents > 0 and a card is on file)
-  edit: (a: AppointmentWithDetails, fields: ApptEditFields) => void; // change time/day/client/barber
+  edit: (a: AppointmentWithDetails, fields: ApptEditFields) => Promise<{ ok: boolean; error?: string }>; // change time/day/client/barber
 };
 
 // Shared factory for the appointment actions (Approve / Complete / Charge / cash /
@@ -319,7 +320,7 @@ export function makeApptActions(opts: {
       toast("Approved · Customer notified");
     },
     edit: async (appt, fields) => {
-      if (!shop || !accessToken) return;
+      if (!shop || !accessToken) return { ok: false, error: "Your session is unavailable. Please sign in again." };
       // Only send columns that actually changed.
       const clean: Record<string, unknown> = {};
       const current = appt as unknown as Record<string, unknown>;
@@ -329,7 +330,7 @@ export function makeApptActions(opts: {
           clean[k] = v === "" ? null : v;
         }
       });
-      if (Object.keys(clean).length === 0) { toast("No changes"); return; }
+      if (Object.keys(clean).length === 0) { toast("No changes"); return { ok: true }; }
       // Save THROUGH the server route: it runs the authoritative double-booking
       // check (service role, sees every booking, can't be skipped) before writing.
       const send = (overrideBlock: boolean) => fetch("/api/appointments/update", {
@@ -345,7 +346,7 @@ export function makeApptActions(opts: {
       if (res && !res.ok && data.blocked) {
         setBusy("");
         const ok = await ask("The barber has time off or a break during that slot. Move the appointment there anyway?");
-        if (!ok) return;
+        if (!ok) return { ok: false, error: "Not moved. Choose another time or confirm the time-off override." };
         setBusy("edit");
         res = await send(true);
         data = res ? await res.json().catch(() => ({ error: "Network error" })) : { error: "Network error" };
@@ -353,7 +354,7 @@ export function makeApptActions(opts: {
       setBusy("");
       if (!res || !res.ok || data.error) {
         toast(data.error || "Update failed — please try again.");
-        return;
+        return { ok: false, error: data.error || "Update failed — please try again." };
       }
       // Patch from the SERVER's applied values (not the raw `clean`): on a price
       // change the server stamps the tax-inclusive total_amount + tax_amount, so
@@ -363,6 +364,7 @@ export function makeApptActions(opts: {
       // in an acknowledged dialog (not a 3.5s toast) so it can't be missed.
       if (data.warning) await ask(String(data.warning));
       else toast("Appointment updated");
+      return { ok: true };
     },
     complete: async (appt) => {
       if (!shop) return;
@@ -781,6 +783,9 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
   // before checking out. Time comes from the 15-min slot grid (never free-form);
   // when `services` is supplied, the grid is filtered to slots that fit.
   const [editMode, setEditMode] = useState(false);
+  const [editError, setEditError] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
+  const editSavingRef = useRef(false);
   const svcById = useCallback((id: string) => services?.find(s => s.id === id), [services]);
   const makeEditForm = () => ({
     client_name: appt.client_name ?? "",
@@ -792,10 +797,11 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
     service_ids: appt.service_id ? [appt.service_id] : [] as string[],
   });
   const [editForm, setEditForm] = useState(makeEditForm);
-  const openEdit = () => { setEditForm(makeEditForm()); setEditMode(true); };
+  const openEdit = () => { setEditForm(makeEditForm()); setEditError(""); setEditMode(true); };
 
-  const editTotalDuration = editForm.service_ids.reduce((n, id) => n + (svcById(id)?.duration_minutes || 0), 0);
-  const editTotalPrice = editForm.service_ids.reduce((n, id) => n + Number(svcById(id)?.price || 0), 0);
+  const editTotals = calendarEditTotals(appt, editForm.service_ids, services ?? [], apptDuration(appt));
+  const editTotalDuration = editTotals.duration;
+  const editTotalPrice = editTotals.price;
 
   // Availability for the chosen barber + day (only while editing services), so we
   // can offer just the start times where the combined service block fits.
@@ -885,7 +891,8 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
       || !!(appt as { payment_intent_id?: string | null }).payment_intent_id
       || !!(appt as { stripe_checkout_session_id?: string | null }).stripe_checkout_session_id);
 
-  const saveEdit = () => {
+  const saveEdit = async () => {
+    if (editSavingRef.current || busy) return;
     if (!editForm.client_name.trim() || !editForm.date || !editForm.time) return;
     const fields: ApptEditFields = {
       date: editForm.date,
@@ -920,8 +927,19 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
         fields.notes = `Services: ${svcs.map(s => s.name).join(" + ")}`;
       }
     }
-    actions.edit(appt, fields);
-    setEditMode(false);
+    editSavingRef.current = true;
+    setEditSaving(true);
+    setEditError("");
+    try {
+      const result = await actions.edit(appt, fields);
+      if (result.ok) setEditMode(false);
+      else setEditError(result.error || "Could not save. Your changes are still here—please retry.");
+    } catch {
+      setEditError("Could not confirm the save. Your changes are still here; check your connection and retry.");
+    } finally {
+      editSavingRef.current = false;
+      setEditSaving(false);
+    }
   };
   const duration = apptDuration(appt);
   const paid = appt.payment_status === "paid" || appt.payment_status === "captured";
@@ -963,7 +981,7 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
   // Slide the drawer up on mount; on close, slide down then unmount.
   const [shown, setShown] = useState(false);
   useEffect(() => { const t = setTimeout(() => setShown(true), 10); return () => clearTimeout(t); }, []);
-  const close = () => { setShown(false); setTimeout(onClose, 280); };
+  const close = () => { if (editSavingRef.current) return; setShown(false); setTimeout(onClose, 280); };
   const sheetRef = useRef<HTMLDivElement | null>(null);
   const { dragY, dragging } = useSheetDrag(sheetRef, close);
 
@@ -1107,7 +1125,8 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
 
           {/* Actions — same logic/handlers as before, restyled as stacked rows. */}
           {editMode ? (
-            <div className="px-[18px] pt-3.5 flex flex-col gap-3">
+            <fieldset disabled={editSaving} className="min-w-0 px-[18px] pt-3.5 flex flex-col gap-3">
+              {editError && <p role="alert" className="text-sm text-red-300">{editError}</p>}
               <Input label="Client name *" value={editForm.client_name} disabled={contactLocked}
                 className={contactLocked ? "opacity-60 cursor-not-allowed" : undefined}
                 onChange={e => setEditForm(f => ({ ...f, client_name: e.target.value }))} placeholder="Client name" />
@@ -1167,7 +1186,7 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
                     <Plus size={15} /> Add another service
                   </button>
                   {editForm.service_ids.filter(Boolean).length > 0 && (
-                    <p className="text-xs text-grey">Total: {editTotalDuration} min · {formatCurrency(editTotalPrice)}</p>
+                    <p className="text-xs text-grey">{editTotals.changed ? "New services (before tax)" : "Booked total"}: {editTotalDuration} min · {formatCurrency(editTotalPrice)}</p>
                   )}
                 </div>
               )}
@@ -1177,10 +1196,10 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
                 <button type="button" disabled={!!busy || !editForm.client_name.trim() || !editForm.date || !editForm.time}
                   onClick={saveEdit}
                   className="flex-1 py-2.5 rounded-xl bg-[#00e5a0] text-black text-sm font-bold disabled:opacity-40 transition-opacity">
-                  {busy === "edit" ? "Saving…" : "Save changes"}
+                  {editSaving ? "Saving…" : "Save changes"}
                 </button>
               </div>
-            </div>
+            </fieldset>
           ) : readOnly ? (
             <p className="px-[18px] pt-4 text-center text-xs text-grey-muted">View only</p>
           ) : payChoice ? (
@@ -1407,6 +1426,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   const [appointments, setAppointments] = useState<AppointmentWithDetails[]>([]);
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   // Monotonic load counter — only the newest fetch may commit its result, so a
   // slow earlier request can't overwrite a newer one on quick date navigation.
   const loadSeqRef = useRef(0);
@@ -1640,22 +1660,28 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
       .gte("end_date", formatDateForDb(rangeStart));
     if (scopeId) fullOffQ = fullOffQ.or(`barber_id.eq.${scopeId},barber_id.is.null`);
 
-    const [{ data: appts, error: apptsErr }, { data: bs }, { data: blk }, { data: fdo }] = await Promise.all([
-      q,
-      supabase.from("barbers").select("id, shop_id, user_id, name, bio, photo, is_active, rating, total_reviews, created_at").eq("shop_id", shop.id).eq("is_active", true).order("name"),
-      blocksQ,
-      fullOffQ,
-    ]);
+    try {
+      const [{ data: appts, error: apptsErr }, { data: bs, error: barbersErr }, { data: blk, error: blocksErr }, { data: fdo, error: timeOffErr }] = await Promise.all([
+        q,
+        supabase.from("barbers").select("id, shop_id, user_id, name, bio, photo, is_active, rating, total_reviews, created_at").eq("shop_id", shop.id).eq("is_active", true).order("name"),
+        blocksQ,
+        fullOffQ,
+      ]);
 
-    if (seq !== loadSeqRef.current) return; // a newer load started — discard this stale response
-    // A FAILED read must never masquerade as an empty day (staff would read a
-    // booked day as free). On error, keep the last good data instead of wiping to
-    // []. A genuinely empty result (no error) still clears correctly.
-    if (!apptsErr) setAppointments((appts ?? []) as AppointmentWithDetails[]);
-    if (bs) setBarbers(bs as Barber[]);
-    if (blk) setBlocks(blk as BlockRow[]);
-    if (fdo) setFullDayOff(fdo as FullDayOff[]);
-    setLoading(false);
+      if (seq !== loadSeqRef.current) return; // a newer load started — discard this stale response
+      if (apptsErr || barbersErr || blocksErr || timeOffErr) throw new Error("Incomplete calendar load");
+      // Commit the complete snapshot together. Failed reads keep the last good
+      // data behind an explicit retry state, never masquerading as a free day.
+      setAppointments((appts ?? []) as AppointmentWithDetails[]);
+      setBarbers((bs ?? []) as Barber[]);
+      setBlocks((blk ?? []) as BlockRow[]);
+      setFullDayOff((fdo ?? []) as FullDayOff[]);
+      setLoadError("");
+    } catch {
+      if (seq === loadSeqRef.current) setLoadError("We couldn't refresh this calendar. Availability may be out of date. Retry before using the schedule.");
+    } finally {
+      if (seq === loadSeqRef.current) setLoading(false);
+    }
   }, [shop, currentDate, view, profile, myBarberId, barberFilter, forceBarberId]);
 
   useEffect(() => { load(); }, [load]);
@@ -3431,6 +3457,19 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     const bName = barbers.find(b => b.id === bId)?.name ?? "";
     openAdd(bId, bName, "9:00 AM", 13 * 60, true);
   };
+  useEffect(() => {
+    if (embedded || !shop) return;
+    const provideContext = (event: Event) => {
+      const detail = (event as CustomEvent<CalendarAddContext>).detail;
+      if (detail.shopId !== shop.id) return;
+      detail.date = formatDateForDb(currentDate);
+      detail.barberId = (view === "day" || view === "multiday")
+        ? dayBarberId ?? undefined
+        : forceBarberId ?? (barberFilter !== "all" ? barberFilter : undefined);
+    };
+    window.addEventListener("cw-calendar-add-context", provideContext);
+    return () => window.removeEventListener("cw-calendar-add-context", provideContext);
+  }, [embedded, shop?.id, currentDate, view, dayBarberId, forceBarberId, barberFilter]);
   // The bottom-nav "+" now opens the GLOBAL add-appointment modal (mounted in the
   // dashboard layout) — it no longer navigates here. That modal posts to the same
   // /api/book/in-person this calendar uses, so when it books while the calendar is
@@ -3660,10 +3699,19 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
         onTouchStart={onSwipeStart}
         onTouchEnd={onSwipeEnd}
       >
+        {loadError && (
+          <div role="alert" className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-4 bg-background/95 px-6 text-center">
+            <p className="max-w-md text-sm text-foreground">{loadError}</p>
+            <button type="button" disabled={loading} onClick={() => void load()} className="rounded-xl border border-border px-5 py-3 text-sm font-medium disabled:opacity-50">
+              {loading ? "Retrying…" : "Retry calendar"}
+            </button>
+          </div>
+        )}
         <MotionConfig reducedMotion="user">
           <AnimatePresence mode="wait" custom={{ dir: navDir, axis: view === "month" ? "y" : "x" }} initial={false}>
             <motion.div
               key={transitionKey}
+              style={loadError ? { visibility: "hidden" } : undefined}
               custom={{ dir: navDir, axis: view === "month" ? "y" : "x" }}
               variants={calVariants}
               onAnimationStart={() => { timelineAnimatingRef.current = true; }}

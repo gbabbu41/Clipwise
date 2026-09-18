@@ -4,6 +4,7 @@ import { supabase } from "@/lib/supabase";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { cn, formatCurrency, formatDateForDb, timeToMinutes } from "@/lib/utils";
 import { clientMatchesQuery } from "@/lib/client-search";
+import { requestCalendarAddContext } from "@/lib/calendar-workflow";
 import { Button } from "@/components/ui/button";
 import { useSheetDrag } from "@/hooks/use-sheet-drag";
 import { lockScroll } from "@/lib/scroll-lock";
@@ -119,6 +120,14 @@ export function AddAppointmentModal({
       // A stale profile from another location must not prefill this shop's form.
       if (detail && (!shop || detail.shopId !== shop.id)) return;
       reset();
+      if (!detail && shop) {
+        const context = requestCalendarAddContext(shop.id);
+        if (context.date) {
+          setDate(context.date);
+          if (context.date !== formatDateForDb(new Date())) setTime("9:00 AM");
+        }
+        if (!lockBarber && context.barberId) setBarberId(context.barberId);
+      }
       if (detail?.client) {
         setQuery(detail.client.name);
         setSelectedClientId(detail.client.id);
@@ -130,7 +139,7 @@ export function AddAppointmentModal({
     };
     window.addEventListener("cw-open-newappt", openIt);
     return () => window.removeEventListener("cw-open-newappt", openIt);
-  }, [reset, shop?.id, open, saving]);
+  }, [reset, shop?.id, open, saving, lockBarber]);
 
   // Slide up on the frame after mount (so the transform animates from off-screen).
   useEffect(() => {
