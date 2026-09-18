@@ -93,7 +93,7 @@ export async function runCompletionEffects(
   // morning-after safety-net may have beaten us to it) — and stamp
   // review_request_sent_at so the cron won't ask the customer a second time.
   if (appt.client_email && !(appt as { review_request_sent_at?: string | null }).review_request_sent_at) {
-    fetch("/api/send-email", {
+    const response = await fetch("/api/send-email", {
       method: "POST",
       headers: { "Content-Type": "application/json", ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
       body: JSON.stringify({
@@ -111,8 +111,14 @@ export async function runCompletionEffects(
         },
       }),
     }).catch(() => null);
-    supabase.from("appointments")
-      .update({ review_request_sent_at: new Date().toISOString() }).eq("id", appt.id).then(null, () => null);
+    const handled = response?.ok ? await response.json().catch(() => null) : null;
+    // The API confirms accepted/handled, not inbox delivery. A failed or
+    // malformed response must not suppress the existing review safety-net.
+    if (handled?.success === true) {
+      const recorded = await supabase.from("appointments")
+        .update({ review_request_sent_at: new Date().toISOString() }).eq("id", appt.id).then(null, () => null);
+      if (!recorded || recorded.error) console.warn("[calendar-review] Could not record handled review request");
+    }
   }
 }
 
