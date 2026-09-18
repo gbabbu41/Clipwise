@@ -68,6 +68,19 @@ export default function OnboardingPage() {
   const [showAddOther, setShowAddOther] = useState(false);
   const [otherBarber, setOtherBarber] = useState({ name: "", email: "", commission: "" });
   const [addingBarber, setAddingBarber] = useState(false);
+  const barberRequestState = useRef<"idle" | "pending" | "uncertain">("idle");
+  const [barberUncertain, setBarberUncertain] = useState(false);
+  const barberRequestContext = useRef(0);
+  const barberScope = useRef("");
+  const currentBarberScope = `${user?.id ?? ""}:${createdShopId}`;
+  if (barberScope.current !== currentBarberScope) {
+    barberScope.current = currentBarberScope;
+    barberRequestContext.current++;
+  }
+  useEffect(() => {
+    const context = barberRequestContext;
+    return () => { context.current++; };
+  }, []);
   const [barberError, setBarberError] = useState("");
   const [chosenPlan, setChosenPlan] = useState("starter");
   const [services, setServices] = useState<ServiceRow[]>([
@@ -251,6 +264,10 @@ export default function OnboardingPage() {
   // explains WHY instead of silently doing nothing.
   const proceed = () => {
     if (saving) return;
+    if (step === 1 && barberRequestState.current !== "idle") {
+      setBlockHint(barberRequestState.current === "pending" ? "Wait for the barber request to finish." : "Refresh and check the saved team before continuing.");
+      return;
+    }
     if (!canProceed()) { setBlockHint(blockReason()); return; }
     setBlockHint("");
     handleNext();
@@ -266,12 +283,15 @@ export default function OnboardingPage() {
   const selfBarberName = profile?.name?.trim() || user?.email?.split("@")[0] || "Me";
 
   const inviteBarber = async (name: string, email: string, commission_percent: number) => {
+    if (barberRequestState.current !== "idle") return;
     if (!createdShopId) { setBarberError("Please finish step 1 first."); return; }
     if (!accessToken) { setBarberError("Session expired — please sign in again."); return; }
     if (addedBarbers.length >= planLimit) {
       setBarberError(`Your plan includes ${planLimit} barber${planLimit === 1 ? "" : "s"}. Upgrade later to add more.`);
       return;
     }
+    barberRequestState.current = "pending";
+    const context = barberRequestContext.current;
     setAddingBarber(true);
     setBarberError("");
     try {
@@ -281,7 +301,10 @@ export default function OnboardingPage() {
         body: JSON.stringify({ name, email, commission_percent, shop_id: createdShopId }),
       });
       const data = await res.json();
-      if (!res.ok || !data.barber) { setBarberError(data.error ?? "Could not add barber."); return; }
+      if (res.status >= 500) throw new Error("Uncertain creation outcome");
+      if (context !== barberRequestContext.current) return;
+      if (!res.ok) { setBarberError(typeof data?.error === "string" ? data.error : "Could not add barber. Please check the details and try again."); return; }
+      if (data?.ok !== true || typeof data.barber?.id !== "string" || !data.barber.id) throw new Error("Unconfirmed creation response");
       setAddedBarbers((prev) => [...prev, { id: data.barber.id, name, email, self: !!data.ownerSelf }]);
       setCreatedBarberIds((prev) => [...prev, data.barber.id]);
       setShowAddOther(false);
@@ -291,13 +314,17 @@ export default function OnboardingPage() {
         setBarberError("Barber added, but the invitation wasn't sent. Finish setup, then use Resend invite on their card in Staff. Don't add them again.");
       }
     } catch {
-      setBarberError("Connection error — please try again.");
+      barberRequestState.current = "uncertain";
+      setBarberUncertain(true);
+      if (context === barberRequestContext.current) setBarberError("Couldn't confirm whether the barber was added. Refresh and check the saved team before adding anyone again. Don't repeat this request yet.");
     } finally {
+      if (barberRequestState.current === "pending") barberRequestState.current = "idle";
       setAddingBarber(false);
     }
   };
 
   const addSelfAsBarber = () => {
+    if (barberRequestState.current !== "idle") return;
     if (!user?.email) { setBarberError("Your account email is missing — try signing in again."); return; }
     // Starter is solo → the owner keeps 100% (no split, one person). On paid plans
     // the multi-barber commission system is unchanged; the owner sets his own split
@@ -306,6 +333,7 @@ export default function OnboardingPage() {
   };
 
   const addOtherBarber = () => {
+    if (barberRequestState.current !== "idle") return;
     const name = otherBarber.name.trim();
     const email = otherBarber.email.trim();
     if (!name) { setBarberError("Barber name is required."); return; }
@@ -450,7 +478,7 @@ export default function OnboardingPage() {
             ) : (
               <div className="space-y-3">
                 {!selfAdded && (
-                  <button type="button" disabled={addingBarber} onClick={addSelfAsBarber}
+                  <button type="button" disabled={addingBarber || barberUncertain} onClick={addSelfAsBarber}
                     className="w-full flex items-center gap-3 bg-surface border border-gold/40 hover:border-gold rounded-2xl p-4 text-left transition-all disabled:opacity-60">
                     <div className="w-10 h-10 rounded-xl bg-gold/15 flex items-center justify-center flex-shrink-0"><User size={18} className="text-gold" /></div>
                     <div className="flex-1 min-w-0">
@@ -463,7 +491,7 @@ export default function OnboardingPage() {
                 {/* "Add someone else" is a paid-plan (multi-barber) option — hidden on
                     solo Starter (planLimit 1), shown on Pro/Premium. */}
                 {planLimit > 1 && (!showAddOther ? (
-                  <button type="button" onClick={() => { setShowAddOther(true); setBarberError(""); }}
+                  <button type="button" disabled={addingBarber || barberUncertain} onClick={() => { setShowAddOther(true); setBarberError(""); }}
                     className="w-full flex items-center gap-3 bg-surface border border-border hover:border-border-strong rounded-2xl p-4 text-left transition-all">
                     <div className="w-10 h-10 rounded-xl bg-surface-raised flex items-center justify-center flex-shrink-0"><Plus size={18} className="text-[#8f8f8f]" /></div>
                     <div className="flex-1">
@@ -472,7 +500,7 @@ export default function OnboardingPage() {
                     </div>
                   </button>
                 ) : (
-                  <div className="bg-surface border border-border rounded-2xl p-4 space-y-3">
+                  <fieldset disabled={addingBarber || barberUncertain} className="bg-surface border border-border rounded-2xl p-4 space-y-3">
                     <div className="flex items-center justify-between">
                       <p className="text-sm font-semibold text-white">Invite a barber</p>
                       <button type="button" onClick={() => { setShowAddOther(false); setOtherBarber({ name: "", email: "", commission: "" }); setBarberError(""); }} className="text-[#8f8f8f] hover:text-white"><X size={16} /></button>
@@ -484,7 +512,7 @@ export default function OnboardingPage() {
                     <input value={otherBarber.commission} onChange={(e) => setOtherBarber((p) => ({ ...p, commission: e.target.value }))} placeholder="Their commission % — you decide (e.g. 50)" type="number" min={0} max={100}
                       className="w-full bg-surface-raised border border-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-[#8f8f8f] focus:outline-none focus:ring-2 focus:ring-gold/50" />
                     <Button className="w-full" loading={addingBarber} onClick={addOtherBarber}>Send invite</Button>
-                  </div>
+                  </fieldset>
                 ))}
               </div>
             )}
@@ -630,10 +658,10 @@ export default function OnboardingPage() {
               <p className="text-xs text-red-400 text-center mb-2">{blockHint}</p>
             )}
             <div className="flex gap-3">
-            {step > 0 && <Button variant="outline" onClick={() => { setBlockHint(""); setStep(step - 1); }} className="flex-shrink-0"><ChevronLeft size={16} /></Button>}
+            {step > 0 && <Button variant="outline" disabled={addingBarber} onClick={() => { if (barberRequestState.current === "pending") return; setBlockHint(""); setStep(step - 1); }} className="flex-shrink-0"><ChevronLeft size={16} /></Button>}
             {/* Greyed but still tappable when the step isn't done, so tapping can
                 explain WHY (a truly-disabled button gives no feedback). */}
-            <Button className={cn("flex-1", !canProceed() && !saving && "opacity-50")} loading={saving}
+            <Button className={cn("flex-1", !canProceed() && !saving && "opacity-50")} loading={saving} disabled={addingBarber || (step === 1 && barberUncertain)}
               onClick={proceed}>
               {saving ? "Saving..." : step === 3 ? "Finish Setup" : (step === 1 && planLimit > 1 && addedBarbers.length === 0 ? "Skip for now" : "Continue")}
               {!saving && <ChevronRight size={16} />}

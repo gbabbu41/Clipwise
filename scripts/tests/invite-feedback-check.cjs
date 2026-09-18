@@ -10,6 +10,7 @@ function handler(file, start, end, env, name) {
 function setup(data, ok = true) {
   const state = { sent: false, open: true, reloads: 0, requests: 0, toasts: [], added: [], ids: [], error: '' };
   const env = {
+    barberRequestState: { current: 'idle' }, barberRequestContext: { current: 1 }, setBarberUncertain: () => {},
     staffCreateState: { current: 'idle' }, staffEmailContext: { current: 1 }, setStaffCreateError: value => { state.error = value; },
     shop: { id: 'shop', subscription_plan: 'fixture' }, addForm: { name: 'Barber', email: 'barber@example.invalid', commission_percent: '65' }, barbers: [], accessToken: 'fixture-token',
     getPlanLimit: () => 3, validateEmail: () => null, barberLimitMsg: () => 'limit',
