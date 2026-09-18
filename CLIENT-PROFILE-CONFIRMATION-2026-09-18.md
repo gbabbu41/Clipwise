@@ -1,0 +1,9 @@
+# Client-profile save confirmation — September 18, 2026
+
+Actual notes handler reproduced a zero-row update changing displayed notes and reporting saved. Related hair, birthday and contact handlers had the same unconfirmed-success path; thrown updates/materialization could leave busy state set.
+
+The four handlers share a synchronous pending guard and require a confirmed intended client ID from an update filtered by client and captured shop. Exceptions release busy state. Rejection retains the draft/editor. Uncertain results show persistent check-profile guidance and block replay for that client until refresh; a synthetic client that was materialized before a rejected update is likewise not blindly materialized again. Existing synthetic-client API, validation/formatting/contact semantics and RLS remain unchanged. Scope/selection/unmount checks suppress stale success/error publication and prevent follow-on writes after a stale materialization. Confirmed hair data now updates the local list/profile as well as the database, so reopening uses the confirmed value. Loyalty operations are excluded.
+
+Targeted tests execute actual handlers for notes/hair/birthday/contact and cover zero/wrong rows, database/network/materialization failures, retained draft/editor, cleared busy state, shared duplicate guards, synthetic-to-real success/rejection, stale materialization/update results and existing newer-contact-draft isolation. Full npm run test:flows and clean targeted lint passed. Real isolated production build passed with dummy credentials (202 pages). No live messages, transactions, production test writes, browser checks or deployment-health verification.
+
+Limits: already-sent writes cannot be cancelled. This is not cross-session idempotency or an atomic materialization-plus-update operation. Unknown outcomes conservatively require refresh; the patch does not claim the underlying write failed.

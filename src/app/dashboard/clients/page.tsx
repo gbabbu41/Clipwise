@@ -75,6 +75,11 @@ export default function ClientsPage() {
   const [editField, setEditField] = useState<null | "phone" | "email">(null);
   const [fieldDraft, setFieldDraft] = useState("");
   const [savingField, setSavingField] = useState(false);
+  const profileSavePending = useRef(false);
+  const uncertainProfileSaves = useRef(new Set<string>());
+  const profileMounted = useRef(true);
+  const [profileSaveError, setProfileSaveError] = useState<{ clientId: string; message: string } | null>(null);
+  useEffect(() => { profileMounted.current = true; return () => { profileMounted.current = false; }; }, []);
   const profileState = useRef({ clientId: selectedClient?.id, editField, fieldDraft });
   profileState.current = { clientId: selectedClient?.id, editField, fieldDraft };
 
@@ -276,44 +281,24 @@ export default function ClientsPage() {
   };
 
   const saveNotes = async () => {
-    if (!selectedClient) return;
-    setSaving(true);
-    const realId = await ensureRealClient(selectedClient);
-    if (!realId) { setSaving(false); showToast("Couldn't save notes — please try again."); return; }
-    const prevId = selectedClient.id;
-    const { error } = await supabase.from("clients").update({ notes }).eq("id", realId);
-    setSaving(false);
-    if (error) { showToast("Error saving notes"); return; }
-    setSelectedClient(c => c && (c.id === prevId || c.id === realId) ? { ...c, id: realId, notes } : c);
-    setClients(prev => prev.map(c => c.id === prevId ? { ...c, id: realId, notes } : c));
-    showToast("Notes saved!");
+    await saveProfile({ notes }, setSaving, "Notes saved!", (prevId, realId) => {
+      setSelectedClient(c => c && (c.id === prevId || c.id === realId) ? { ...c, id: realId, notes } : c);
+      setClients(prev => prev.map(c => c.id === prevId ? { ...c, id: realId, notes } : c));
+    });
   };
 
   const saveHairProfile = async () => {
-    if (!selectedClient) return;
-    const prevId = selectedClient.id;
-    setSavingHair(true);
-    const realId = await ensureRealClient(selectedClient);
-    if (!realId) { setSavingHair(false); showToast("Couldn't save hair profile — please try again."); return; }
-    const { error } = await supabase.from("clients").update({ hair_profile: hairProfile }).eq("id", realId);
-    setSavingHair(false);
-    if (error) { showToast("Error saving hair profile"); return; }
-    setSelectedClient(c => c && (c.id === prevId || c.id === realId) ? { ...c, id: realId } : c);
-    showToast("Hair profile saved!");
+    await saveProfile({ hair_profile: hairProfile }, setSavingHair, "Hair profile saved!", (prevId, realId) => {
+      setSelectedClient(c => c && (c.id === prevId || c.id === realId) ? { ...c, id: realId, hair_profile: hairProfile } : c);
+      setClients(prev => prev.map(c => c.id === prevId ? { ...c, id: realId, hair_profile: hairProfile } : c));
+    });
   };
 
   const saveBirthday = async () => {
-    if (!selectedClient) return;
-    setSavingBirthday(true);
-    const realId = await ensureRealClient(selectedClient);
-    if (!realId) { setSavingBirthday(false); showToast("Couldn't save birthday — please try again."); return; }
-    const prevId = selectedClient.id;
-    const { error } = await supabase.from("clients").update({ birthday }).eq("id", realId);
-    setSavingBirthday(false);
-    if (error) { showToast("Couldn't save birthday — please try again."); return; }
-    setSelectedClient(c => c && (c.id === prevId || c.id === realId) ? { ...c, id: realId, birthday } : c);
-    setClients(prev => prev.map(c => c.id === prevId ? { ...c, id: realId, birthday } : c));
-    showToast("Birthday saved!");
+    await saveProfile({ birthday }, setSavingBirthday, "Birthday saved!", (prevId, realId) => {
+      setSelectedClient(c => c && (c.id === prevId || c.id === realId) ? { ...c, id: realId, birthday } : c);
+      setClients(prev => prev.map(c => c.id === prevId ? { ...c, id: realId, birthday } : c));
+    });
   };
 
   const startEditField = (field: "phone" | "email") => {
@@ -322,24 +307,62 @@ export default function ClientsPage() {
   };
 
   const saveContactField = async () => {
-    if (!selectedClient || !editField) return;
+    if (!editField) return;
     const field = editField;
     const val = field === "phone" ? formatPhone(fieldDraft.trim()) : fieldDraft.trim();
-    setSavingField(true);
-    const realId = await ensureRealClient(selectedClient);
-    if (!realId) { setSavingField(false); showToast("Couldn't save — please try again."); return; }
-    const prevId = selectedClient.id;
     const patch = field === "phone" ? { phone: val } : { email: val };
-    const { error } = await supabase.from("clients").update(patch).eq("id", realId);
-    setSavingField(false);
-    if (error) { showToast("Couldn't save — please try again."); return; }
-    setSelectedClient(c => c && (c.id === prevId || c.id === realId) ? { ...c, id: realId, ...patch } : c);
-    setClients(prev => prev.map(c => c.id === prevId ? { ...c, id: realId, ...patch } : c));
-    const current = profileState.current;
-    if ((current.clientId === prevId || current.clientId === realId) && current.editField === field && current.fieldDraft === fieldDraft) {
-      setEditField(null);
+    await saveProfile(patch, setSavingField, field === "phone" ? "Phone saved!" : "Email saved!", (prevId, realId) => {
+      setSelectedClient(c => c && (c.id === prevId || c.id === realId) ? { ...c, id: realId, ...patch } : c);
+      setClients(prev => prev.map(c => c.id === prevId ? { ...c, id: realId, ...patch } : c));
+      const current = profileState.current;
+      if ((current.clientId === prevId || current.clientId === realId) && current.editField === field && current.fieldDraft === fieldDraft) setEditField(null);
+    });
+  };
+
+  const saveProfile = async (
+    patch: { notes?: string; birthday?: string; phone?: string; email?: string; hair_profile?: HairProfile },
+    setBusy: (busy: boolean) => void,
+    successMessage: string,
+    publish: (previousId: string, realId: string) => void,
+  ) => {
+    if (!selectedClient || !shop || selectedClient.shop_id !== shop.id || activeShopId.current !== shop.id || profileSavePending.current) return;
+    const client = selectedClient;
+    const key = shop.id + ":" + client.id;
+    const current = () => profileMounted.current && activeShopId.current === shop.id && profileState.current.clientId === client.id;
+    const uncertainMessage = "Could not confirm this save. Your draft is kept. Refresh and check this client's profile before trying again.";
+    if (uncertainProfileSaves.current.has(key)) {
+      if (current()) setProfileSaveError({ clientId: client.id, message: uncertainMessage });
+      return;
     }
-    showToast(field === "phone" ? "Phone saved!" : "Email saved!");
+    if (!current()) return;
+    profileSavePending.current = true;
+    setBusy(true);
+    setProfileSaveError(null);
+    let realId: string | null = null;
+    const uncertain = () => {
+      uncertainProfileSaves.current.add(key);
+      if (realId) uncertainProfileSaves.current.add(shop.id + ":" + realId);
+      if (current()) setProfileSaveError({ clientId: client.id, message: uncertainMessage });
+    };
+    try {
+      realId = await ensureRealClient(client);
+      if (typeof realId !== "string" || !realId.trim()) { uncertain(); return; }
+      if (!current()) return;
+      const { data, error } = await supabase.from("clients").update(patch).eq("id", realId).eq("shop_id", shop.id).select("id").maybeSingle();
+      if (error || (data && data.id !== realId)) { uncertain(); return; }
+      if (!data && client.id.startsWith("synthetic:")) uncertainProfileSaves.current.add(key);
+      if (!current()) return;
+      if (!data) {
+        setProfileSaveError({ clientId: client.id, message: "This client could not be updated. Your draft is kept. Refresh the profile before trying again." });
+        return;
+      }
+      publish(client.id, realId);
+      showToast(successMessage);
+    } catch { uncertain(); }
+    finally {
+      profileSavePending.current = false;
+      if (profileMounted.current) setBusy(false);
+    }
   };
 
   const sendBirthdayEmail = async () => {
@@ -735,6 +758,7 @@ export default function ClientsPage() {
               </Button>
               <p className="text-xs text-grey text-center">Client details filled in. Choose the service, date and time.</p>
             </div>
+            {profileSaveError?.clientId === selectedClient.id && <p role="alert" className="text-sm text-amber-400">{profileSaveError.message}</p>}
             {/* Tabs */}
             <div className="flex gap-1 bg-card-raised border border-border rounded-xl p-1">
               {(["overview", "hair", "history"] as const).map(tab => (

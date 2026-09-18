@@ -5,14 +5,14 @@ const points = source.slice(source.indexOf('  const addPoints ='), source.indexO
 const handlers = ts.transpileModule(profile + points, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
 function setup(selection, currentField = 'email', currentDraft = 'new@example.test') {
   const original = { id: 'original', shop_id: 'shop', notes: 'before', birthday: '', email: 'old@example.test', loyalty_points: 10 };
-  const state = { selected: original, clients: [original], field: currentField, writes: [] };
+  const state = { selected: selection, clients: [original], field: currentField, writes: [] };
   const env = {
-    selectedClient: original, addPointsClient: original, shop: { id: 'shop' }, notes: 'saved notes', birthday: '2000-01-01', hairProfile: {}, editField: 'email', fieldDraft: 'new@example.test', pointsToAdd: '5',
+    profileSavePending: {current:false}, uncertainProfileSaves: {current:new Set()}, profileMounted: {current:true}, activeShopId: {current:'shop'}, setProfileSaveError: () => {}, selectedClient: original, addPointsClient: original, shop: { id: 'shop' }, notes: 'saved notes', birthday: '2000-01-01', hairProfile: {}, editField: 'email', fieldDraft: 'new@example.test', pointsToAdd: '5',
     profileState: { current: { clientId: selection?.id, editField: currentField, fieldDraft: currentDraft } },
     ensureRealClient: async () => 'original', formatPhone: s => s, showToast: () => {}, loadClients: () => {},
     setSaving: () => {}, setSavingHair: () => {}, setSavingBirthday: () => {}, setSavingField: () => {}, setFieldDraft: () => {}, setAddPointsClient: () => {},
     setSelectedClient: fn => { state.selected = fn(state.selected); }, setClients: fn => { state.clients = fn(state.clients); }, setEditField: v => { state.field = v; },
-    supabase: { from: table => { assert.equal(table, 'clients'); const q = { eq: () => q, select: () => q, maybeSingle: async () => ({ data: { loyalty_points: 10 }, error: null }), then: (yes, no) => Promise.resolve({ error: null }).then(yes, no), update(payload) { state.writes.push(payload); state.selected = selection; return q; } }; return q; } },
+    supabase: { from: table => { assert.equal(table, 'clients'); const q = { eq: () => q, select: () => q, maybeSingle: async () => ({ data: { id: 'original', loyalty_points: 10 }, error: null }), then: (yes, no) => Promise.resolve({ error: null }).then(yes, no), update(payload) { state.writes.push(payload); state.selected = selection; return q; } }; return q; } },
   };
   return { state, handlers: new Function(...Object.keys(env), `${handlers}; return { saveNotes, saveHairProfile, saveBirthday, saveContactField, addPoints };`)(...Object.values(env)) };
 }
