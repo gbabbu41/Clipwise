@@ -272,7 +272,8 @@ export default function OnboardingPage() {
           .filter((x): x is NonNullable<typeof x> => x !== null);
         for (const barberId of barberIds) {
           // Clear any pre-existing slots first so re-running this step replaces, not duplicates.
-          await supabase.from("time_slots").delete().eq("barber_id", barberId);
+          const { error: deleteError } = await supabase.from("time_slots").delete().eq("barber_id", barberId);
+          if (deleteError) throw new Error("Couldn't replace your saved hours. Please review and retry this step.");
           if (slots.length > 0) {
             const { error: err } = await supabase.from("time_slots").insert(slots.map((s) => ({ ...s, barber_id: barberId })));
             if (err) throw err;
