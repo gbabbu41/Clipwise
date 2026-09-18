@@ -9,7 +9,7 @@ const mocks = {
   '@/lib/supabase-admin': { supabaseAdmin: db },
   '@/lib/stripe': { stripeFeeCents: async () => 100, stripe: { webhooks: { constructEvent: () => ({ type: 'checkout.session.completed', account: 'acct_fixture', data: { object: { payment_intent: 'pi_fixture', metadata: { flow: lane === 'balance' ? 'balance' : 'post_booking_payment', appointment_id: 'appt', shop_id: 'shop', bal_service: '100', bal_tax: '15' } } } }) } } },
   '@/lib/emailer': { sendAppEmail: async (type, data) => { sends.push({ type, data }); if (mode === 'held') await new Promise(resolve => { release = resolve; }); if (mode === 'throw') throw Error('offline'); return mode === 'error' ? { error: 'unavailable' } : { success: true }; } },
-  '@/lib/payment-notify': { sendPaymentReceipt: async (...args) => receipts.push(args), notifyNoShowCharged: () => {}, notifyBalancePaid: () => {} },
+  '@/lib/payment-notify': { sendPaymentReceipt: async (...args) => { receipts.push(args); if (mode === 'receipt-held') await new Promise(resolve => { release = resolve; }); if (mode === 'receipt-throw') throw Error('receipt unavailable'); }, notifyNoShowCharged: () => {}, notifyBalancePaid: () => {} },
   '@/lib/completion-server': { runServerCompletionEffects: async data => completions.push(data) },
   '@/lib/finalize-appointment-payment': { recordOnlinePaymentTx: async data => writes.push({ table: 'ledger', value: data }) },
 };
@@ -29,5 +29,7 @@ global.fetch = async () => { throw Error('Unexpected email HTTP hop'); };
     reset(target); mode = 'held'; let done = false; const pending = call().then(() => { done = true; }); for (let i = 0; i < 30 && !release; i++) await new Promise(resolve => setImmediate(resolve)); assert.equal(typeof release, 'function'); assert.equal(done, false); release(); await pending;
   }
   reset('finalizer'); mode = 'throw'; await call(true); assert.equal(completions.length, 1); assert.equal(writes[0].value.status, 'completed');
+  reset('finalizer'); mode = 'receipt-throw'; assert.equal(await call(true), true); assert.equal(receipts.length, 1); assert.equal(sends.length, 1); assert.equal(completions.length, 1); assert.ok(!writes.some(w => w.value.payment_status === 'failed'));
+  reset('finalizer'); mode = 'receipt-held'; let finished = false; const receiptPending = call().then(() => { finished = true; }); for (let i = 0; i < 30 && !release; i++) await new Promise(resolve => setImmediate(resolve)); assert.equal(typeof release, 'function'); assert.equal(finished, false); release(); await receiptPending; assert.equal(receipts.length, 1);
   console.log('PASS owner payment email: three internal awaited senders, canonical payloads, preserved ledger totals/claim gates, missing contact, delivery failures and completion effects');
 })().catch(error => { console.error(error); process.exitCode = 1; });

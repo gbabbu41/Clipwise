@@ -221,7 +221,7 @@ export async function POST(request: NextRequest) {
         .eq("id", appointment_id).then(null, () => null);
     }
 
-    // Email the customer a receipt for the charge (fire-and-forget).
+    // Prepare the customer's receipt; email failure must not undo a real charge.
     const amountReceived = pi.amount_received ?? 0;
     console.log("[capture-appointment] charged", { appointment_id, reason, isSaved, amountReceived, pi_id: pi.id });
 
@@ -307,7 +307,7 @@ export async function POST(request: NextRequest) {
         }
       }
     }
-    sendPaymentReceipt(baseUrl, {
+    await sendPaymentReceipt(baseUrl, {
       clientEmail: appt.client_email,
       clientName: appt.client_name,
       shopName: shop.name,
@@ -329,7 +329,7 @@ export async function POST(request: NextRequest) {
       time: appt.time_slot,
       durationMinutes: (appt as { duration_minutes?: number | null }).duration_minutes ?? (svc as { duration_minutes?: number } | null)?.duration_minutes ?? null,
       timezone: (shop as { timezone?: string | null }).timezone ?? null,
-    });
+    }).catch(() => null);
 
     // In-app/web success alert to owner + assigned barber for BOTH a completion
     // charge and a no-show fee (pop-up + chime). No-show also texts the customer.

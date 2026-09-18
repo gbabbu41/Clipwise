@@ -168,7 +168,7 @@ export async function markAppointmentPaid(args: {
     paymentIntentId: paymentIntentId ?? null,
   });
 
-  sendPaymentReceipt(baseUrl, {
+  await sendPaymentReceipt(baseUrl, {
     clientEmail: appt.client_email,
     clientName: appt.client_name,
     shopName: shop.name,
@@ -183,7 +183,7 @@ export async function markAppointmentPaid(args: {
     time: appt.time_slot,
     durationMinutes: (appt as { duration_minutes?: number | null }).duration_minutes ?? null,
     timezone: (shop as { timezone?: string | null }).timezone ?? null,
-  });
+  }).catch(() => null);
 
   notifyNoShowCharged({
     ownerId: shop.owner_id,
