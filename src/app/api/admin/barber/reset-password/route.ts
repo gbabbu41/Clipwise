@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { sendAppEmail } from "@/lib/emailer";
 
 export async function POST(request: NextRequest) {
   const token = request.headers.get("Authorization")?.replace("Bearer ", "");
@@ -37,10 +38,8 @@ export async function POST(request: NextRequest) {
   const email = authUser?.user?.email;
   if (!email) return NextResponse.json({ error: "No login email found for this barber" }, { status: 400 });
 
-  // Origin-first (real live domain) over NEXT_PUBLIC_APP_URL: unset in prod, the
-  // old code produced "undefined/barber-dashboard" and self-fetched localhost —
-  // so the reset link AND the email both silently died.
-  const baseUrl = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca";
+  // Recovery destinations must come from trusted configuration, not the caller.
+  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca").replace(/\/+$/, "");
 
   const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
     type: "recovery",
@@ -60,23 +59,15 @@ export async function POST(request: NextRequest) {
     const { data: shopRow } = await supabaseAdmin
       .from("shops").select("name, email").eq("id", barber.shop_id).maybeSingle();
     try {
-      const res = await fetch(`${baseUrl}/api/send-email`, {
-        method: "POST",
-        // Forward the owner's bearer token too so this gated send authenticates
-        // even when CRON_SECRET is unset in prod (see invite/route.ts).
-        headers: { "Content-Type": "application/json", "x-internal-secret": process.env.CRON_SECRET ?? "", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          type: "barber_password_reset",
-          data: {
-            barberName: barber.name,
-            barberEmail: email,
-            shopName: shopRow?.name ?? "your shop",
-            shopEmail: shopRow?.email ?? "",
-            resetLink: link,
-          },
-        }),
+      // Keep the bearer token, cron secret and recovery link inside the server.
+      const result = await sendAppEmail("barber_password_reset", {
+        barberName: barber.name,
+        barberEmail: email,
+        shopName: shopRow?.name ?? "your shop",
+        shopEmail: shopRow?.email ?? "",
+        resetLink: link,
       });
-      emailed = res.ok;
+      emailed = !("error" in result);
     } catch { /* best-effort */ }
   }
 

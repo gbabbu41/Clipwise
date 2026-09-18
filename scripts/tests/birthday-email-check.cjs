@@ -51,7 +51,7 @@ const call = (body = payload, token = 'valid') => POST(new NextRequest('https://
   reset(); storedEmail = 'a_b%test@example.invalid'; assert.equal((await call({ type: 'birthday_wish', data: { shopId: 'shop', clientEmail: storedEmail } })).status, 200);
   assert.ok(queries.some(q => q.filters.some(([k, v]) => k === 'email' && v === 'a\\_b\\%test@example.invalid')));
   reset(); assert.equal((await call({ type: 'subscription_started', data: {} })).status, 403); assert.equal(sends.length, 0);
-  for (const type of ['signup_code', 'subscription_card_updated', 'owner_weekly_digest', 'connect_reminder']) {
+  for (const type of ['signup_code', 'subscription_card_updated', 'owner_weekly_digest', 'connect_reminder', 'password_reset', 'barber_password_reset']) {
     for (const token of ['', 'valid']) {
       reset(); assert.equal((await call({ type, data: { email: 'target@example.invalid', code: '111111' } }, token)).status, 403, `${type} must reject HTTP sends, including shared-secret callers`);
       assert.equal(sends.length, 0); assert.equal(queries.length, 0);

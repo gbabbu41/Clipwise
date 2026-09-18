@@ -29,9 +29,8 @@ export async function POST(request: NextRequest) {
   const perEmail = rateLimit(`forgot-password-email:${email}`, 4, 15 * 60_000);
   if (!perEmail.ok) return genericOk;
 
-  // Origin-first so the link uses the real live domain even if NEXT_PUBLIC_APP_URL
-  // is unset/stale in prod.
-  const baseUrl = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca";
+  // Never use a caller-controlled recovery destination.
+  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca").replace(/\/+$/, "");
 
   try {
     const { data, error } = await supabaseAdmin.auth.admin.generateLink({
