@@ -2341,7 +2341,10 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
 
   const titleText = useMemo(() => {
     if (view === "year") return String(currentDate.getFullYear());
-    if (view === "month") return currentDate.toLocaleDateString("en-CA", { month: isMobile ? "short" : "long", year: "numeric" });
+    // Just the month — the year lives in the grey back-link ("‹ 2026") beside it,
+    // so spelling it here too ("Aug 2026") repeats 2026. Matches the 3-Day rule:
+    // parent unit in the back-link, current unit in the bold title.
+    if (view === "month") return currentDate.toLocaleDateString("en-CA", { month: isMobile ? "short" : "long" });
     if (view === "multiday") {
       // Range label for the visible window. Same month → just the day numbers
       // ("17 – 19"); the month lives in the back button ("‹ Sep") to its left,
@@ -3659,7 +3662,12 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
           {(!onToday || view === "multiday" && formatDateForDb(currentDate) !== shopToday) && (
             <button onClick={() => { setNavDir(0); setCurrentDate(new Date(`${shopToday}T00:00:00`)); }} aria-label="Go to today" title="Today"
               className="p-2 sm:px-2.5 sm:py-1.5 text-xs font-medium text-[#ccc] border border-border bg-card-raised rounded-lg hover:bg-surface-overlay hover:text-foreground transition-colors">
-              <CalendarDays size={16} className="sm:hidden" /><span className="hidden sm:inline">Today</span>
+              {/* Month/Year have room → spell "Today" (the view picker already shows
+                  a calendar glyph there, so an icon here would read as two
+                  calendars). Day / 3-Day are tight → keep the compact icon on phone. */}
+              {view === "month" || view === "year"
+                ? <span>Today</span>
+                : <><CalendarDays size={16} className="sm:hidden" /><span className="hidden sm:inline">Today</span></>}
             </button>
           )}
           {/* Universal bell + avatar (owner standalone only) — desktop-only, so
