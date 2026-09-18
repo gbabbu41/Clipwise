@@ -9,6 +9,7 @@ import { posCommissionFor } from "@/lib/commission-server";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
 import { ensurePlansHydrated } from "@/lib/plans-server";
 import { type TaxConfig } from "@/lib/pricing";
+import { validatePosResources } from "@/lib/pos-resource-guards";
 
 /**
  * Record a cash (or gift-card-covered) POS sale server-side.
@@ -55,6 +56,9 @@ export async function POST(req: Request) {
     if (!planHasFeature(plan, "pos")) {
       return NextResponse.json({ error: "POS is available on the Pro and Premium plans." }, { status: 403 });
     }
+
+    const resourceError = await validatePosResources(shop_id, b);
+    if (resourceError) return NextResponse.json({ error: resourceError.error }, { status: resourceError.status });
 
     // Promo enforcement (server-authoritative) — validate the applied code's cap +
     // expiry + once-per-customer here (the POS only checks it in the browser).
@@ -130,10 +134,10 @@ export async function POST(req: Request) {
     const products = Array.isArray(b.products) ? (b.products as { id: string; qty: number }[]) : [];
     for (const p of products) {
       const { data: inv } = await supabaseAdmin
-        .from("inventory").select("id, name, quantity, low_stock_threshold").eq("id", p.id).single();
+        .from("inventory").select("id, name, quantity, low_stock_threshold").eq("id", p.id).eq("shop_id", shop_id).single();
       if (!inv) continue;
       const newQty = Math.max(0, inv.quantity - p.qty);
-      await supabaseAdmin.from("inventory").update({ quantity: newQty }).eq("id", inv.id);
+      await supabaseAdmin.from("inventory").update({ quantity: newQty }).eq("id", inv.id).eq("shop_id", shop_id);
       if (newQty <= inv.low_stock_threshold && inv.quantity > inv.low_stock_threshold && shop.owner_id) {
         insertNotifications({
           user_id: shop.owner_id,
@@ -152,14 +156,14 @@ export async function POST(req: Request) {
       // Re-read the real balance from the DB — never trust the client's
       // remaining_value — and clamp the redemption to it.
       const { data: card } = await supabaseAdmin
-        .from("gift_cards").select("remaining_value").eq("id", gc.id).maybeSingle();
+        .from("gift_cards").select("remaining_value").eq("id", gc.id).eq("shop_id", shop_id).maybeSingle();
       if (card) {
         const bal = Number(card.remaining_value) || 0;
         const applied = Math.min(Number(gc.applied) || 0, bal);
         const newBal = Math.max(0, bal - applied);
         await supabaseAdmin.from("gift_cards").update({
           remaining_value: newBal, is_active: newBal > 0, redeemed_at: new Date().toISOString(),
-        }).eq("id", gc.id).then(null, () => null);
+        }).eq("id", gc.id).eq("shop_id", shop_id).then(null, () => null);
       }
     }
 

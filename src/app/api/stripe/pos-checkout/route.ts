@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
-import { supabaseAdmin } from "@/lib/supabase-admin";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
 import { ensurePlansHydrated } from "@/lib/plans-server";
 import { authorizeShop } from "@/lib/api-auth";
 import { fetchValidPromo, promoBlockReason } from "@/lib/promo";
+import { validatePosResources } from "@/lib/pos-resource-guards";
 
 // In-person POS card sale → hosted Stripe Checkout on the shop's connected
 // account (platform-charge fallback when Connect KYC isn't done, so sandbox
@@ -73,6 +73,9 @@ export async function POST(request: NextRequest) {
     const blocked = await promoBlockReason(promo, body.client_email, body.client_phone);
     if (blocked) return NextResponse.json({ error: blocked }, { status: 409 });
   }
+
+  const resourceError = await validatePosResources(body.shop_id, body);
+  if (resourceError) return NextResponse.json({ error: resourceError.error }, { status: resourceError.status });
 
   const origin = body.origin || process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca";
 

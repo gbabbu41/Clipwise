@@ -121,10 +121,10 @@ export async function POST(request: NextRequest) {
     try { products = JSON.parse(m.products || "[]"); } catch { products = []; }
     for (const p of products) {
       const { data: inv } = await supabaseAdmin
-        .from("inventory").select("id, name, quantity, low_stock_threshold").eq("id", p.id).single();
+        .from("inventory").select("id, name, quantity, low_stock_threshold").eq("id", p.id).eq("shop_id", shop_id).single();
       if (!inv) continue;
       const newQty = Math.max(0, inv.quantity - p.qty);
-      await supabaseAdmin.from("inventory").update({ quantity: newQty }).eq("id", inv.id);
+      await supabaseAdmin.from("inventory").update({ quantity: newQty }).eq("id", inv.id).eq("shop_id", shop_id);
       if (newQty <= inv.low_stock_threshold && inv.quantity > inv.low_stock_threshold && shop.owner_id) {
         insertNotifications({
           user_id: shop.owner_id,
