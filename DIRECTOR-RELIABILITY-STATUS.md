@@ -35,3 +35,45 @@ Browser authorization fixed in `cf1577f`, pushed and GitHub main verified: concr
 - Proposed financial reconciliation review: document current idempotency keys and failure stages first; propose recoverable states/replay rules and any required SQL for approval, without changing refund/commission/tax policies.
 
 Exact scoped reports and the parent CLIPWISE-AUDIT-LOOP.md are authoritative for earlier batches. Do not treat previous source-only findings as live incidents or unverified changes as deployed.
+
+## Remaining generic email coverage inventory
+
+Source inventory, not a full production security certification. Internal callers bypass the HTTP gate by design; their existing authority must stay at their dedicated entry point. Provider success is not inbox proof. The following covers every current template by group.
+
+Lifecycle six-type closure: endpoint failure reproduced before fix, focused/full regressions, targeted lint, whitespace and real production build passed (202 pages with dummy credentials). See LIFECYCLE-EMAIL-BOUNDARY-2026-09-18.md; no live sends or database changes.
+
+| Types | Intended callers and current boundary | Eligibility/outcome evidence or remaining gap |
+| --- | --- | --- |
+| subscription_started, subscription_cancelled, subscription_payment_failed, subscription_renewal_reminder, subscription_card_updated | Dedicated billing/webhook/maintenance routes; generic HTTP blocked | Existing billing guards unchanged; subscription and server-email regressions |
+| signup_code, password_reset, barber_password_reset, barber_invite | Dedicated auth/invite routes; generic HTTP blocked; authoritative login/invite recipient and configured links | Existing captcha/cooldown/owner checks; reset/invite regression reports |
+| payment_link, refund_issued, payment_receipt, owner_payment_received | Authorized financial routes/helpers; generic HTTP blocked; configured links/internal delivery | Awaited attempts, financial outcomes isolated from email failures; payment/refund/receipt tests; no persistent delivery retry |
+| owner_weekly_digest, connect_reminder | Cron internal only; generic HTTP blocked | Existing cron eligibility; non-review outcome counters/stamps need follow-up |
+| new_shop_application, shop_submitted_confirmation, shop_welcome, weekly_schedule, trial_reminder, trial_ended | Shops/create, reminder cron and process-trials internal only; six-type closure in current batch | Creation approval selection, schedule eligibility and trial thresholds unchanged; endpoint and trial regressions; see lifecycle report |
+| birthday_wish, direct_message | Browser owner-only birthday / owner or active same-shop staff direct message; known tenant recipient and stored branding; cron birthday internal | Authorization tests pass. Cron birthday uses canReceivePromos; manual birthday consent parity needs separate review. Direct-message UI still risks claiming delivery without observing the result |
+| review_request | Owner or active same-shop manage_appointments barber, preserved verified platform admin exception; canonical appointment recipient/shop/link. Completion/cron internal | Outcome/auth tests pass. Existing already-reviewed suppression preserved. Inline Appointments has no prior-stamp guard or sent stamp; manual resend policy remains separate |
+| booking_confirmation, booking_request_received | Public booking-client and staff approval HTTP plus authoritative booking/finalize/waitlist internal callers | HTTP still trusts supplied recipient/content; cannot blanket-block before migrating public and approval callers together. Pending versus confirmed must stay distinct |
+| shop_approved, shop_rejected | Three admin page callers through generic HTTP | No generic admin/resource gate; caller-supplied recipient/content. Requires canonical shop + verified admin and coordinated caller tokens; next high-impact browser boundary candidate |
+| new_barber_request | join-shop browser caller through generic HTTP | No generic resource gate; trace join request identity and canonical owner before tightening |
+| rebooking_reminder, no_show_followup | Clients manual nudge, appointment completion/no-show helpers and cron | Generic staff role only, arbitrary supplied recipient/link. Cron promotional nudges use canReceivePromos; preserve distinct operational/manual intent pending exact caller authorization mapping |
+| appointment_rejected | Appointments page/shared helper HTTP | No generic resource gate; canonical authorized appointment migration needed; do not change rejection/refund workflow |
+| appointment_reminder, appointment_updated, appointment_cancelled, barber_appointment_change | Cron, my-booking, appointments/update and cancellation internal paths found | Generic HTTP remains exposed despite direct server callers; candidate for existing server-only closure after complete caller/alias verification |
+| new_booking_owner, new_booking_barber | notify-booking-emails, finalize-booking-session and reassignment internal paths found | Saved recipients/account fallback; generic HTTP remains exposed; candidate server-only closure. Preserve owner-as-barber duplicate suppression |
+| schedule_updated, time_off_request, time_off_decision | Dedicated schedule/block/time-off internal routes found | Generic staff role only despite internal callers; candidate server-only closure after all route variants verified |
+| waitlist_slot_open | waitlist-notify-server internal caller found | Generic role-only access; dedicated waitlist tests exist. Candidate server-only closure after caller verification |
+| marketing_campaign | Dedicated marketing/send plus gift-card helpers/routes use internal engine | Generic gate only establishes ownership of ANY paid shop, not submitted tenant/recipient/consent. Candidate closure after exhaustive caller search; gift-card operational email must remain distinct from promotional consent policy |
+
+These remaining gaps are source findings, not all reproduced or fixed. Existing endpoint inventory does not imply every dedicated sender's full authorization has been audited. Public booking ownership coordinated with software developer; their loader changes do not alter notification senders.
+
+## Review-delivery launch-risk proposal — approval required before implementation
+
+Failure: completion and cron can both read an empty sent timestamp and both send before either stamps. Provider acceptance followed by a process crash or failed timestamp write also leaves a future caller able to resend. A timeout can leave acceptance uncertain. Current success-only stamps avoid false success but cannot solve these races.
+
+Impact: duplicate or missing review nudges and damaged customer trust, not duplicate financial charges. No live incident has been observed. The inline Appointments sender additionally lacks the stamp/prior guard; deciding whether deliberate resend is allowed is separate from automatic deduplication.
+
+Smallest reliable design to evaluate: one durable per-appointment automatic-review delivery record, an atomic worker claim with recoverable state, and a stable provider deduplication key if the provider's documented behavior supports the required retry window. This is a proposal, not a verified provider guarantee. A claim-before-send boolean alone is insufficient: crashing after claiming can permanently lose the notification. Keep existing eligibility, consent, timing, recipients and reviewed-customer suppression unchanged; explicitly distinguish suppression from provider acceptance.
+
+Schema/business implications: new persistent delivery state and an atomic claim operation would require approved migration/design. Decide the allowed recovery window, handling of uncertain provider outcomes and deliberate manual resend before implementing retries. No backfill or automatic resend of historic appointments without separate approval. No SQL or migrations applied.
+
+Acceptance checks (mocked): competing completion/cron workers; crashes before send and after acceptance; provider rejection/timeout; failed final persistence; expired claims; already-reviewed suppression; ineligible appointments; explicit manual resend decision; preservation of existing booking/loyalty effects. Assert bounded attempts and no false delivery status, not impossible exactly-once inbox delivery.
+
+Rollback: disable the proposed worker via an approved rollout switch, keep durable records and existing sent timestamps intact, and do not automatically replay uncertain records or silently fall back to unrestricted sends. Review unresolved records deliberately. Keep this separate from the already-shipped outcome/auth fixes.

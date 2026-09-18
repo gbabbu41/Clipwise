@@ -71,7 +71,7 @@ const call = (body = payload, token = 'valid', internal = true) => POST(new Next
   reset(); storedEmail = 'a_b%test@example.invalid'; assert.equal((await call({ type: 'birthday_wish', data: { shopId: 'shop', clientEmail: storedEmail } })).status, 200);
   assert.ok(queries.some(q => q.filters.some(([k, v]) => k === 'email' && v === 'a\\_b\\%test@example.invalid')));
   reset(); assert.equal((await call({ type: 'subscription_started', data: {} })).status, 403); assert.equal(sends.length, 0);
-  for (const type of ['signup_code', 'subscription_card_updated', 'owner_weekly_digest', 'connect_reminder', 'password_reset', 'barber_password_reset', 'barber_invite', 'payment_link', 'refund_issued', 'payment_receipt', 'owner_payment_received']) {
+  for (const type of ['signup_code', 'subscription_card_updated', 'owner_weekly_digest', 'connect_reminder', 'password_reset', 'barber_password_reset', 'barber_invite', 'payment_link', 'refund_issued', 'payment_receipt', 'owner_payment_received', 'new_shop_application', 'shop_submitted_confirmation', 'shop_welcome', 'weekly_schedule', 'trial_reminder', 'trial_ended']) {
     for (const token of ['', 'valid']) for (const internal of [false, true]) {
       reset(); assert.equal((await call({ type, data: { email: 'target@example.invalid', code: '111111' } }, token, internal)).status, 403, `${type} must reject HTTP sends, including shared-secret callers`);
       assert.equal(sends.length, 0); assert.equal(queries.length, 0);
@@ -95,6 +95,15 @@ const call = (body = payload, token = 'valid', internal = true) => POST(new Next
   const cron = fs.readFileSync(path.join(root, 'src/app/api/cron/reminders/route.ts'), 'utf8');
   assert.match(cron, /sendAppEmail\(/); assert.match(cron, /sendEmail\("birthday_wish"/); assert.doesNotMatch(cron, /\/api\/send-email/);
   for (const type of ['owner_weekly_digest', 'connect_reminder']) assert.ok(cron.includes(`sendEmail("${type}"`));
+  assert.ok(cron.includes('sendEmail("weekly_schedule"'));
+  const trials = fs.readFileSync(path.join(root, 'src/lib/process-trials.ts'), 'utf8');
+  for (const type of ['trial_reminder', 'trial_ended']) assert.ok(trials.includes(`sendAppEmail("${type}"`));
+  assert.doesNotMatch(trials, /\/api\/send-email/);
+  const shopCreation = fs.readFileSync(path.join(root, 'src/app/api/shops/create/route.ts'), 'utf8');
+  assert.match(shopCreation, /autoApproved \? "shop_welcome" : "shop_submitted_confirmation"/);
+  assert.match(shopCreation, /sendAppEmail\(ownerType,/);
+  assert.match(shopCreation, /sendAppEmail\("new_shop_application",/);
+  assert.doesNotMatch(shopCreation, /\/api\/send-email/);
   for (const [file, type] of [['src/app/api/auth/request-code/route.ts', 'signup_code'], ['src/app/api/stripe/notify-card-updated/route.ts', 'subscription_card_updated']]) {
     const caller = fs.readFileSync(path.join(root, file), 'utf8'); assert.ok(caller.includes(`sendAppEmail("${type}"`)); assert.doesNotMatch(caller, /\/api\/send-email/);
   }
