@@ -64,8 +64,8 @@ export async function POST(req: NextRequest) {
         shopSlug: String(auth.shop.slug ?? ""),
       };
     }
-    // Subscription notices are generated only by verified server workflows.
-    // Even a valid staff account must not fabricate billing notices/recipients.
+    // These notices are generated only by dedicated server workflows.
+    // Even a staff account must not fabricate billing notices or signup codes.
     if (SERVER_ONLY_EMAIL_TYPES.has(type)) {
       return NextResponse.json({ error: "This notification is sent automatically." }, { status: 403 });
     }

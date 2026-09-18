@@ -1,6 +1,9 @@
 const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), Module = require('node:module');
 const root = path.resolve(__dirname, '../..'), appReq = Module.createRequire(path.join(root, 'package.json'));
 const ts = appReq('typescript'), { NextRequest } = appReq('next/server');
+const emailSource = fs.readFileSync(path.join(root, 'src/lib/emailer.ts'), 'utf8');
+const serverOnlyDeclaration = emailSource.match(/export const SERVER_ONLY_EMAIL_TYPES = new Set\(\[[\s\S]*?\]\);/)[0];
+const serverOnlyTypes = new Function(`${serverOnlyDeclaration.replace('export ', '')}; return SERVER_ONLY_EMAIL_TYPES;`)();
 let actor, source, failed, queries, sends, storedEmail;
 function reset() { actor = 'owner'; source = 'clients'; failed = ''; queries = []; sends = []; storedEmail = 'Client@example.invalid'; }
 const db = {
@@ -21,7 +24,7 @@ const db = {
 };
 const mocks = {
   '@/lib/supabase-admin': { supabaseAdmin: db }, './supabase-admin': { supabaseAdmin: db },
-  '@/lib/emailer': { PRIVILEGED_EMAIL_TYPES: new Set(), SERVER_ONLY_EMAIL_TYPES: new Set(['subscription_started']), sendAppEmail: async (type, data) => { sends.push({ type, data }); return { success: true }; } },
+  '@/lib/emailer': { PRIVILEGED_EMAIL_TYPES: new Set(), SERVER_ONLY_EMAIL_TYPES: serverOnlyTypes, sendAppEmail: async (type, data) => { sends.push({ type, data }); return { success: true }; } },
   '@/lib/validation': {}, '@/lib/plans-server': {}, '@/lib/rate-limit': { enforceRateLimit: () => null },
 };
 function load(relative) {
@@ -48,6 +51,12 @@ const call = (body = payload, token = 'valid') => POST(new NextRequest('https://
   reset(); storedEmail = 'a_b%test@example.invalid'; assert.equal((await call({ type: 'birthday_wish', data: { shopId: 'shop', clientEmail: storedEmail } })).status, 200);
   assert.ok(queries.some(q => q.filters.some(([k, v]) => k === 'email' && v === 'a\\_b\\%test@example.invalid')));
   reset(); assert.equal((await call({ type: 'subscription_started', data: {} })).status, 403); assert.equal(sends.length, 0);
+  for (const type of ['signup_code', 'subscription_card_updated', 'owner_weekly_digest', 'connect_reminder']) {
+    for (const token of ['', 'valid']) {
+      reset(); assert.equal((await call({ type, data: { email: 'target@example.invalid', code: '111111' } }, token)).status, 403, `${type} must reject HTTP sends, including shared-secret callers`);
+      assert.equal(sends.length, 0); assert.equal(queries.length, 0);
+    }
+  }
   const page = fs.readFileSync(path.join(root, 'src/app/dashboard/clients/page.tsx'), 'utf8');
   const handler = page.slice(page.indexOf('  const sendBirthdayEmail ='), page.indexOf('  const addPoints ='));
   assert.match(handler, /Authorization: `Bearer \$\{accessToken\}`/); assert.match(handler, /shopId: shop.id/);
@@ -65,5 +74,9 @@ const call = (body = payload, token = 'valid') => POST(new NextRequest('https://
   await makeHandler('', async () => { throw Error('must not fetch'); })(); assert.match(messages.at(-1), /sign in/);
   const cron = fs.readFileSync(path.join(root, 'src/app/api/cron/reminders/route.ts'), 'utf8');
   assert.match(cron, /sendAppEmail\(/); assert.match(cron, /sendEmail\("birthday_wish"/); assert.doesNotMatch(cron, /\/api\/send-email/);
+  for (const type of ['owner_weekly_digest', 'connect_reminder']) assert.ok(cron.includes(`sendEmail("${type}"`));
+  for (const [file, type] of [['src/app/api/auth/request-code/route.ts', 'signup_code'], ['src/app/api/stripe/notify-card-updated/route.ts', 'subscription_card_updated']]) {
+    const caller = fs.readFileSync(path.join(root, file), 'utf8'); assert.ok(caller.includes(`sendAppEmail("${type}"`)); assert.doesNotMatch(caller, /\/api\/send-email/);
+  }
   console.log('PASS birthday email: owner/token gate, scoped saved/booking/POS recipients, canonical branding, failed reads, wildcard exact check, caller and cron wiring');
 })().catch(error => { console.error(error); process.exitCode = 1; });
