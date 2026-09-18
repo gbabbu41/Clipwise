@@ -2343,13 +2343,14 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     if (view === "year") return String(currentDate.getFullYear());
     if (view === "month") return currentDate.toLocaleDateString("en-CA", { month: isMobile ? "short" : "long", year: "numeric" });
     if (view === "multiday") {
-      // Range label for the visible window. The back label ("‹ Sep") already shows
-      // the month, so within one month we show just the day range ("13 – 15") — no
-      // repeated "Sep". Cross-month keeps both months ("Sep 30 – Oct 2").
+      // Range label for the visible window — carries the (short) month so it reads
+      // "Sep 17 – 19" rather than bare day numbers. Cross-month shows both
+      // ("Sep 30 – Oct 2"). The back button is a plain chevron, so the month
+      // isn't repeated.
       const count = isMobile ? 3 : 5;
       const first = currentDate, last = addDays(currentDate, count - 1);
       const sameMonth = first.getMonth() === last.getMonth() && first.getFullYear() === last.getFullYear();
-      if (sameMonth) return `${first.getDate()} – ${last.getDate()}`;
+      if (sameMonth) return `${first.toLocaleDateString("en-CA", { month: "short" })} ${first.getDate()} – ${last.getDate()}`;
       const f = first.toLocaleDateString("en-CA", { month: "short", day: "numeric" });
       const l = last.toLocaleDateString("en-CA", { month: "short", day: "numeric" });
       return `${f} – ${l}`;
@@ -3538,7 +3539,10 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
           {backLabel && (
             <button onClick={goBack} aria-label={`Back to ${backLabel}`}
               className="flex items-center gap-0.5 text-sm font-medium text-[#9a9a9a] hover:text-foreground transition-colors flex-shrink-0 -ml-1">
-              <ChevronLeft size={18} /><span className="hidden sm:inline">{backLabel}</span>
+              {/* Day / 3-day now carry the month in the bold title, so the back
+                  button is just a chevron there (no repeated month at any width);
+                  Month view keeps its year label. */}
+              <ChevronLeft size={18} />{view === "month" ? ` ${backLabel}` : ""}
             </button>
           )}
           <h2 title={titleText} className="min-w-0 text-sm sm:text-lg font-bold text-foreground truncate">{titleText}</h2>
