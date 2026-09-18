@@ -3679,8 +3679,11 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
 
       {/* Barber selector row — profile-pic chips incl. an "All barbers" chip.
           Shown on the month/year overviews to filter; the day view has its own
-          selection (columns on desktop, a dropdown on phone). */}
-      {!isolated && profile?.role !== "barber" && barbers.length > 0 && view !== "day" && view !== "multiday" && (
+          selection (columns on desktop, a dropdown on phone). Only worth showing
+          when there's more than one barber — a solo shop (Starter, or a single
+          barber in the DB) has nothing to filter, so the row is hidden entirely
+          and everything just shows that one barber's book. */}
+      {!isolated && profile?.role !== "barber" && barbers.length > 1 && view !== "day" && view !== "multiday" && (
         <div className="flex gap-3 overflow-x-auto px-4 sm:px-6 py-3 border-b border-border [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <button onClick={() => setBarberFilter("all")}
             className={cn("flex flex-col items-center gap-1 flex-shrink-0 w-16 py-1.5 transition-opacity", barberFilter === "all" ? "opacity-100" : "opacity-60 hover:opacity-100")}>

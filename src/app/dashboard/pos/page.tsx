@@ -177,9 +177,14 @@ export default function POSPage() {
     return m?.id ?? "";
   }, [barbers, profile?.id, user?.email]);
 
-  // Default the barber selector to the logged-in account once barbers load. Only
+  // Default the barber selector once barbers load: to the logged-in account, or —
+  // on a solo shop — to the ONLY barber, so a one-chair shop never has to pick
+  // their single barber (or trip the "select a barber" toast) on every sale. Only
   // fills an EMPTY pick, so it never clobbers a manual choice mid-sale.
-  useEffect(() => { if (myBarberId) setBarberId(prev => prev || myBarberId); }, [myBarberId]);
+  useEffect(() => {
+    const fallback = myBarberId || (barbers.length === 1 ? barbers[0].id : "");
+    if (fallback) setBarberId(prev => prev || fallback);
+  }, [myBarberId, barbers]);
 
   // Appointments for the Appointments tab: today's + anything still OWING money —
   // unpaid/held/saved/failed OR a leftover balance_due from a partial capture.
@@ -732,9 +737,10 @@ export default function POSPage() {
     setSelectedClientId(null); setPickerOpen(false); setClientSearch(""); setDupClient(null);
     setAddName(""); setAddPhone(""); setAddEmail(""); setCartOpen(false);
     finalizedRef.current = false; // allow the next card sale to finalize
-    // Back to the logged-in barber (self) for the next sale — or "Select barber"
-    // when the account isn't a barber, so a shop owner still picks who performed it.
-    setBarberId(myBarberId);
+    // Back to the logged-in barber (self) for the next sale — or the only barber
+    // on a solo shop — else "Select barber" so a multi-chair owner still picks who
+    // performed it.
+    setBarberId(myBarberId || (barbers.length === 1 ? barbers[0].id : ""));
   };
 
   if (!shop) {

@@ -1110,11 +1110,16 @@ export default function AppointmentsPage() {
           {/* Secondary filters */}
           <div className="flex flex-wrap gap-3">
             <Input placeholder="Search client…" value={search} onChange={e => setSearch(e.target.value)} className="w-48" />
-            <select value={barberFilter} onChange={e => setBarberFilter(e.target.value)}
-              className="rounded-xl border border-border bg-card-raised px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-black/20">
-              <option value="all">All Barbers</option>
-              {barbers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-            </select>
+            {/* Barber filter only earns its place with more than one barber — a
+                solo shop has nothing to filter, so "All Barbers + one name" is
+                just a dead control. */}
+            {barbers.length > 1 && (
+              <select value={barberFilter} onChange={e => setBarberFilter(e.target.value)}
+                className="rounded-xl border border-border bg-card-raised px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-black/20">
+                <option value="all">All Barbers</option>
+                {barbers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+              </select>
+            )}
             <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
               className="rounded-xl border border-border bg-card-raised px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-black/20">
               <option value="active">Open · needs action</option>
