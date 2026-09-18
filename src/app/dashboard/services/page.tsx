@@ -62,6 +62,9 @@ export default function ServicesPage() {
   const [toast, setToast] = useState("");
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [loadedShopId, setLoadedShopId] = useState<string | null>(null);
+  const loadSequence = useRef(0);
   const [showServiceModal, setShowServiceModal] = useState(false);
   const [editService, setEditService] = useState<Service | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
@@ -81,15 +84,38 @@ export default function ServicesPage() {
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
   const loadData = useCallback(async () => {
-    if (!shop) { setLoading(false); return; }
+    if (shop?.id !== activeShopId.current) return;
+    const request = ++loadSequence.current;
+    const current = () => request === loadSequence.current && shop?.id === activeShopId.current;
+    setLoadError("");
+    if (!shop) { setServices([]); setLoadedShopId(null); setLoading(false); return; }
     setLoading(true);
-    const { data, error } = await supabase.from("services").select("*").eq("shop_id", shop.id).order("category").order("name");
-    if (error) showToast("Couldn't load services — please refresh.");
-    if (data) setServices(data);
-    setLoading(false);
+    try {
+      const { data, error } = await supabase.from("services").select("*").eq("shop_id", shop.id).order("category").order("name");
+      if (!current()) return;
+      if (error || !data) { setLoadError("Couldn't load services. Please try again."); return; }
+      setServices(data);
+    } catch {
+      if (current()) setLoadError("Couldn't load services. Check your connection and try again.");
+    } finally {
+      if (current()) { setLoadedShopId(shop.id); setLoading(false); }
+    }
   }, [shop]);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => {
+    const sequence = loadSequence;
+    loadData();
+    return () => { sequence.current++; };
+  }, [loadData]);
+  useEffect(() => {
+    setShowServiceModal(false);
+    setEditService(null);
+    setNewSvc(BLANK_SVC);
+    setShowTemplates(false);
+    setSelectedTemplates(new Set());
+    setDeleteConfirm(null);
+    setToast("");
+  }, [shop?.id]);
 
   // Render EVERY category present, not just the base three — otherwise a service
   // saved under "Other"/a custom category silently vanished from this page.
@@ -241,6 +267,8 @@ export default function ServicesPage() {
   }
 
   const selectableCount = SERVICE_TEMPLATES.filter(t => selectedTemplates.has(t.name) && !existingNames.has(t.name.toLowerCase())).length;
+  const listLoading = loading || loadedShopId !== shop.id;
+  const listReady = !listLoading && !loadError;
 
   return (
     <div className="min-h-screen bg-background px-4 sm:px-6 pb-28">
@@ -248,9 +276,9 @@ export default function ServicesPage() {
 
       <DashboardHeader
         title="Services"
-        subtitle={services.length ? `${services.length} service${services.length > 1 ? "s" : ""} · ${activeCount} live` : "Your booking menu"}
+        subtitle={listReady && services.length ? `${services.length} service${services.length > 1 ? "s" : ""} · ${activeCount} live` : "Your booking menu"}
         action={
-          <button onClick={openAdd}
+          <button onClick={openAdd} disabled={!listReady}
             className="inline-flex items-center gap-1.5 text-sm font-semibold px-3.5 py-2 rounded-full bg-foreground text-background hover:opacity-90 active:opacity-80 transition-opacity whitespace-nowrap">
             <Plus size={16} /> Add
           </button>
@@ -258,7 +286,7 @@ export default function ServicesPage() {
       />
 
       {/* Quick "add from templates" strip — the fast path to a full menu. */}
-      {!loading && services.length > 0 && (
+      {listReady && services.length > 0 && (
         <button onClick={openTemplates}
           className="w-full mb-5 flex items-center gap-3 p-3.5 rounded-2xl border border-dashed border-border bg-card-raised/60 hover:border-emerald-400/50 hover:bg-card-raised transition-colors text-left">
           <span className="w-9 h-9 rounded-full bg-emerald-500/15 text-emerald-300 flex items-center justify-center flex-shrink-0"><Sparkles size={17} /></span>
@@ -269,11 +297,16 @@ export default function ServicesPage() {
         </button>
       )}
 
-      {loading ? (
+      {listLoading ? (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="h-36 rounded-2xl bg-card-raised animate-pulse" />
           ))}
+        </div>
+      ) : loadError ? (
+        <div role="alert" className="text-center py-14 rounded-2xl border border-border bg-card">
+          <p className="text-sm text-grey mb-4">{loadError}</p>
+          <Button variant="outline" onClick={loadData}>Retry</Button>
         </div>
       ) : services.length === 0 ? (
         <div className="text-center py-14 rounded-2xl border border-border bg-card">
@@ -342,7 +375,7 @@ export default function ServicesPage() {
       )}
 
       {/* Templates picker */}
-      {showTemplates && (
+      {showTemplates && loadedShopId === shop.id && (
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => { if (!templateSaveInFlight.current) setShowTemplates(false); }} />
           <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4">
@@ -403,7 +436,7 @@ export default function ServicesPage() {
       )}
 
       {/* Service Modal */}
-      {showServiceModal && (
+      {showServiceModal && loadedShopId === shop.id && (
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => { if (!serviceSaveInFlight.current) setShowServiceModal(false); }} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
@@ -443,7 +476,7 @@ export default function ServicesPage() {
       )}
 
       {/* Delete Confirm */}
-      {deleteConfirm && (
+      {deleteConfirm && loadedShopId === shop.id && (
         <>
           <div className="fixed inset-0 bg-black/70 z-40" onClick={() => { if (!deletionInFlight.current) setDeleteConfirm(null); }} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
