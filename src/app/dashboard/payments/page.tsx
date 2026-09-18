@@ -315,7 +315,20 @@ export default function PaymentsPage() {
     // running it through netOf()/feeOf() (which would re-net a Stripe fee that
     // the barber-earnings math already handles).
     earn?: boolean;
+    // The real Stripe fee already RECORDED for this line (from the transactions
+    // ledger), used so Net is computable even when the live Stripe fee fetch is
+    // incomplete or a line has no payment-intent id. null = no ledger fee on file.
+    ledgerFee?: number | null;
   };
+
+  // Recorded Stripe fee per appointment — from its completion/capture transaction
+  // (the fee lives on the tx, not the appointment row). Lets an online-booking
+  // line get its fee from the ledger when the live Stripe fetch lags.
+  const feeByAppt = new Map<string, number>();
+  for (const t of txs) {
+    if (t.refunded || t.stripe_fee == null || !Number.isFinite(t.stripe_fee) || !t.appointment_id) continue;
+    if (!feeByAppt.has(t.appointment_id)) feeByAppt.set(t.appointment_id, t.stripe_fee as number);
+  }
 
   // Which transactions count as income — the SAME shared rule the Dashboard uses
   // (src/lib/revenue.ts), so the two can never disagree.
@@ -367,6 +380,7 @@ export default function PaymentsPage() {
           pi: a.payment_intent_id, method: a.payment_method,
           refunded: a.payment_status === "refunded", appt: a,
           client_email: a.client_email, barberName: a.barbers?.name ?? null,
+          ledgerFee: feeByAppt.get(a.id) ?? null,
         };
       }),
     ...posTxs.map((t): FeedItem => {
@@ -383,6 +397,7 @@ export default function PaymentsPage() {
         ts: new Date(t.created_at).getTime(),
         pi: t.payment_intent_id ?? null, method: t.payment_method, refunded,
         client_email: t.client_email, barberName,
+        ledgerFee: t.stripe_fee ?? null,
       };
     }),
     // Post-visit tips (tip-link flow). `completion` txns are dropped by
@@ -401,6 +416,7 @@ export default function PaymentsPage() {
         settled: true, tsIso: t.created_at,
         ts: new Date(t.created_at).getTime(),
         pi: t.payment_intent_id ?? null, method: t.payment_method, refunded: false,
+        ledgerFee: t.stripe_fee ?? null,
       })),
     // Collected BALANCES (source "balance") — the leftover on a raised price the
     // held card couldn't cover, paid later by link / card-on-file / cash. Real
@@ -421,6 +437,7 @@ export default function PaymentsPage() {
           ts: new Date(t.created_at).getTime(),
           pi: t.payment_intent_id ?? null, method: t.payment_method, refunded: false,
           client_email: t.client_email, barberName: bName,
+          ledgerFee: t.stripe_fee ?? null,
         };
       }),
   ];
@@ -444,10 +461,21 @@ export default function PaymentsPage() {
     return due + collectedElsewhere;
   };
   const counted = (i: FeedItem) => Math.max(0, i.amount + (i.tipExtra ?? 0) - (i.giftApplied ?? 0) - balanceOf(i));
-  const netOf = (i: FeedItem) => lineNetFee(i.pi, counted(i), stripeNet?.byPi).net;
-  const feeOf = (i: FeedItem) => lineNetFee(i.pi, counted(i), stripeNet?.byPi).fee;
-  const feeKnown = (i: FeedItem) => i.earn || i.method === "cash" || counted(i) === 0 ||
-    (!!i.pi && !!stripeNet?.byPi?.[i.pi] && Number.isFinite(stripeNet.byPi[i.pi].fee) && Number.isFinite(stripeNet.byPi[i.pi].net));
+  // Is the live Stripe fee fetch available for this line's intent?
+  const liveFee = (i: FeedItem) =>
+    !!i.pi && !!stripeNet?.byPi?.[i.pi] && Number.isFinite(stripeNet.byPi[i.pi].fee) && Number.isFinite(stripeNet.byPi[i.pi].net);
+  const hasLedgerFee = (i: FeedItem) => i.ledgerFee != null && Number.isFinite(i.ledgerFee);
+  // Net/fee prefer the exact LIVE Stripe values (unchanged for lines that already
+  // resolved), and fall back to the fee RECORDED in the ledger — so Net is shown
+  // whenever the fee was ever captured, even if the live fetch lagged or the line
+  // has no payment-intent id.
+  const netOf = (i: FeedItem) => liveFee(i)
+    ? lineNetFee(i.pi, counted(i), stripeNet!.byPi).net
+    : Math.max(0, counted(i) - (hasLedgerFee(i) ? (i.ledgerFee as number) : 0));
+  const feeOf = (i: FeedItem) => liveFee(i)
+    ? lineNetFee(i.pi, counted(i), stripeNet!.byPi).fee
+    : (hasLedgerFee(i) ? (i.ledgerFee as number) : 0);
+  const feeKnown = (i: FeedItem) => i.earn || i.method === "cash" || counted(i) === 0 || liveFee(i) || hasLedgerFee(i);
   const statementAmount = (i: FeedItem) => i.earn ? i.amount : feeKnown(i) ? netOf(i) : counted(i);
 
   // Barber name — used to scope the appointment-based bits still shown in barber
@@ -907,7 +935,10 @@ export default function PaymentsPage() {
         </div>
       )}
 
-      {!barberMode && (feesStatus !== "ready" || periodCards.some(p => !p.feesKnown)) && (
+      {/* Only nag when a total is ACTUALLY unresolved (a line with no recorded
+          fee AND no live fee) — not merely because the live fetch errored, since
+          the ledger fee now fills Net in that case. */}
+      {!barberMode && (feesStatus === "loading" || periodCards.some(p => !p.feesKnown)) && (
         <div className={cn("cwp-feesnote", feesStatus === "error" && "cwp-feesnote--warn")}>
           {feesStatus === "loading"
             ? "Loading Stripe fees. Gross and cash totals remain available."
