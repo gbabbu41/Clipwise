@@ -19,10 +19,15 @@ import { effectivePlan, isPaidPlan } from "@/lib/validation";
 export function AddSelfBarberBanner() {
   const { user, profile, shop, accessToken, refreshShop } = useAuth();
   // "checking" until we know; "needed" shows the CTA; "ok"/"hidden" render nothing.
-  const [state, setState] = useState<"checking" | "needed" | "ok" | "hidden">("checking");
+  const [state, setState] = useState<"checking" | "needed" | "ok" | "hidden" | "error">("checking");
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState("");
-  const checkedRef = useRef(false);
+  const [checkedScope, setCheckedScope] = useState("");
+  const [checkAttempt, setCheckAttempt] = useState(0);
+  const [uncertain, setUncertain] = useState(false);
+  const selfRequestState = useRef<"idle" | "pending" | "uncertain" | "complete">("idle");
+  const bannerContext = useRef(0);
+  const reloadTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isOwner = profile?.role === "shop_owner";
   const isStarter =
@@ -30,28 +35,55 @@ export function AddSelfBarberBanner() {
   // The public-facing name customers will see — the account/signup name (no
   // editable field, to keep the two portals from showing different names).
   const selfBarberName = profile?.name?.trim() || user?.email?.split("@")[0] || "you";
+  const userId = user?.id;
+  const shopId = shop?.id;
+  const currentScope = `${userId ?? ""}:${shopId ?? ""}:${isOwner}:${isStarter}`;
+  const bannerScope = useRef(currentScope);
+  if (bannerScope.current !== currentScope) {
+    bannerScope.current = currentScope;
+    bannerContext.current++;
+    if (selfRequestState.current === "complete") selfRequestState.current = "idle";
+  }
 
   // Look for a barber row already linked to this owner. Only relevant on Starter;
   // paid owners have the Staff page for this.
   useEffect(() => {
-    if (!user || !shop || !isOwner || !isStarter) { setState("hidden"); return; }
-    if (checkedRef.current) return;
-    checkedRef.current = true;
+    const contextRef = bannerContext;
+    const timerRef = reloadTimer;
+    const context = contextRef.current;
     let cancelled = false;
+    const current = () => !cancelled && context === contextRef.current;
+    if (!userId || !shopId || !isOwner || !isStarter) { setState("hidden"); return; }
+    setState("checking");
+    setError("");
     (async () => {
-      const { data: mine } = await supabase
-        .from("barbers").select("id").eq("shop_id", shop.id).eq("user_id", user.id).maybeSingle();
-      if (cancelled) return;
-      setState(mine ? "hidden" : "needed");
+      try {
+        const { data: mine, error: readError } = await supabase
+          .from("barbers").select("id").eq("shop_id", shopId).eq("user_id", userId).maybeSingle();
+        if (!current()) return;
+        if (readError) throw new Error("Barber lookup failed");
+        setState(mine ? "hidden" : "needed");
+      } catch {
+        if (current()) { setState("error"); setError("Couldn't check your barber setup. Please try again."); }
+      } finally {
+        if (current()) setCheckedScope(currentScope);
+      }
     })();
-    return () => { cancelled = true; };
-  }, [user, shop, isOwner, isStarter]);
+    return () => {
+      cancelled = true;
+      contextRef.current++;
+      if (timerRef.current !== null) { clearTimeout(timerRef.current); timerRef.current = null; }
+    };
+  }, [userId, shopId, isOwner, isStarter, checkAttempt, currentScope]);
 
   const addSelf = async () => {
+    if (selfRequestState.current !== "idle" || !isOwner || !isStarter || state !== "needed" || checkedScope !== currentScope || bannerScope.current !== currentScope) return;
     if (!user?.email || !shop || !accessToken) {
       setError("Session expired — please sign in again.");
       return;
     }
+    selfRequestState.current = "pending";
+    const context = bannerContext.current;
     setAdding(true);
     setError("");
     try {
@@ -66,20 +98,38 @@ export function AddSelfBarberBanner() {
         }),
       });
       const data = await res.json();
-      if (!res.ok || !data.barber) { setError(data.error || "Couldn't add you as a barber. Please try again."); return; }
+      if (res.status >= 500) throw new Error("Uncertain creation outcome");
+      if (context !== bannerContext.current) return;
+      if (!res.ok) { setError(typeof data?.error === "string" ? data.error : "Couldn't add you as a barber. Please check the details and try again."); return; }
+      if (data?.ok !== true || data.ownerSelf !== true || typeof data.barber?.id !== "string" || !data.barber.id) throw new Error("Unconfirmed creation response");
+      selfRequestState.current = "complete";
       setState("ok");
       try { await refreshShop(); } catch { /* the reload below re-syncs everything */ }
       // Reload so the calendar, booking page and everywhere else pick up the new
       // barber immediately (they each fetch their own barber list on mount).
-      setTimeout(() => window.location.reload(), 1200);
+      if (context === bannerContext.current) reloadTimer.current = setTimeout(() => {
+        if (context === bannerContext.current) window.location.reload();
+      }, 1200);
     } catch {
-      setError("Connection error — please try again.");
+      selfRequestState.current = "uncertain";
+      setUncertain(true);
+      if (context === bannerContext.current) setError("Couldn't confirm whether you were added. Refresh and check the original shop's barber setup before trying again.");
     } finally {
+      if (selfRequestState.current === "pending") selfRequestState.current = "idle";
       setAdding(false);
     }
   };
 
-  if (state === "hidden" || state === "checking") return null;
+  if (state === "hidden" || state === "checking" || checkedScope !== currentScope) return null;
+
+  if (state === "error") {
+    return (
+      <div role="alert" className="mx-4 md:mx-6 mt-4 border border-amber-500/30 rounded-2xl p-4">
+        <p className="text-sm text-amber-200">{error}</p>
+        <button onClick={() => setCheckAttempt(value => value + 1)} className="text-sm font-semibold text-amber-300 mt-2">Retry setup check</button>
+      </div>
+    );
+  }
 
   if (state === "ok") {
     return (
@@ -104,10 +154,10 @@ export function AddSelfBarberBanner() {
             <span className="font-semibold text-amber-100">{selfBarberName}</span> on your booking
             page. Takes one tap, no invite needed.
           </p>
-          {error && <p className="text-xs text-red-400 mt-1.5">{error}</p>}
+          {(error || uncertain) && <p role="alert" className="text-xs text-red-400 mt-1.5">{uncertain ? "Couldn't confirm whether you were added. Refresh and check the original shop's barber setup before trying again." : error}</p>}
           <button
             onClick={addSelf}
-            disabled={adding}
+            disabled={adding || uncertain}
             className="inline-flex items-center gap-1 text-xs font-semibold text-amber-300 hover:text-amber-200 mt-2 disabled:opacity-60"
           >
             {adding ? "Adding you…" : <>Add yourself as a barber <ArrowRight size={13} /></>}
