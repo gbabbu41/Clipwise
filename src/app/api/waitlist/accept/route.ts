@@ -4,6 +4,7 @@ import { barberHasConflict, isDoubleBookError } from "@/lib/booking-conflict";
 import { timeToMinutes } from "@/lib/utils";
 import { isBookingInPast } from "@/lib/timezone";
 import { ensureClientRow } from "@/lib/ensure-client";
+import { sendAppEmail } from "@/lib/emailer";
 
 /**
  * Accept a smart-waitlist request and assign it to an open calendar slot.
@@ -119,19 +120,15 @@ export async function POST(request: NextRequest) {
 
   // Confirm to the customer (best-effort).
   if (wl.client_email) {
-    const origin = process.env.NEXT_PUBLIC_APP_URL || request.headers.get("origin") || "";
-    fetch(`${origin}/api/send-email`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        type: "booking_confirmation",
-        data: {
-          clientName: wl.client_name, clientEmail: wl.client_email,
-          shopId: wl.shop_id, shopName: shop.name, shopEmail: shop.email ?? "", shopSlug: shop.slug,
-          serviceName, date: wl.desired_date, time: b.time_slot,
-          total: `$${Number(amount).toFixed(2)}`, paymentNote: "Pay in person at the shop",
-          bookingId: inserted.data.id.slice(0, 8).toUpperCase(), appointmentId: inserted.data.id,
-        },
-      }),
+    // Match walk-in seating: no request-Origin hop carrying customer data, and
+    // await delivery attempt before the serverless response can freeze work.
+    // A mail failure must not make an already-created booking look unsaved.
+    await sendAppEmail("booking_confirmation", {
+      clientName: wl.client_name, clientEmail: wl.client_email,
+      shopId: wl.shop_id, shopName: shop.name, shopEmail: shop.email ?? "", shopSlug: shop.slug,
+      serviceName, date: wl.desired_date, time: b.time_slot,
+      total: `$${Number(amount).toFixed(2)}`, paymentNote: "Pay in person at the shop",
+      bookingId: inserted.data.id.slice(0, 8).toUpperCase(), appointmentId: inserted.data.id,
     }).catch(() => null);
   }
 

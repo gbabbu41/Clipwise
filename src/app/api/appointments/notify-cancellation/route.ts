@@ -4,6 +4,7 @@ import { insertNotifications } from "@/lib/notify-server";
 import { sendSmsBestEffort } from "@/lib/twilio";
 import { effectivePlan, isPaidPlan } from "@/lib/validation";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { sendAppEmail } from "@/lib/emailer";
 
 // Notify the assigned barber that one of their appointments changed state
 // (cancelled by the customer, rejected by the shop, or marked no-show). The
@@ -72,24 +73,18 @@ export async function POST(req: NextRequest) {
 
   if (!barber?.email) return NextResponse.json({ ok: true, skipped: "no barber email" });
 
-  const base = req.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca";
-  await fetch(`${base}/api/send-email`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      type: "barber_appointment_change",
-      data: {
-        barberEmail: barber.email,
-        barberName: barber.name,
-        shopName: shop?.name ?? "",
-        shopEmail: shop?.email ?? "",
-        clientName: appt.client_name,
-        serviceName: svc?.name ?? "Service",
-        date: appt.date,
-        time: appt.time_slot,
-        statusLabel: statusLabel || "Cancelled",
-      },
-    }),
+  // Never forward private appointment details to a request-supplied Origin.
+  // Keep the existing best-effort, awaited delivery through the shared engine.
+  await sendAppEmail("barber_appointment_change", {
+    barberEmail: barber.email,
+    barberName: barber.name,
+    shopName: shop?.name ?? "",
+    shopEmail: shop?.email ?? "",
+    clientName: appt.client_name,
+    serviceName: svc?.name ?? "Service",
+    date: appt.date,
+    time: appt.time_slot,
+    statusLabel: statusLabel || "Cancelled",
   }).catch(() => null);
 
   return NextResponse.json({ ok: true });
