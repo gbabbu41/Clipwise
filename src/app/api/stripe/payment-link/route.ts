@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
+import { sendAppEmail } from "@/lib/emailer";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
 import { ensurePlansHydrated } from "@/lib/plans-server";
@@ -20,7 +21,7 @@ import { taxOnAmount, taxLabelDetailed, type TaxConfig } from "@/lib/pricing";
  * their Stripe balance (0% platform fee, same as initial bookings).
  */
 export async function POST(request: NextRequest) {
-  const BASE_URL = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca";
+  const BASE_URL = (process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca").replace(/\/+$/, "");
   const { appointment_id, send_email, send_sms, email, phone, complete_on_paid } = await request.json() as {
     appointment_id: string;
     send_email?: boolean;
@@ -186,33 +187,23 @@ export async function POST(request: NextRequest) {
     // Email the link. IMPORTANT: await it — a fire-and-forget fetch gets killed
     // when the serverless function returns, so the email silently never sends.
     if (send_email && emailTo && session.url) {
-      const er = await fetch(`${BASE_URL}/api/send-email`, {
-        method: "POST",
-        // Forward the caller's bearer token too so this gated send authenticates
-        // even when CRON_SECRET is unset in prod (see invite/route.ts). The
-        // caller was already authorized on this appointment above.
-        headers: { "Content-Type": "application/json", "x-internal-secret": process.env.CRON_SECRET ?? "", Authorization: request.headers.get("Authorization") ?? "" },
-        body: JSON.stringify({
-          type: "payment_link",
-          data: {
-            clientName: appt.client_name,
-            clientEmail: emailTo,
-            shopName: shop.name,
-            shopEmail: shop.email ?? "",
-            serviceName,
-            // Itemised breakdown so the receipt email shows price + tax, not just
-            // a lump sum. subtotal + tax = amount (the gross total charged).
-            amount: grossDollars,
-            subtotal: preTaxDollars,
-            tax: taxDollars,
-            taxLabel,
-            paymentUrl: session.url,
-            date: appt.date,
-            time: appt.time_slot,
-          },
-        }),
+      const result = await sendAppEmail("payment_link", {
+        clientName: appt.client_name ?? "",
+        clientEmail: emailTo,
+        shopName: shop.name,
+        shopEmail: shop.email ?? "",
+        serviceName,
+        // Itemised breakdown so the receipt email shows price + tax, not just
+        // a lump sum. subtotal + tax = amount (the gross total charged).
+        amount: String(grossDollars),
+        subtotal: String(preTaxDollars),
+        tax: String(taxDollars),
+        taxLabel,
+        paymentUrl: session.url,
+        date: appt.date ?? "",
+        time: appt.time_slot ?? "",
       }).catch(() => null);
-      emailed = !!er && er.ok;
+      emailed = !!result && !("error" in result);
     }
 
     // Text the link

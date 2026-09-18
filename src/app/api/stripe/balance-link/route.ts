@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
+import { sendAppEmail } from "@/lib/emailer";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
 import { ensurePlansHydrated } from "@/lib/plans-server";
@@ -16,7 +17,7 @@ import { authorizeAppointment } from "@/lib/api-auth";
  * Owner or a barber with manage_appointments.
  */
 export async function POST(request: NextRequest) {
-  const BASE_URL = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca";
+  const BASE_URL = (process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca").replace(/\/+$/, "");
   const { appointment_id, send_email, send_sms, email, phone } = (await request.json().catch(() => ({}))) as {
     appointment_id?: string; send_email?: boolean; send_sms?: boolean; email?: string; phone?: string;
   };
@@ -89,20 +90,13 @@ export async function POST(request: NextRequest) {
     let emailed = false, texted = false;
 
     if (send_email && emailTo && session.url) {
-      const er = await fetch(`${BASE_URL}/api/send-email`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-internal-secret": process.env.CRON_SECRET ?? "", Authorization: request.headers.get("Authorization") ?? "" },
-        body: JSON.stringify({
-          type: "payment_link",
-          data: {
-            clientName: appt.client_name, clientEmail: emailTo, shopName: shop.name, shopEmail: shop.email ?? "",
-            serviceName: `${serviceName} (balance)`,
-            amount: balance, subtotal: balService, tax: balTax, taxLabel: "Tax",
-            paymentUrl: session.url, date: appt.date, time: appt.time_slot,
-          },
-        }),
+      const result = await sendAppEmail("payment_link", {
+        clientName: appt.client_name ?? "", clientEmail: emailTo, shopName: shop.name, shopEmail: shop.email ?? "",
+        serviceName: `${serviceName} (balance)`,
+        amount: String(balance), subtotal: String(balService), tax: String(balTax), taxLabel: "Tax",
+        paymentUrl: session.url, date: appt.date ?? "", time: appt.time_slot ?? "",
       }).catch(() => null);
-      emailed = !!er && er.ok;
+      emailed = !!result && !("error" in result);
     }
     if (send_sms && phoneTo && session.url) {
       await sendSmsBestEffort(phoneTo, `Pay the remaining balance for your ${serviceName} appointment: ${session.url}`, shop.name);
