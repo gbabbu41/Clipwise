@@ -2,17 +2,26 @@
 
 ## Verified and pushed
 
-- `3dea4b8`: onboarding resume requires confirmed shop/team reads, retry, late-response/account guards. Files: `src/app/onboarding/page.tsx`, `scripts/tests/onboarding-resume-check.cjs`, `scripts/tests/onboarding-invite-controls-check.cjs`, `scripts/tests/invite-feedback-check.cjs`, `scripts/tests/run-flows.cjs`, `ONBOARDING-RESUME-READS-2026-09-18.md`.
-- Actual-effect/handler regressions and full `npm run test:flows` passed. Targeted onboarding lint passed with its pre-existing img warning. Isolated real production build passed with dummy credentials (202 pages); shared combined build also passed in the other engineering task. Remote main SHA verified after push.
+All four batches passed targeted actual-handler/effect regressions, full `npm run test:flows`, targeted onboarding lint (only the existing img warning), and a real isolated production build using dummy credentials (202 pages). GitHub main SHA was verified after each push. Concurrent server/email work was preserved.
 
-## Current implementation
+| Commit | Verified behavior | Batch-specific files |
+| --- | --- | --- |
+| `3dea4b8` | Failed shop/team resume reads block setup and offer retry; late/account-switched results cannot populate another setup | `scripts/tests/onboarding-resume-check.cjs`, `scripts/tests/onboarding-invite-controls-check.cjs`, `scripts/tests/invite-feedback-check.cjs`, `ONBOARDING-RESUME-READS-2026-09-18.md` |
+| `8338079` | Synchronous guard prevents overlapping step writes; failed/null fallback team reads stop hours advancement | `scripts/tests/onboarding-step-save-check.cjs`, `ONBOARDING-STEP-SAVES-2026-09-18.md` |
+| `5992888` | Failed hours deletion stops replacement insertion, later barber writes and advancement; thrown/all-closed failures covered | `scripts/tests/onboarding-hours-delete-check.cjs`, `ONBOARDING-HOURS-DELETE-2026-09-18.md` |
+| `4717445` | Back waits for saves; repeated Continue calls from the same staff-step render cannot skip Hours | `scripts/tests/onboarding-navigation-check.cjs`, `ONBOARDING-NAVIGATION-2026-09-18.md` |
 
-Continue duplicate-submit guard and failed/null fallback team-read handling implemented; targeted actual-handler regression passes. Full `npm run test:flows`, targeted lint (only pre-existing img warning), and isolated production build passed with dummy credentials for this separate batch. Pushed as `8338079`; remote main SHA verified. Shared combined build/flows also passed before push. Files: `src/app/onboarding/page.tsx`, `scripts/tests/onboarding-step-save-check.cjs`, `scripts/tests/run-flows.cjs`, `ONBOARDING-STEP-SAVES-2026-09-18.md`.
+All four also changed `src/app/onboarding/page.tsx` and `scripts/tests/run-flows.cjs`. The final three update this handoff. Shared combined builds/flows were additionally reported passing by Check GitHub repository, including its capture URL follow-up with the final navigation source (202 pages).
 
-## Limits and next work
+## Verification limits
 
-No deployment-health or live/browser workflow verification; no customer messages, transactions or production test writes. Push triggers deployment but its success is not inferred from build success. Browser smoke testing remains final phase.
+No deployment-health or live/browser workflow verification; no customer messages, transactions or production test writes. Push triggers deployment but successful deployment is not inferred from a passing build. Browser smoke testing remains reserved for final phase.
 
-Hours-delete failure reproduced and bounded error gate implemented with focused returned/thrown/all-closed/success regressions passing; full flow suite, targeted lint (existing img warning), and isolated production build passed with dummy credentials. Pushed as `5992888`; remote main SHA verified. Shared combined build/flows also passed. Files: `src/app/onboarding/page.tsx`, `scripts/tests/onboarding-hours-delete-check.cjs`, `scripts/tests/run-flows.cjs`, `ONBOARDING-HOURS-DELETE-2026-09-18.md`. Back-during-save and same-render staff-step Continue skipping Hours were reproduced and fixed in a separate navigation batch. Focused actual-handler tests, full flow suite, targeted lint (existing img warning), and isolated production build passed with dummy credentials. Navigation commit/push pending. Files: `src/app/onboarding/page.tsx`, `scripts/tests/onboarding-navigation-check.cjs`, `scripts/tests/run-flows.cjs`, `ONBOARDING-NAVIGATION-2026-09-18.md`. Non-atomic hours replacement, cross-session idempotency, ambiguous service-insert retries and saved setup fields not restored remain separate unresolved concerns. Structural/schema/accounting changes need coordinated approval.
+## Unresolved risks and next concrete review
 
-Coordinate shared source/build/index with Check GitHub repository. Its receipt boundary commit `0a69b80` was preserved. Other task owns email/notification server changes and DIRECTOR-RELIABILITY-STATUS.md.
+- Hours replacement is still delete-then-insert and non-atomic. Earlier barber writes can succeed before a later failure; a lost response can be uncertain. No claim that failed saves leave hours unchanged.
+- Cross-session idempotency and ambiguous service-insert retries remain unresolved. Saved shop/hour/service form fields are not additionally restored by the resume-read fix.
+- Next bounded source-review candidate: final success-screen Continue reads/removes plan session state before awaiting refresh, without a synchronous duplicate guard. Reproduce whether repeated calls choose conflicting destinations, and check null/unavailable session storage. This is a candidate, not a completed fix or verified failure.
+- Structural/schema/accounting changes still need coordinated approval; preserve scheduling, plan/trial and commission rules.
+
+Coordinate shared source/build/index with Check GitHub repository. That task owns server/email/notification changes and DIRECTOR-RELIABILITY-STATUS.md. Latest preserved server commit at this handoff: `1ad3d6e` (trusted capture links), following `52baf78` (await receipt attempts). Its next completion-server review-request batch remains owned by that task.
