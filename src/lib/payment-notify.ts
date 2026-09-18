@@ -2,6 +2,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { prettyDate } from "@/lib/utils";
 import { insertNotifications } from "@/lib/notify-server";
 import { taxLabelDetailed, receiptGstNumber, type TaxConfig } from "@/lib/pricing";
+import { sendAppEmail } from "@/lib/emailer";
 
 // Shared payment-notification helpers used by the capture-appointment route
 // (manual Complete / Charge No-Show) and the no-show cron, so both paths send
@@ -32,6 +33,9 @@ export async function sendPaymentReceipt(baseUrl: string, args: {
   timezone?: string | null;     // shop tz for the "receipt generated" date/time stamp
   items?: { n: string; q: number; p: number }[] | null; // POS cart lines → itemized receipt (name/qty/unit price)
 }): Promise<void> {
+  // Keep the existing caller signature; receipt data must never leave via a
+  // caller-derived origin. Delivery uses the trusted in-process sender instead.
+  void baseUrl;
   if (!args.clientEmail || args.amountCents <= 0) return;
   const money = (c: number) => `$${(c / 100).toFixed(2)}`;
   const fmtDuration = (m: number) => (m >= 60 ? `${Math.floor(m / 60)}h${m % 60 ? ` ${m % 60}m` : ""}` : `${m} min`);
@@ -92,11 +96,7 @@ export async function sendPaymentReceipt(baseUrl: string, args: {
     if (gstNo) data.taxNumber = gstNo;
     if (tipCents > 0) data.tip = money(tipCents);
   }
-  await fetch(`${baseUrl}/api/send-email`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ type: "payment_receipt", data }),
-  }).catch(() => null);
+  await sendAppEmail("payment_receipt", data).catch(() => null);
 }
 
 /**
