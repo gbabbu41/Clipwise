@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { sendAppEmail } from "@/lib/emailer";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { notifyRefundIssued } from "@/lib/payment-notify";
 import { recordRefundLedger } from "@/lib/refund-ledger";
 import { isAlreadyRefunded, refundOrReleaseHold } from "@/lib/stripe-refund";
 import { notifyWaitlistForSlot } from "@/lib/waitlist-notify-server";
-
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://clipwise.ca";
 
 /**
  * Refund a *settled* card payment from the Payments page WITHOUT cancelling the
@@ -123,17 +122,12 @@ export async function POST(request: NextRequest) {
       });
 
       if (appt.client_email) {
-        fetch(`${BASE_URL}/api/send-email`, {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            type: "refund_issued",
-            data: {
-              clientName: appt.client_name, clientEmail: appt.client_email,
-              shopName: shop.name, shopEmail: shop.email ?? "", shopSlug: shop.slug,
-              serviceName: (appt.services as { name: string } | null)?.name ?? "Your service",
-              date: appt.date, total: `$${(refundedCents / 100).toFixed(2)}`,
-            },
-          }),
+        // Await delivery attempt, but never retry the refund because email failed.
+        await sendAppEmail("refund_issued", {
+          clientName: appt.client_name, clientEmail: appt.client_email,
+          shopName: shop.name, shopEmail: shop.email ?? "", shopSlug: shop.slug,
+          serviceName: (appt.services as { name: string } | null)?.name ?? "Your service",
+          date: appt.date, total: `$${(refundedCents / 100).toFixed(2)}`,
         }).catch(() => null);
       }
     }
