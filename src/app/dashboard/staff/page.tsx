@@ -406,9 +406,19 @@ export default function StaffPage() {
       return;
     }
 
+    if (data.invitePending) {
+      setShowAddModal(false);
+      setAddForm({ name: "", email: "", commission_percent: "" });
+      setInviteSent(false);
+      showToast("Barber added, but the invitation could not be prepared. Use Resend invite on their staff card to try again.");
+      loadBarbers();
+      return;
+    }
+
     // Normal external invite — show the link modal so the owner can also
     // copy/paste it to the barber if email doesn't arrive
-    setInviteSent(true);
+    setInviteSent(data.emailed === true);
+    if (!data.emailed) setShowAddModal(false);
     if (data.inviteLink) {
       setInviteLinkModal({
         link: data.inviteLink,

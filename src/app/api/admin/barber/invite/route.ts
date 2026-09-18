@@ -179,17 +179,22 @@ export async function POST(request: NextRequest) {
       redirectTo,
       data: { invite_barber_id: barber.id, role: "barber" },
     },
-  });
+  }).catch(() => ({ data: null, error: { code: "unexpected_failure" } }));
 
   if (!inviteError) {
     inviteLink = (inviteData as { properties?: { action_link?: string } })?.properties?.action_link ?? null;
-    if (!inviteLink) {
-      await supabaseAdmin.from("barbers").delete().eq("id", barber.id);
-      return NextResponse.json({ error: "Failed to generate invite link" }, { status: 500 });
-    }
   } else {
-    // generateLink(type:"invite") errors when the email already has an account.
-    existingAccount = true;
+    // Only a confirmed duplicate means they can sign in with an existing account.
+    existingAccount = ["email_exists", "user_already_exists"].includes(inviteError.code ?? "");
+  }
+  if (!existingAccount && (inviteError || !inviteLink)) {
+    // The staff row is saved. Keep it recoverable via resend, including when
+    // Auth's result is uncertain; never delete it or claim an email was sent.
+    return NextResponse.json({
+      ok: true, barber, inviteLink: null, existingAccount: false, emailed: false,
+      invitePending: true,
+      emailError: "Barber added, but the invitation could not be prepared. Use Resend invite from Staff to try again.",
+    });
   }
 
   // The email CTA: new account → the invite link; existing account → a plain

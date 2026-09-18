@@ -41,12 +41,12 @@ export async function POST(request: NextRequest) {
     type: "invite",
     email: barber.email,
     options: { redirectTo, data: { invite_barber_id: barber.id, role: "barber" } },
-  });
+  }).catch(() => ({ data: null, error: { code: "unexpected_failure" } }));
 
   const inviteLink = (inviteData as { properties?: { action_link?: string } })?.properties?.action_link ?? null;
-  const existingAccount = !!inviteError;
-  if (!existingAccount && !inviteLink) {
-    return NextResponse.json({ error: "Failed to generate invite link" }, { status: 500 });
+  const existingAccount = !!inviteError && ["email_exists", "user_already_exists"].includes(inviteError.code ?? "");
+  if (!existingAccount && (inviteError || !inviteLink)) {
+    return NextResponse.json({ error: "Couldn't prepare the invitation. The barber is still on your team. Please try Resend invite again later." }, { status: 503 });
   }
 
   const emailCtaLink = existingAccount ? `${baseUrl}/login` : (inviteLink ?? `${baseUrl}/login`);

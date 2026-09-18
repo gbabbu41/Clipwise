@@ -287,6 +287,9 @@ export default function OnboardingPage() {
       setShowAddOther(false);
       setOtherBarber({ name: "", email: "", commission: "" });
       setBlockHint(""); // added a barber → clear the "add yourself" nudge
+      if (!data.ownerSelf && data.emailed === false) {
+        setBarberError("Barber added, but the invitation wasn't sent. Finish setup, then use Resend invite on their card in Staff. Don't add them again.");
+      }
     } catch {
       setBarberError("Connection error — please try again.");
     } finally {

@@ -1,13 +1,13 @@
 const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), Module = require('node:module');
 const root = path.resolve(__dirname, '../..'), appReq = Module.createRequire(path.join(root, 'package.json'));
 const ts = appReq('typescript'), { NextRequest } = appReq('next/server');
-let role, foreign, count, existingAccount, mailMode, generated, sends, inserted, readFailure, existingUser, existingBarber, updates;
-function reset() { role = 'shop_owner'; foreign = false; count = 0; existingAccount = false; mailMode = ''; generated = []; sends = []; inserted = []; readFailure = ''; existingUser = null; existingBarber = null; updates = []; }
+let role, foreign, count, existingAccount, mailMode, generated, sends, inserted, readFailure, existingUser, existingBarber, updates, linkMode;
+function reset() { role = 'shop_owner'; foreign = false; count = 0; existingAccount = false; mailMode = ''; generated = []; sends = []; inserted = []; readFailure = ''; existingUser = null; existingBarber = null; updates = []; linkMode = ''; }
 const inviteLink = 'https://auth.example.invalid/invite?token=fixture';
 const barber = { id: 'barber', name: 'Saved barber', email: 'barber@example.invalid', shop_id: 'shop', user_id: null };
 const db = {
   auth: { getUser: async token => ({ data: { user: token === 'valid' ? { id: 'owner', email: 'owner@example.invalid' } : null } }), admin: {
-    generateLink: async args => { generated.push(args); return { data: { properties: { action_link: inviteLink } }, error: existingAccount ? { message: 'already registered' } : null }; },
+    generateLink: async args => { generated.push(args); if (linkMode === 'throw') throw Error('private Auth detail'); return { data: linkMode === 'missing' ? null : { properties: { action_link: inviteLink } }, error: existingAccount ? { code: linkMode || 'email_exists', message: 'already registered' } : linkMode && linkMode !== 'missing' ? { code: linkMode === 'uncoded' ? undefined : linkMode, message: 'private Auth detail' } : null }; },
   } },
   from(table) {
     let many = false, emailLookup = false, counting = false, insert, update;
@@ -34,6 +34,15 @@ const request = (body = {}, token = 'valid') => new NextRequest('https://clipwis
 global.fetch = async () => { throw Error('Unexpected HTTP email hop'); };
 (async () => {
   for (const handler of [invite, resend]) {
+    for (const mode of ['unexpected_failure', 'over_request_rate_limit', 'uncoded', 'throw', 'missing']) {
+      reset(); linkMode = mode; const response = await handler(request()), body = await response.json();
+      assert.equal(response.status, handler === invite ? 200 : 503, mode); assert.equal(sends.length, 0); assert.equal(generated.length, 1); assert.doesNotMatch(JSON.stringify(body), /private Auth detail|fixture/);
+      if (handler === invite) { assert.equal(body.ok, true); assert.equal(body.barber.id, 'barber'); assert.equal(body.invitePending, true); assert.equal(body.existingAccount, false); assert.equal(body.emailed, false); assert.equal(body.inviteLink, null); assert.equal(inserted.length, 1); }
+      else { assert.match(body.error, /still on your team/); assert.equal(inserted.length, 0); }
+      // Recovery uses the saved row, not another creation request.
+      linkMode = ''; const recovered = await (await resend(request())).json(); assert.equal(recovered.emailed, true); assert.equal(sends.length, 1); assert.equal(inserted.length, handler === invite ? 1 : 0);
+    }
+    reset(); existingAccount = true; linkMode = 'user_already_exists'; const duplicate = await (await handler(request())).json(); assert.equal(duplicate.existingAccount, true); assert.equal(duplicate.inviteLink, null); assert.equal(duplicate.emailed, true);
     for (const base of [undefined, 'https://configured.example.invalid///']) {
       if (base) process.env.NEXT_PUBLIC_APP_URL = base; else delete process.env.NEXT_PUBLIC_APP_URL;
       const expected = base ? 'https://configured.example.invalid' : 'https://clipwise.ca';
