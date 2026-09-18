@@ -70,6 +70,7 @@ export default function ClientsPage() {
   const [birthday, setBirthday] = useState("");
   const [savingBirthday, setSavingBirthday] = useState(false);
   const [sendingBirthday, setSendingBirthday] = useState(false);
+  const birthdaySendInFlight = useRef(false);
   // Inline add/edit of the profile's phone/email tiles.
   const [editField, setEditField] = useState<null | "phone" | "email">(null);
   const [fieldDraft, setFieldDraft] = useState("");
@@ -342,24 +343,31 @@ export default function ClientsPage() {
   };
 
   const sendBirthdayEmail = async () => {
+    if (birthdaySendInFlight.current) return;
     if (!selectedClient?.email || !shop) { showToast("No email on file for this client"); return; }
+    if (!accessToken) { showToast("Please sign in again to send email"); return; }
+    if (selectedClient.shop_id !== shop.id || activeShopId.current !== shop.id) return;
+    birthdaySendInFlight.current = true;
     setSendingBirthday(true);
-    const res = await fetch("/api/send-email", {
+    try {
+      const res = await fetch("/api/send-email", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
       body: JSON.stringify({
         type: "birthday_wish",
         data: {
-          clientName: selectedClient.name,
+          shopId: shop.id,
           clientEmail: selectedClient.email,
-          shopName: shop.name,
-          shopEmail: shop.email ?? "",
-          shopSlug: shop.slug,
         },
       }),
     });
-    setSendingBirthday(false);
-    showToast(res.ok ? "Birthday email sent!" : "Failed to send email");
+      if (activeShopId.current === shop.id) showToast(res.ok ? "Birthday email sent!" : "Failed to send email");
+    } catch {
+      if (activeShopId.current === shop.id) showToast("Could not confirm delivery. Check before sending again.");
+    } finally {
+      birthdaySendInFlight.current = false;
+      setSendingBirthday(false);
+    }
   };
 
   const addPoints = async () => {

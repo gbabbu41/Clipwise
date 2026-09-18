@@ -40,6 +40,7 @@ const stripe = { subscriptions: {
 } };
 const billingTypes = new Set(['subscription_started', 'subscription_cancelled', 'subscription_payment_failed', 'subscription_renewal_reminder']);
 const mocks = {
+  '@/lib/api-auth': { authorizeShop: async () => { throw Error('Billing notices must be rejected before shop authorization'); } },
   '@/lib/supabase-admin': { supabaseAdmin: db }, '@/lib/stripe': { stripe },
   '@/lib/native-app': { isNativeRequest: r => r.headers.get('user-agent') === 'ClipWiseApp' },
   '@/lib/emailer': { SERVER_ONLY_EMAIL_TYPES: billingTypes, PRIVILEGED_EMAIL_TYPES: billingTypes, sendAppEmail: async () => { sent++; return {}; } },

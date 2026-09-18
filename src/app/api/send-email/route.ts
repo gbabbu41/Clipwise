@@ -4,6 +4,7 @@ import { sendAppEmail, PRIVILEGED_EMAIL_TYPES, SERVER_ONLY_EMAIL_TYPES } from "@
 import { effectivePlan, isPaidPlan } from "@/lib/validation";
 import { ensurePlansHydrated } from "@/lib/plans-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { authorizeShop } from "@/lib/api-auth";
 
 // HTTP boundary for the shared email engine (src/lib/emailer.ts). This route's
 // only extra job is the auth gate for privileged/abusable types so it can't be
@@ -23,6 +24,46 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { type, data } = body as { type: string; data: Record<string, string> };
+    let emailData = data;
+    // Manual birthday sends belong to the owner Clients page. Cron calls the
+    // email engine directly and does not need (or bypass) this HTTP permission.
+    if (type === "birthday_wish") {
+      if (!data || typeof data.shopId !== "string" || typeof data.clientEmail !== "string" ||
+          !/^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+$/.test(data.clientEmail) || data.clientEmail.length > 254) {
+        return NextResponse.json({ error: "Invalid birthday email request." }, { status: 400 });
+      }
+      const auth = await authorizeShop(req, data.shopId, { ownerOnly: true });
+      if ("error" in auth) return auth.error;
+      const email = data.clientEmail.toLowerCase();
+      const pattern = email.replace(/[\\%_]/g, "\\$&");
+      let recipient: { name: string; email: string } | null = null;
+      // The existing directory also includes booking-only and POS-only clients.
+      // Never create a client row just to send a greeting.
+      for (const source of [
+        { table: "clients", email: "email", name: "name" },
+        { table: "appointments", email: "client_email", name: "client_name" },
+        { table: "transactions", email: "client_email", name: "client_name" },
+      ]) {
+        const { data: rows, error } = await supabaseAdmin.from(source.table)
+          .select(`${source.email}, ${source.name}`).eq("shop_id", auth.shop.id)
+          .ilike(source.email, pattern).limit(1);
+        if (error) return NextResponse.json({ error: "Unable to verify email recipient." }, { status: 503 });
+        const row = rows?.[0] as unknown as Record<string, unknown> | undefined;
+        const storedEmail = row?.[source.email];
+        // Exact comparison also prevents PostgREST wildcard aliases from
+        // selecting a different recipient, even if a crafted pattern matches.
+        if (typeof storedEmail === "string" && storedEmail.toLowerCase() === email) {
+          recipient = { email: storedEmail, name: typeof row?.[source.name] === "string" ? row[source.name] as string : "there" };
+          break;
+        }
+      }
+      if (!recipient) return NextResponse.json({ error: "Client not found in this shop." }, { status: 404 });
+      emailData = {
+        clientName: recipient.name, clientEmail: recipient.email,
+        shopName: String(auth.shop.name ?? ""), shopEmail: String(auth.shop.email ?? ""),
+        shopSlug: String(auth.shop.slug ?? ""),
+      };
+    }
     // Subscription notices are generated only by verified server workflows.
     // Even a valid staff account must not fabricate billing notices/recipients.
     if (SERVER_ONLY_EMAIL_TYPES.has(type)) {
@@ -75,7 +116,7 @@ export async function POST(req: NextRequest) {
       if (!okInternal && !okStaff) return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
-    const result = await sendAppEmail(type, data);
+    const result = await sendAppEmail(type, emailData);
     if ("error" in result) {
       // Unknown type is a client error; everything else is a send failure.
       const status = result.error === "Unknown email type" ? 400 : 400;
