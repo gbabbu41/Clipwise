@@ -118,8 +118,8 @@ export async function POST(req: NextRequest) {
   let sent = 0;
   let skipped = 0;
   for (const r of capped) {
-    const email = (r.email ?? "").trim();
-    if (!email) { skipped++; continue; }
+    const email = typeof r?.email === "string" ? r.email.trim() : "";
+    if (!/^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+$/.test(email) || email.length > 254) { skipped++; continue; }
     const name = (r.name ?? "").trim();
     const phone = (r.phone ?? "").trim();
 
@@ -127,40 +127,50 @@ export async function POST(req: NextRequest) {
     // the unsubscribe link works and past/walk-in recipients join the client book.
     // `select("*")` (not the new columns by name) so this keeps working even if the
     // phase58 consent columns haven't been migrated on prod yet.
-    type PromoClient = { id: string; promo_consent_status?: string | null; last_visit?: string | null };
+    type PromoClient = { id: string; shop_id: string; email?: string | null; name?: string | null; promo_consent_status?: string | null; last_visit?: string | null };
     let client: PromoClient | null = null;
     let clientId = (r.clientId ?? "").trim();
     if (clientId.startsWith("synthetic:")) clientId = "";
     if (clientId) {
       // Client id supplied — must belong to THIS shop (never email a client the caller doesn't own).
-      const { data } = await supabaseAdmin.from("clients").select("*").eq("shop_id", shop_id).eq("id", clientId).maybeSingle();
+      const { data, error }: { data: PromoClient | null; error: unknown } = await supabaseAdmin.from("clients").select("*").eq("shop_id", shop_id).eq("id", clientId).maybeSingle();
+      // An explicit saved identity must resolve; never borrow another client's
+      // consent through an email/phone fallback after a foreign or failed ID.
+      if (error || !data) { skipped++; continue; }
       client = (data as PromoClient | null) ?? null;
     }
     if (!client && email) {
-      const { data } = await supabaseAdmin.from("clients").select("*").eq("shop_id", shop_id).ilike("email", email).maybeSingle();
+      const pattern = email.replace(/[\\%_]/g, "\\$&");
+      const { data, error }: { data: PromoClient | null; error: unknown } = await supabaseAdmin.from("clients").select("*").eq("shop_id", shop_id).ilike("email", pattern).maybeSingle();
+      if (error) { skipped++; continue; }
       client = (data as PromoClient | null) ?? null;
     }
     const np = normPhone(phone);
     if (!client && np) {
-      const { data } = await supabaseAdmin.from("clients").select("*").eq("shop_id", shop_id).eq("phone_normalized", np).limit(1);
+      const { data, error }: { data: PromoClient[] | null; error: unknown } = await supabaseAdmin.from("clients").select("*").eq("shop_id", shop_id).eq("phone_normalized", np).limit(1);
+      if (error) { skipped++; continue; }
       client = (data?.[0] as PromoClient | null) ?? null;
     }
     if (!client) {
       // Unknown contact — add them to the book, but never email without consent.
-      const { data: created } = await supabaseAdmin.from("clients").insert({
+      const { data: created }: { data: PromoClient | null } = await supabaseAdmin.from("clients").insert({
         shop_id, name: name || "Client", email: email.slice(0, 120), phone: phone.slice(0, 30),
         total_visits: 0, total_spent: 0, loyalty_points: 0, tag: "New",
       }).select("*").single().then((res) => res, () => ({ data: null }));
       client = (created as PromoClient | null) ?? null;
     }
     if (!client) { skipped++; continue; }
+    const savedEmail = typeof client.email === "string" ? client.email.trim() : "";
+    // Consent, recipient and unsubscribe ID must belong to the SAME saved row.
+    // A stale/forged email or a phone match cannot transfer consent to a new inbox.
+    if (client.shop_id !== shop_id || !savedEmail || savedEmail.toLowerCase() !== email.toLowerCase()) { skipped++; continue; }
     // CASL gate (the ONE rule): express consent OR a recent visit (implied),
     // never if they've opted out. Non-eligible recipients are skipped, not emailed.
     if (!canReceivePromos(client)) { skipped++; continue; }
     const clientId2 = client.id;
 
     const personalized = message
-      .replace(/\{name\}/g, name || "there")
+      .replace(/\{name\}/g, client.name || "there")
       .replace(/\{shop\}/g, shopName)
       .replace(/\{link\}/g, bookingUrl)
       .replace(/\{code\}/g, couponCode ?? "");
@@ -179,7 +189,7 @@ export async function POST(req: NextRequest) {
     </div>`;
 
     const result = await sendAppEmail("marketing_campaign", {
-      to: email, subject, shopEmail: shop.email ?? "", htmlBody,
+      to: savedEmail, subject, shopEmail: shop.email ?? "", htmlBody,
     });
     if (result && "error" in result) { skipped++; continue; }
     sent++;
