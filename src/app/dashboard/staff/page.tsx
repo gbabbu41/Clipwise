@@ -163,6 +163,8 @@ export default function StaffPage() {
   const [scheduleTimeOff, setScheduleTimeOff] = useState<TimeOffRow[]>([]);
   const [cancellingTimeOffId, setCancellingTimeOffId] = useState<string | null>(null);
   const [savingAdd, setSavingAdd] = useState(false);
+  const staffCreateState = useRef<"idle" | "pending" | "uncertain">("idle");
+  const [staffCreateError, setStaffCreateError] = useState("");
   const [savingCommission, setSavingCommission] = useState<string | null>(null);
   const [commissions, setCommissions] = useState<Record<string, number>>({});
   const [activeMap, setActiveMap] = useState<Record<string, boolean>>({});
@@ -352,7 +354,7 @@ export default function StaffPage() {
   // Email is mandatory in both tabs — it's the only unique identifier we have
   // to differentiate owner-self adds (instant) from external invites.
   const submitNewBarber = async (skipInvite = false) => {
-    if (!shop) return;
+    if (!shop || staffCreateState.current !== "idle") return;
     if (!addForm.name.trim()) { showToast("Full name is required"); return; }
     const emailErr = validateEmail(addForm.email.trim());
     if (emailErr) { showToast(emailErr); return; }
@@ -378,69 +380,81 @@ export default function StaffPage() {
     }
     if (!accessToken) return;
 
+    staffCreateState.current = "pending";
+    const context = staffEmailContext.current;
     setSavingAdd(true);
-    const res = await fetch("/api/admin/barber/invite", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: addForm.name.trim(),
-        email: addForm.email.trim(),
-        commission_percent: Math.min(100, Math.max(0, addPct)),
-        skip_invite: skipInvite,
-        shop_id: shop.id,
-      }),
-    });
-    const data = await res.json();
-    setSavingAdd(false);
-    if (!res.ok) { showToast(`Error: ${data.error}`); return; }
-
-    // Owner self-add → no invite link, just confirm and refresh
-    if (data.ownerSelf) {
-      setShowAddModal(false);
-      setAddForm({ name: "", email: "", commission_percent: "" });
-      showToast("You have been added as a barber! Open 'My Barber View' from the sidebar.");
-      loadBarbers();
-      return;
-    }
-
-    // Manual add (no app invite) → just create the record and refresh.
-    if (data.manual) {
-      setShowAddModal(false);
-      setAddForm({ name: "", email: "", commission_percent: "" });
-      showToast("Barber added");
-      loadBarbers();
-      return;
-    }
-
-    if (data.invitePending) {
-      setShowAddModal(false);
-      setAddForm({ name: "", email: "", commission_percent: "" });
-      setInviteSent(false);
-      showToast("Barber added, but the invitation could not be prepared. Use Resend invite on their staff card to try again.");
-      loadBarbers();
-      return;
-    }
-
-    // Normal external invite — show the link modal so the owner can also
-    // copy/paste it to the barber if email doesn't arrive
-    setInviteSent(data.emailed === true);
-    if (!data.emailed) setShowAddModal(false);
-    if (data.inviteLink) {
-      setInviteLinkModal({
-        link: data.inviteLink,
-        email: addForm.email.trim(),
-        name: addForm.name.trim(),
-        existingAccount: !!data.existingAccount,
-        emailed: !!data.emailed,
-        emailError: data.emailError ?? null,
+    try {
+      const res = await fetch("/api/admin/barber/invite", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: addForm.name.trim(),
+          email: addForm.email.trim(),
+          commission_percent: Math.min(100, Math.max(0, addPct)),
+          skip_invite: skipInvite,
+          shop_id: shop.id,
+        }),
       });
-    } else if (data.existingAccount) {
-      // Existing account: no login link is issued (security). They sign in and accept.
-      showToast(data.emailed
-        ? `${addForm.name.trim()} already has a ClipWise account — we emailed them to sign in and accept.`
-        : `${addForm.name.trim()} already has a ClipWise account, but the email couldn't be sent${data.emailError ? ` (${data.emailError})` : ""}. Ask them to sign in and accept the invite.`);
+      const data = await res.json();
+      if (res.status >= 500) throw new Error("Uncertain creation outcome");
+      if (context !== staffEmailContext.current) return;
+      if (!res.ok) { showToast(typeof data?.error === "string" ? `Error: ${data.error}` : "Couldn't add barber. Please check the details and try again."); return; }
+      if (data?.ok !== true || typeof data.barber?.id !== "string" || !data.barber.id) throw new Error("Unconfirmed creation response");
+
+      // Owner self-add → no invite link, just confirm and refresh
+      if (data.ownerSelf) {
+        setShowAddModal(false);
+        setAddForm({ name: "", email: "", commission_percent: "" });
+        showToast("You have been added as a barber! Open 'My Barber View' from the sidebar.");
+        loadBarbers();
+        return;
+      }
+
+      // Manual add (no app invite) → just create the record and refresh.
+      if (data.manual) {
+        setShowAddModal(false);
+        setAddForm({ name: "", email: "", commission_percent: "" });
+        showToast("Barber added");
+        loadBarbers();
+        return;
+      }
+
+      if (data.invitePending) {
+        setShowAddModal(false);
+        setAddForm({ name: "", email: "", commission_percent: "" });
+        setInviteSent(false);
+        showToast("Barber added, but the invitation could not be prepared. Use Resend invite on their staff card to try again.");
+        loadBarbers();
+        return;
+      }
+
+      // Normal external invite — show the link modal so the owner can also
+      // copy/paste it to the barber if email doesn't arrive
+      setInviteSent(data.emailed === true);
+      if (!data.emailed) setShowAddModal(false);
+      if (data.inviteLink) {
+        setInviteLinkModal({
+          link: data.inviteLink,
+          email: addForm.email.trim(),
+          name: addForm.name.trim(),
+          existingAccount: !!data.existingAccount,
+          emailed: !!data.emailed,
+          emailError: data.emailError ?? null,
+        });
+      } else if (data.existingAccount) {
+        // Existing account: no login link is issued (security). They sign in and accept.
+        showToast(data.emailed
+          ? `${addForm.name.trim()} already has a ClipWise account — we emailed them to sign in and accept.`
+          : `${addForm.name.trim()} already has a ClipWise account, but the email couldn't be sent${data.emailError ? ` (${data.emailError})` : ""}. Ask them to sign in and accept the invite.`);
+      }
+      loadBarbers();
+    } catch {
+      staffCreateState.current = "uncertain";
+      setStaffCreateError("Couldn't confirm whether the barber was added. Refresh and check the team at the original location before adding anyone again. If the barber is listed, use Resend invite instead.");
+    } finally {
+      if (staffCreateState.current === "pending") staffCreateState.current = "idle";
+      setSavingAdd(false);
     }
-    loadBarbers();
   };
 
   // Both tabs (Invite / Add Manually) run the same API path; the "manual" tab
@@ -453,27 +467,39 @@ export default function StaffPage() {
   // new barber to their user_id immediately (no invite email). Shown only when
   // the owner isn't already on the team (e.g. they skipped it during onboarding).
   const addSelfAsBarber = async () => {
-    if (!shop || !accessToken || !user?.email) return;
+    if (!shop || !accessToken || !user?.email || staffCreateState.current !== "idle") return;
     const limit = getPlanLimit(shop.subscription_plan);
     if (barbers.length >= limit) {
       showToast(barberLimitMsg(shop.subscription_plan, limit));
       return;
     }
+    staffCreateState.current = "pending";
+    const context = staffEmailContext.current;
     setSavingAdd(true);
-    const res = await fetch("/api/admin/barber/invite", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-      // Owner adds self as a barber → default 0%: his own service money stays as
-      // SHOP revenue (one pocket) instead of being split out as a separate
-      // "commission," so the same dollar isn't double-labeled. He can raise it on
-      // the Staff page if he wants to track a personal barber wage vs profit.
-      body: JSON.stringify({ name: profile?.name || user.email.split("@")[0], email: user.email, commission_percent: 0, shop_id: shop.id }),
-    });
-    const data = await res.json();
-    setSavingAdd(false);
-    if (!res.ok) { showToast(`Error: ${data.error}`); return; }
-    showToast("You've been added as a barber! Open 'My Barber View' from the sidebar.");
-    loadBarbers();
+    try {
+      const res = await fetch("/api/admin/barber/invite", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        // Owner adds self as a barber → default 0%: his own service money stays as
+        // SHOP revenue (one pocket) instead of being split out as a separate
+        // "commission," so the same dollar isn't double-labeled. He can raise it on
+        // the Staff page if he wants to track a personal barber wage vs profit.
+        body: JSON.stringify({ name: profile?.name || user.email.split("@")[0], email: user.email, commission_percent: 0, shop_id: shop.id }),
+      });
+      const data = await res.json();
+      if (res.status >= 500) throw new Error("Uncertain self-add outcome");
+      if (context !== staffEmailContext.current) return;
+      if (!res.ok) { showToast(typeof data?.error === "string" ? `Error: ${data.error}` : "Couldn't add your chair. Please try again."); return; }
+      if (data?.ok !== true || data.ownerSelf !== true || typeof data.barber?.id !== "string" || !data.barber.id) throw new Error("Unconfirmed self-add response");
+      showToast("You've been added as a barber! Open 'My Barber View' from the sidebar.");
+      loadBarbers();
+    } catch {
+      staffCreateState.current = "uncertain";
+      setStaffCreateError("Couldn't confirm whether your chair was added. Refresh and check the team at the original location before adding yourself again.");
+    } finally {
+      if (staffCreateState.current === "pending") staffCreateState.current = "idle";
+      setSavingAdd(false);
+    }
   };
 
   // ── Password reset ──────────────────────────────────────────────────────────
@@ -683,6 +709,7 @@ export default function StaffPage() {
   return (
     <div className="p-6 space-y-6">
       {toast && <Toast message={toast} onClose={() => setToast("")} />}
+      {staffCreateError && <p role="alert" className="text-sm text-amber-400">{staffCreateError}</p>}
 
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -692,14 +719,14 @@ export default function StaffPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:flex-shrink-0">
           {!alreadyOwnerBarber && shop && barbers.length < getPlanLimit(shop.subscription_plan) && (
-            <Button variant="outline" loading={savingAdd} onClick={addSelfAsBarber}>+ Add myself as a barber</Button>
+            <Button variant="outline" loading={savingAdd} disabled={!!staffCreateError} onClick={addSelfAsBarber}>+ Add myself as a barber</Button>
           )}
           {shop && barbers.length >= getPlanLimit(shop.subscription_plan) ? (
             <Tooltip content={barberLimitMsg(shop.subscription_plan, getPlanLimit(shop.subscription_plan))}>
               <Button disabled>+ Add Barber</Button>
             </Tooltip>
           ) : (
-            <Button onClick={() => setShowAddModal(true)}>+ Add Barber</Button>
+            <Button disabled={savingAdd || !!staffCreateError} onClick={() => setShowAddModal(true)}>+ Add Barber</Button>
           )}
         </div>
       </div>
@@ -1246,19 +1273,21 @@ export default function StaffPage() {
       {/* Add / Invite Barber Modal */}
       {showAddModal && (
         <>
-          <div className="fixed inset-0 bg-black/70 z-40" onClick={() => { setShowAddModal(false); setInviteSent(false); setAddForm({ name: "", email: "", commission_percent: "" }); }} />
+          <div className="fixed inset-0 bg-black/70 z-40" onClick={() => { if (staffCreateState.current === "pending") return; setShowAddModal(false); setInviteSent(false); setAddForm({ name: "", email: "", commission_percent: "" }); }} />
           <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
             <div className="bg-card shadow-sm border border-border rounded-t-2xl sm:rounded-2xl p-6 w-full sm:max-w-md space-y-4 max-h-[92dvh] sm:max-h-[85dvh] overflow-y-auto overscroll-contain pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pb-6">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-foreground">Add Barber</h2>
-                <button onClick={() => { setShowAddModal(false); setInviteSent(false); setAddForm({ name: "", email: "", commission_percent: "" }); }} className="text-grey hover:text-foreground text-xl leading-none">✕</button>
+                <button disabled={savingAdd} onClick={() => { setShowAddModal(false); setInviteSent(false); setAddForm({ name: "", email: "", commission_percent: "" }); }} className="text-grey hover:text-foreground text-xl leading-none">✕</button>
               </div>
 
               {/* Tabs */}
+              {staffCreateError && <p role="alert" className="text-sm text-amber-400">{staffCreateError}</p>}
               <div className="flex gap-1 bg-card-raised border border-border rounded-xl p-1">
                 {(["invite", "manual"] as const).map(tab => (
                   <button
                     key={tab}
+                    disabled={savingAdd}
                     onClick={() => { setAddTab(tab); setInviteSent(false); }}
                     className={cn("flex-1 py-1.5 text-sm rounded-lg transition-all capitalize", addTab === tab ? "bg-black/10 text-foreground border border-border" : "text-grey hover:text-foreground")}
                   >
@@ -1293,6 +1322,7 @@ export default function StaffPage() {
                           {user?.email && (
                             <button
                               type="button"
+                              disabled={savingAdd}
                               onClick={() => setAddForm({
                                 name: profile?.name || (user.email?.split("@")[0] ?? ""),
                                 email: user.email!,
@@ -1323,6 +1353,7 @@ export default function StaffPage() {
                         // input's max attribute doesn't block typed values).
                         {...(isPct ? { min: 0, max: 100, step: 1, inputMode: "numeric" as const } : {})}
                         value={addForm[key]}
+                        disabled={savingAdd}
                         onChange={(e) => {
                           let v = e.target.value;
                           if (isPct && v !== "") v = String(Math.min(100, Math.max(0, Math.round(Number(v) || 0))));
@@ -1343,8 +1374,8 @@ export default function StaffPage() {
                   })}
 
                   <div className="flex gap-3 pt-2">
-                    <Button variant="outline" className="flex-1" onClick={() => { setShowAddModal(false); setAddForm({ name: "", email: "", commission_percent: "" }); }}>Cancel</Button>
-                    <Button className="flex-1" loading={savingAdd} onClick={addTab === "invite" ? inviteBarber : addBarber}>
+                    <Button variant="outline" className="flex-1" disabled={savingAdd} onClick={() => { setShowAddModal(false); setAddForm({ name: "", email: "", commission_percent: "" }); }}>Cancel</Button>
+                    <Button className="flex-1" loading={savingAdd} disabled={!!staffCreateError} onClick={addTab === "invite" ? inviteBarber : addBarber}>
                       {addTab === "invite" ? "Send Invite" : "Add Barber"}
                     </Button>
                   </div>
