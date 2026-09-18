@@ -49,8 +49,10 @@ export function SetupSheet({ step, onClose }: { step: "location" | "hours"; onCl
     try {
       // Hours attach to a barber. A brand-new solo shop has none yet — add the
       // owner as their own chair first (same call the self-barber banner uses).
-      let { data: barbers } = await supabase.from("barbers").select("id").eq("shop_id", shop.id);
-      if (!barbers || barbers.length === 0) {
+      const { data: existingBarbers, error: barbersError } = await supabase.from("barbers").select("id").eq("shop_id", shop.id);
+      let barbers = existingBarbers;
+      if (barbersError || !barbers) throw new Error("Team lookup failed");
+      if (barbers.length === 0) {
         if (!user?.email || !accessToken) { setError("Session expired — please sign in again."); setSaving(false); return; }
         const res = await fetch("/api/admin/barber/invite", {
           method: "POST",
@@ -58,14 +60,15 @@ export function SetupSheet({ step, onClose }: { step: "location" | "hours"; onCl
           body: JSON.stringify({ name: profile?.name || user.email.split("@")[0] || "Me", email: user.email, commission_percent: 0, shop_id: shop.id }),
         });
         const d = await res.json().catch(() => ({}));
-        if (!res.ok || !d.barber) { setError(d.error || "Couldn't set up your chair. Please try again."); setSaving(false); return; }
+        if (!res.ok || typeof d.barber?.id !== "string" || !d.barber.id) { setError(d.error || "Couldn't set up your chair. Please try again."); setSaving(false); return; }
         barbers = [{ id: d.barber.id }];
       }
       const slots = hours
         .map((h, idx) => h.open ? { day_of_week: idx, start_time: `${h.start}:00`, end_time: `${h.end}:00`, is_available: true } : null)
         .filter((x): x is { day_of_week: number; start_time: string; end_time: string; is_available: boolean } => x !== null);
       for (const b of barbers) {
-        await supabase.from("time_slots").delete().eq("barber_id", b.id);
+        const { error: deleteError } = await supabase.from("time_slots").delete().eq("barber_id", b.id);
+        if (deleteError) throw new Error("Hours deletion failed");
         if (slots.length) {
           const { error: e2 } = await supabase.from("time_slots").insert(slots.map(s => ({ ...s, barber_id: b.id })));
           if (e2) throw e2;
