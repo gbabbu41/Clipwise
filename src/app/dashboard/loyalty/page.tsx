@@ -184,20 +184,31 @@ export default function LoyaltyPage() {
     }
     promoSaveInFlight.current = true;
     setSaving(true);
+    const usesLeft = newPromo.uses_left.trim() ? Number(newPromo.uses_left) : null;
+    const previousUsesLeft = editPromo?.uses_left ?? null;
+    const changingLimit = !!editPromo && usesLeft !== previousUsesLeft;
     const payload = {
       shop_id: shop.id,
       code: newPromo.code.toUpperCase().trim(),
       discount_type: newPromo.discount_type as "percent" | "fixed",
       discount_value: Number(newPromo.discount_value),
-      uses_left: newPromo.uses_left ? Number(newPromo.uses_left) : undefined,
-      expires_at: newPromo.expires_at || undefined,
+      // Omit an untouched counter so a recent redemption is not overwritten.
+      ...(!editPromo || changingLimit ? { uses_left: usesLeft } : {}),
+      expires_at: newPromo.expires_at || null,
       is_active: newPromo.is_active,
     };
     try {
       if (editPromo) {
         // Recorded usage belongs to checkout; editing must not reset total_uses.
-        const { data, error } = await supabase.from("promo_codes").update(payload)
-          .eq("id", editPromo.id).eq("shop_id", shop.id).select("id").maybeSingle();
+        let update = supabase.from("promo_codes").update(payload)
+          .eq("id", editPromo.id).eq("shop_id", shop.id);
+        if (changingLimit) {
+          // Refuse to replace a cap that changed after this editor was opened.
+          update = previousUsesLeft === null
+            ? update.is("uses_left", null)
+            : update.eq("uses_left", previousUsesLeft);
+        }
+        const { data, error } = await update.select("id").maybeSingle();
         if (error || !data) {
           showToast("Couldn't update this promo. Please refresh and try again.");
           return;

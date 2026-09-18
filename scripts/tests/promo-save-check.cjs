@@ -7,18 +7,24 @@ const start = source.indexOf('  const savePromo = async');
 const end = source.indexOf('  const deletePromo', start);
 assert.ok(start >= 0 && end > start);
 const handler = ts.transpileModule(source.slice(start, end), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
-function setup({ edit = true, result = async () => ({ data: { id: 'promo' }, error: null }), foreign = false } = {}) {
-  const draft = { code: ' save10 ', discount_type: 'percent', discount_value: '10', uses_left: '20', expires_at: '', is_active: true };
+function setup({ edit = true, result, foreign = false, savedUses = 20, draftUses = '20', databaseUses = savedUses } = {}) {
+  const draft = { code: ' save10 ', discount_type: 'percent', discount_value: '10', uses_left: draftUses, expires_at: '', is_active: true };
   const state = { busy: false, open: true, draft, edit, calls: [], filters: [], toasts: [], reloads: 0 };
-  const q = { eq(k, v) { state.filters.push([k, v]); return q; }, select(v) { assert.equal(v, 'id'); return q; }, maybeSingle: result };
+  state.row = { id: 'promo', shop_id: 'shop', uses_left: databaseUses, expires_at: '2026-12-31', total_uses: 37 };
+  const complete = result ?? (async () => {
+    if (state.filters.some(([key, value]) => state.row[key] !== value)) return { data: null, error: null };
+    Object.assign(state.row, state.calls[state.calls.length - 1][1]);
+    return { data: { id: 'promo' }, error: null };
+  });
+  const q = { eq(k, v) { state.filters.push([k, v]); return q; }, is(k, v) { assert.equal(v, null); state.filters.push([k, v]); return q; }, select(v) { assert.equal(v, 'id'); return q; }, maybeSingle: complete };
   const env = {
-    shop: { id: 'shop' }, newPromo: draft, editPromo: edit ? { id: 'promo', shop_id: foreign ? 'other' : 'shop', total_uses: 37 } : null,
+    shop: { id: 'shop' }, newPromo: draft, editPromo: edit ? { id: 'promo', shop_id: foreign ? 'other' : 'shop', total_uses: 37, uses_left: savedUses } : null,
     promoSaveInFlight: { current: false }, BLANK_PROMO: { code: '' },
     setSaving: v => { state.busy = v; }, showToast: v => state.toasts.push(v), loadData: () => { state.reloads++; },
     setShowPromoModal: v => { state.open = v; }, setEditPromo: v => { state.edit = v; }, setNewPromo: v => { state.draft = v; },
     supabase: { from(table) { assert.equal(table, 'promo_codes'); return {
       update(payload) { state.calls.push(['update', payload]); return q; },
-      insert(payload) { state.calls.push(['insert', payload]); return result(); },
+      insert(payload) { state.calls.push(['insert', payload]); return complete(); },
     }; } },
   };
   return { state, env, save: new Function(...Object.keys(env), `${handler}; return savePromo;`)(...Object.values(env)) };
@@ -30,6 +36,17 @@ function setup({ edit = true, result = async () => ({ data: { id: 'promo' }, err
   assert.deepEqual(edited.state.filters, [['id', 'promo'], ['shop_id', 'shop']]);
   assert.equal(edited.state.open, false); assert.equal(edited.state.reloads, 1); assert.equal(edited.state.busy, false);
   const created = setup({ edit: false }); await created.save(); assert.equal(created.state.calls[0][1].total_uses, 0); assert.equal(created.state.open, false);
+  assert.equal(edited.state.row.expires_at, null, 'Clearing expiry must persist null');
+  assert.equal(Object.hasOwn(edited.state.calls[0][1], 'uses_left'), false);
+  const redeemed = setup({ databaseUses: 19 }); await redeemed.save(); assert.equal(redeemed.state.row.uses_left, 19); assert.equal(redeemed.state.open, false);
+  const unlimited = setup({ draftUses: '' }); await unlimited.save(); assert.equal(unlimited.state.row.uses_left, null); assert.equal(unlimited.state.open, false);
+  assert.deepEqual(unlimited.state.filters.at(-1), ['uses_left', 20]);
+  const capped = setup({ savedUses: null, draftUses: '5' }); await capped.save(); assert.equal(capped.state.row.uses_left, 5); assert.deepEqual(capped.state.filters.at(-1), ['uses_left', null]);
+  const zeroLimit = setup({ draftUses: '0' }); await zeroLimit.save(); assert.equal(zeroLimit.state.row.uses_left, 0);
+  for (const options of [{ databaseUses: 19, draftUses: '' }, { savedUses: null, databaseUses: 8, draftUses: '5' }]) {
+    const conflict = setup(options); await conflict.save(); assert.equal(conflict.state.open, true); assert.equal(conflict.state.row.uses_left, options.databaseUses); assert.equal(conflict.state.reloads, 0);
+  }
+  const newUnlimited = setup({ edit: false, draftUses: '' }); await newUnlimited.save(); assert.equal(newUnlimited.state.row.uses_left, null);
   for (const edit of [true, false]) {
     for (const result of [async () => ({ data: null, error: { message: 'private db detail' } }), async () => { throw new Error('offline'); }]) {
       const p = setup({ edit, result }); const draft = p.state.draft; await p.save();
@@ -45,5 +62,5 @@ function setup({ edit = true, result = async () => ({ data: { id: 'promo' }, err
   const retry = p.save(); assert.equal(p.state.calls.length, 2); finish({ data: { id: 'promo' }, error: null }); await retry;
   assert.equal(p.state.open, false); assert.equal(p.env.promoSaveInFlight.current, false);
   assert.match(source, /fieldset disabled=\{saving\}/);
-  console.log('PASS promo save: usage preserved on edits, new usage initialized, scoped confirmed updates, failed drafts retained, offline/zero-row handling and duplicate guard');
+  console.log('PASS promo save: usage preserved, nullable expiry/limits, unchanged counters omitted, conditional cap changes, scoped confirmed writes, retained failures and duplicate guard');
 })().catch(error => { console.error(error); process.exitCode = 1; });
