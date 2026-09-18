@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { insertNotifications } from "@/lib/notify-server";
-import { getSlotsInRange, timeToMinutes, prettyDate } from "@/lib/utils";
+import { getSlotsInRange, timeToMinutes, prettyDate, dbTimeToDisplay } from "@/lib/utils";
 import { barberHasConflict, isDoubleBookError } from "@/lib/booking-conflict";
-import { OCCUPYING_STATUSES, holdsSlot } from "@/lib/availability";
+import { OCCUPYING_STATUSES, holdsSlot, apptDuration } from "@/lib/availability";
 import { scheduleBlockReason } from "@/lib/schedule-block";
 import { safeTz, todayInTz, nowMinutesInTz, isBookingInPast, hoursUntilBooking } from "@/lib/timezone";
 import { refundOrReleaseHold } from "@/lib/stripe-refund";
@@ -35,24 +35,37 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
   // Reschedule slot list for THIS booking's barber on a given day.
   if (slotsDate) {
-    const { data: appt } = await supabaseAdmin
-      .from("appointments").select("barber_id, time_slot, shop_id, shops(timezone, booking_settings)").eq("id", id).maybeSingle();
+    const limited = enforceRateLimit(req, "manage-booking-slots", 60, 60_000);
+    if (limited) return limited;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(slotsDate) || !Number.isFinite(Date.parse(`${slotsDate}T12:00:00Z`))
+      || new Date(`${slotsDate}T12:00:00Z`).toISOString().slice(0, 10) !== slotsDate) {
+      return NextResponse.json({ error: "Invalid date" }, { status: 400, headers: NO_STORE });
+    }
+    const unavailable = () => NextResponse.json({ error: "Couldn't load available times. Please try again." }, { status: 503, headers: NO_STORE });
+    const { data: appt, error: apptError } = await supabaseAdmin
+      .from("appointments").select("barber_id, time_slot, shop_id, duration_minutes, services(duration_minutes), shops(timezone, booking_settings)").eq("id", id).maybeSingle();
+    if (apptError) return unavailable();
     if (!appt?.barber_id) return NextResponse.json({ slots: [] }, { headers: NO_STORE });
     const dow = new Date(slotsDate + "T00:00:00").getDay();
-    // A barber can have MULTIPLE rows for one day (split shift) — aggregate to the
-    // widest window rather than .maybeSingle() (which errors on >1 row → no slots).
-    const { data: tsRows } = await supabaseAdmin
-      .from("time_slots").select("start_time, end_time")
-      .eq("barber_id", appt.barber_id).eq("day_of_week", dow).eq("is_available", true);
+    const [hoursRes, bookedRes, offRes, breaksRes] = await Promise.all([
+      supabaseAdmin.from("time_slots").select("start_time, end_time")
+        .eq("barber_id", appt.barber_id).eq("day_of_week", dow).eq("is_available", true),
+      supabaseAdmin.from("appointments").select("id, time_slot, duration_minutes, payment_status, services(duration_minutes)")
+        .eq("barber_id", appt.barber_id).eq("date", slotsDate).in("status", OCCUPYING_STATUSES).neq("id", id),
+      supabaseAdmin.from("time_off_requests").select("type, start_time, end_time, barber_id")
+        .eq("shop_id", appt.shop_id).eq("status", "approved").lte("start_date", slotsDate).gte("end_date", slotsDate),
+      supabaseAdmin.from("barber_breaks").select("start_time, end_time")
+        .eq("barber_id", appt.barber_id).eq("day_of_week", dow),
+    ]);
+    if (hoursRes.error || bookedRes.error || offRes.error || breaksRes.error) return unavailable();
+    const tsRows = hoursRes.data;
     if (!tsRows || tsRows.length === 0) return NextResponse.json({ slots: [] }, { headers: NO_STORE });
     const startTime = tsRows.reduce((m, r) => (r.start_time < m ? r.start_time : m), tsRows[0].start_time);
     const endTime = tsRows.reduce((m, r) => (r.end_time > m ? r.end_time : m), tsRows[0].end_time);
-    const { data: booked } = await supabaseAdmin
-      .from("appointments").select("time_slot, payment_status")
-      .eq("barber_id", appt.barber_id).eq("date", slotsDate).in("status", OCCUPYING_STATUSES);
-    const bookedSlots = (booked ?? [])
-      .filter(holdsSlot)     // refunded frees the slot
-      .map(a => a.time_slot as string).filter(s => s !== appt.time_slot);
+    const booked = (bookedRes.data ?? []).filter(holdsSlot);
+    const offs = (offRes.data ?? []).filter(o => !o.barber_id || o.barber_id === appt.barber_id);
+    const fullDayOff = offs.some(o => ["day_off", "vacation", "sick"].includes(o.type));
+    const blocked = [...(breaksRes.data ?? []), ...offs.filter(o => o.type === "blocked_hours")];
     // Judge "past" in the SHOP's timezone, not the server's UTC — otherwise
     // same-day morning slots get wrongly hidden (Canada is hours behind UTC).
     const shopRel = (appt as { shops?: { timezone?: string; booking_settings?: { slot_interval_minutes?: number } } | { timezone?: string; booking_settings?: { slot_interval_minutes?: number } }[] }).shops;
@@ -61,7 +74,27 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     // Honor the shop's slot granularity (15 or 30) instead of hardcoding 30.
     const interval = Number(shopObj?.booking_settings?.slot_interval_minutes) === 15 ? 15 : 30;
     const nowOverride = { todayStr: todayInTz(tz), nowMinutes: nowMinutesInTz(tz) };
-    return NextResponse.json({ slots: getSlotsInRange(startTime, endTime, new Date(slotsDate + "T00:00:00"), bookedSlots, interval, nowOverride) }, { headers: NO_STORE });
+    const duration = apptDuration(appt);
+    const dbMinutes = (value: string) => timeToMinutes(dbTimeToDisplay(value));
+    const shifts: { start: number; end: number }[] = [];
+    for (const shift of tsRows.map(s => ({ start: dbMinutes(s.start_time), end: dbMinutes(s.end_time) })).sort((a, b) => a.start - b.start)) {
+      const previous = shifts[shifts.length - 1];
+      if (previous && shift.start <= previous.end) previous.end = Math.max(previous.end, shift.end);
+      else shifts.push(shift);
+    }
+    const slots = getSlotsInRange(startTime, endTime, new Date(slotsDate + "T00:00:00"), [], interval, nowOverride)
+      .map(row => {
+        const start = timeToMinutes(row.slot), end = start + duration;
+        // Use the full booked duration, not just the start or grid interval.
+        const withinShift = shifts.some(shift => start >= shift.start && end <= shift.end);
+        const occupied = booked.some(other => {
+          const otherStart = timeToMinutes(other.time_slot);
+          return start < otherStart + apptDuration(other) && end > otherStart;
+        });
+        const onBreak = blocked.some(b => b.start_time && b.end_time && start < dbMinutes(b.end_time) && end > dbMinutes(b.start_time));
+        return { ...row, available: row.available && slotsDate >= nowOverride.todayStr && withinShift && !fullDayOff && !occupied && !onBreak };
+      });
+    return NextResponse.json({ slots }, { headers: NO_STORE });
   }
 
   // The booking itself — display fields only (never client email/phone).

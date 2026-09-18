@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
 import { X, Calendar, Clock, User, Scissors, MapPin, Phone, ArrowLeft, RefreshCw } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
@@ -58,6 +58,7 @@ export default function MyBookingPage() {
   const [newDate, setNewDate] = useState<Date | null>(null);
   const [slots, setSlots] = useState<SlotRow[]>([]);
   const [slotsLoading, setSlotsLoading] = useState(false);
+  const slotLoadId = useRef(0);
   const [newTime, setNewTime] = useState<string | null>(null);
   const [rescheduling, setRescheduling] = useState(false);
   const [rescheduleError, setRescheduleError] = useState("");
@@ -80,18 +81,26 @@ export default function MyBookingPage() {
 
   const loadSlots = async (date: Date) => {
     if (!appt) return;
+    const requestId = ++slotLoadId.current;
     setSlotsLoading(true);
     setSlots([]);
     setNewTime(null);
     setRescheduleError("");
     try {
       const res = await fetch(`/api/my-booking/${appt.id}?slots=${formatDateForDb(date)}`);
-      const { slots: rows } = res.ok ? await res.json() : { slots: [] };
-      setSlots(rows ?? []);
+      const result = await res.json();
+      if (requestId !== slotLoadId.current) return;
+      if (!res.ok) {
+        setRescheduleError(result.error || "Couldn't load available times. Please try again.");
+      } else {
+        setSlots(result.slots ?? []);
+      }
     } catch {
-      setSlots([]);
+      if (requestId !== slotLoadId.current) return;
+      setRescheduleError("Couldn't load available times. Please check your connection and try again.");
+    } finally {
+      if (requestId === slotLoadId.current) setSlotsLoading(false);
     }
-    setSlotsLoading(false);
   };
 
   const cancelBooking = async () => {
@@ -373,7 +382,7 @@ export default function MyBookingPage() {
         {view === "reschedule" && (
           <div className="space-y-6">
             <div className="flex items-center gap-3">
-              <button onClick={() => { setView("detail"); setNewDate(null); setSlots([]); setNewTime(null); setRescheduleError(""); }}
+              <button onClick={() => { slotLoadId.current++; setSlotsLoading(false); setView("detail"); setNewDate(null); setSlots([]); setNewTime(null); setRescheduleError(""); }}
                 className="w-10 h-10 rounded-xl bg-surface border border-border flex items-center justify-center text-grey-muted hover:text-white transition-colors">
                 <ArrowLeft size={18} />
               </button>
