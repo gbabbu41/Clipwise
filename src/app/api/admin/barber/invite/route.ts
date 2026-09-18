@@ -47,11 +47,14 @@ export async function POST(request: NextRequest) {
   // account, refuse — owning a shop is a separate identity from being a
   // barber elsewhere. (Self-add is fine: that's the owner-as-barber path.)
   if (!isOwnerSelf) {
-    const { data: existingUser } = await supabaseAdmin
+    const { data: existingUser, error: existingUserError } = await supabaseAdmin
       .from("users")
       .select("id, role")
       .ilike("email", email)
       .maybeSingle();
+    if (existingUserError) {
+      return NextResponse.json({ error: "Couldn't verify this account. Please try again." }, { status: 503 });
+    }
     if (existingUser && (existingUser.role === "shop_owner" || existingUser.role === "super_admin") && existingUser.id !== user.id) {
       return NextResponse.json(
         {
@@ -63,12 +66,15 @@ export async function POST(request: NextRequest) {
   }
 
   // Check if a barber with this email is already on the team (case-insensitive)
-  const { data: existing } = await supabaseAdmin
+  const { data: existing, error: existingError } = await supabaseAdmin
     .from("barbers")
     .select("id, user_id")
     .eq("shop_id", shop.id)
     .ilike("email", email)
     .maybeSingle();
+  if (existingError) {
+    return NextResponse.json({ error: "Couldn't check your team. Please try again." }, { status: 503 });
+  }
 
   if (existing) {
     // Owner claiming their own row: never 409 them out of it. If the row exists
@@ -100,9 +106,12 @@ export async function POST(request: NextRequest) {
     (shop as { subscription_status?: string | null }).subscription_status ?? undefined,
   );
   const limit = getPlanLimit(plan);
-  const { count: barberCount } = await supabaseAdmin
+  const { count: barberCount, error: barberCountError } = await supabaseAdmin
     .from("barbers").select("id", { count: "exact", head: true }).eq("shop_id", shop.id);
-  if ((barberCount ?? 0) >= limit) {
+  if (barberCountError || barberCount === null || !Number.isInteger(barberCount) || barberCount < 0) {
+    return NextResponse.json({ error: "Couldn't verify your team limit. Please try again." }, { status: 503 });
+  }
+  if (barberCount >= limit) {
     return NextResponse.json(
       { error: `Your plan includes ${limit} barber${limit === 1 ? "" : "s"}. Upgrade from Billing to add more.`, code: "barber_limit" },
       { status: 403 },
