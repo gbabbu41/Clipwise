@@ -292,7 +292,7 @@ export default function OnboardingPage() {
         // and we don't send them again here.)
       }
 
-      setStep((s) => s + 1);
+      setStep(step + 1);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
@@ -393,6 +393,12 @@ export default function OnboardingPage() {
       return;
     }
     inviteBarber(name, email, commission);
+  };
+
+  const handleBack = () => {
+    if (!resumeReady || stepSaveInFlight.current || barberRequestState.current === "pending") return;
+    setBlockHint("");
+    setStep(step - 1);
   };
 
   const bookingUrl = `${typeof window !== "undefined" ? window.location.origin : "https://app.clipwise.ca"}/book/${createdShopSlug}`;
@@ -717,7 +723,7 @@ export default function OnboardingPage() {
               <p className="text-xs text-red-400 text-center mb-2">{blockHint}</p>
             )}
             <div className="flex gap-3">
-            {step > 0 && <Button variant="outline" disabled={addingBarber} onClick={() => { if (barberRequestState.current === "pending") return; setBlockHint(""); setStep(step - 1); }} className="flex-shrink-0"><ChevronLeft size={16} /></Button>}
+            {step > 0 && <Button variant="outline" disabled={saving || addingBarber} onClick={handleBack} className="flex-shrink-0"><ChevronLeft size={16} /></Button>}
             {/* Greyed but still tappable when the step isn't done, so tapping can
                 explain WHY (a truly-disabled button gives no feedback). */}
             <Button className={cn("flex-1", !canProceed() && !saving && "opacity-50")} loading={saving} disabled={addingBarber || (step === 1 && barberUncertain)}
