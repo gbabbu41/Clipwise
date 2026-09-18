@@ -40,6 +40,7 @@ const stripe = { subscriptions: {
 } };
 const billingTypes = new Set(['subscription_started', 'subscription_cancelled', 'subscription_payment_failed', 'subscription_renewal_reminder']);
 const mocks = {
+  '@/lib/admin-auth': { requireSuperAdmin: async () => { throw Error('Billing notices must not enter admin-notification authorization'); } },
   '@/lib/api-auth': { authorizeShop: async () => { throw Error('Billing notices must be rejected before shop authorization'); } },
   '@/lib/supabase-admin': { supabaseAdmin: db }, '@/lib/stripe': { stripe },
   '@/lib/native-app': { isNativeRequest: r => r.headers.get('user-agent') === 'ClipWiseApp' },

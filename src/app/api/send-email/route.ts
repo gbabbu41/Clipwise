@@ -5,6 +5,7 @@ import { effectivePlan, isPaidPlan } from "@/lib/validation";
 import { ensurePlansHydrated } from "@/lib/plans-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { authorizeShop } from "@/lib/api-auth";
+import { requireSuperAdmin } from "@/lib/admin-auth";
 
 // HTTP boundary for the shared email engine (src/lib/emailer.ts). This route's
 // only extra job is the auth gate for privileged/abusable types so it can't be
@@ -25,6 +26,28 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { type, data } = body as { type: string; data: Record<string, string> };
     let emailData = data;
+    if (type === "shop_approved" || type === "shop_rejected") {
+      if (!(await requireSuperAdmin(req))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      if (!data || typeof data.shopId !== "string" ||
+          !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.shopId)) {
+        return NextResponse.json({ error: "Invalid shop reference." }, { status: 400 });
+      }
+      const { data: savedShop, error } = await supabaseAdmin.from("shops")
+        .select("id, name, slug, email, status, rejection_reason, users(name, email)")
+        .eq("id", data.shopId).maybeSingle();
+      if (error) return NextResponse.json({ error: "Unable to verify shop." }, { status: 503 });
+      if (!savedShop) return NextResponse.json({ error: "Shop not found." }, { status: 404 });
+      if (savedShop.status !== (type === "shop_approved" ? "approved" : "rejected")) {
+        return NextResponse.json({ error: "Shop status changed; notification not sent." }, { status: 409 });
+      }
+      const owner = Array.isArray(savedShop.users) ? savedShop.users[0] : savedShop.users;
+      const ownerEmail = owner?.email || savedShop.email;
+      if (!ownerEmail) return NextResponse.json({ error: "Shop has no email recipient." }, { status: 400 });
+      emailData = {
+        shopName: savedShop.name ?? "", ownerName: owner?.name || "Shop Owner",
+        ownerEmail, slug: savedShop.slug ?? "", reason: savedShop.rejection_reason ?? "",
+      };
+    }
     let reviewAuthorized = false;
     if (type === "review_request") {
       if (!data || typeof data.appointmentId !== "string" ||

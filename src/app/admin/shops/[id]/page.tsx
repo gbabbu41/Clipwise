@@ -100,10 +100,11 @@ export default function AdminShopDetailPage() {
     showToast(`Shop ${status}`);
     // Approve/reject fire the same owner emails the list actions do.
     if (shop && (status === "approved" || status === "rejected")) {
-      fetch("/api/send-email", { method: "POST", headers: { "Content-Type": "application/json" },
+      fetch("/api/send-email", { method: "POST", headers: auth(),
         body: JSON.stringify({ type: status === "approved" ? "shop_approved" : "shop_rejected",
-          data: { shopName: shop.name, ownerName: shop.users?.name ?? "", ownerEmail: shop.users?.email ?? shop.email, slug: shop.slug, reason: rejection_reason ?? "" } }),
-      }).catch(() => {});
+          data: { shopId: shop.id } }),
+      }).then(async res => { if (!res.ok || (await res.json()).success !== true) throw new Error("Email unconfirmed"); })
+        .catch(() => showToast(`Shop ${status}; email not confirmed. Do not repeat the status change.`, false));
     }
   };
 

@@ -84,9 +84,10 @@ export default function AdminShopsPage() {
     showToast(`${shop.name} approved!`);
     fetch("/api/send-email", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "shop_approved", data: { shopName: shop.name, ownerName: shop.users?.name || "Shop Owner", ownerEmail: shop.users?.email || shop.email, slug: shop.slug } }),
-    }).catch(() => {});
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken ?? ""}` },
+      body: JSON.stringify({ type: "shop_approved", data: { shopId: shop.id } }),
+    }).then(async res => { if (!res.ok || (await res.json()).success !== true) throw new Error("Email unconfirmed"); })
+      .catch(() => showToast("Shop approved; email not confirmed. Do not repeat the approval.", false));
   };
 
   const rejectShop = async () => {
@@ -103,9 +104,10 @@ export default function AdminShopsPage() {
     showToast(`${modal.name} rejected`);
     fetch("/api/send-email", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "shop_rejected", data: { shopName: modal.name, ownerName: modal.users?.name || "Shop Owner", ownerEmail: modal.users?.email || modal.email, reason } }),
-    }).catch(() => {});
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken ?? ""}` },
+      body: JSON.stringify({ type: "shop_rejected", data: { shopId: modal.id } }),
+    }).then(async res => { if (!res.ok || (await res.json()).success !== true) throw new Error("Email unconfirmed"); })
+      .catch(() => showToast("Shop rejected; email not confirmed. Do not repeat the rejection.", false));
   };
 
   const toggleSuspend = async (shop: ShopWithOwner) => {
