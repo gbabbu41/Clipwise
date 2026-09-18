@@ -78,6 +78,8 @@ export default function ServicesPage() {
   const [selectedTemplates, setSelectedTemplates] = useState<Set<string>>(new Set());
   const [addingTemplates, setAddingTemplates] = useState(false);
   const templateSaveInFlight = useRef(false);
+  const visibilityInFlight = useRef(new Set<string>());
+  const [visibilityPending, setVisibilityPending] = useState<Set<string>>(new Set());
 
   const [newSvc, setNewSvc] = useState(BLANK_SVC);
 
@@ -140,8 +142,24 @@ export default function ServicesPage() {
   };
 
   const toggleServiceActive = async (svc: Service) => {
-    const { error } = await supabase.from("services").update({ is_active: !svc.is_active }).eq("id", svc.id);
-    if (!error) setServices(prev => prev.map(s => s.id === svc.id ? { ...s, is_active: !s.is_active } : s));
+    if (!shop || svc.shop_id !== shop.id || shop.id !== activeShopId.current || visibilityInFlight.current.has(svc.id)) return;
+    visibilityInFlight.current.add(svc.id);
+    setVisibilityPending(prev => new Set(prev).add(svc.id));
+    try {
+      const { data, error } = await supabase.from("services").update({ is_active: !svc.is_active })
+        .eq("id", svc.id).eq("shop_id", shop.id).select("id, is_active").maybeSingle();
+      if (shop.id !== activeShopId.current) return;
+      if (error || !data || typeof data.is_active !== "boolean") {
+        showToast("Couldn't confirm service visibility. Refresh the list before trying again.");
+        return;
+      }
+      setServices(prev => prev.map(s => s.id === svc.id ? { ...s, is_active: data.is_active } : s));
+    } catch {
+      if (shop.id === activeShopId.current) showToast("Couldn't confirm service visibility. Refresh the list before trying again.");
+    } finally {
+      visibilityInFlight.current.delete(svc.id);
+      setVisibilityPending(prev => { const next = new Set(prev); next.delete(svc.id); return next; });
+    }
   };
 
   const saveService = async () => {
@@ -355,7 +373,7 @@ export default function ServicesPage() {
                       {svc.description && <p className="text-xs text-grey mb-3 line-clamp-2">{svc.description}</p>}
                       <div className="flex items-center justify-between mt-auto pt-1">
                         <label className="inline-flex items-center gap-2 cursor-pointer">
-                          <Switch checked={!!svc.is_active} onChange={() => toggleServiceActive(svc)} />
+                          <Switch checked={!!svc.is_active} disabled={visibilityPending.has(svc.id)} onChange={() => toggleServiceActive(svc)} />
                           <span className="text-xs text-grey">{svc.is_active ? "Live" : "Hidden"}</span>
                         </label>
                         <div className="flex gap-1.5">
