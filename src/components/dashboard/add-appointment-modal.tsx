@@ -65,6 +65,7 @@ function nextDefaultTime(): string {
 }
 
 const FIELD = "w-full h-12 bg-card-raised border border-border rounded-xl px-3 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-foreground/40 transition-colors";
+const UNCERTAIN_BOOKING_MESSAGE = "This booking may have been saved. Refresh and check the calendar for the shop you were booking in before trying again.";
 const LABEL = "block text-xs font-medium text-grey mb-1.5";
 
 export function AddAppointmentModal({
@@ -106,6 +107,11 @@ export function AddAppointmentModal({
   const [date, setDate] = useState("");
   const [time, setTime] = useState("9:00 AM");
   const [saving, setSaving] = useState(false);
+  const submitState = useRef<"idle" | "pending" | "uncertain" | "complete">("idle");
+  const submitContext = useRef(0);
+  const [submitError, setSubmitError] = useState("");
+  const [submitUncertain, setSubmitUncertain] = useState(false);
+  useEffect(() => () => { submitContext.current += 1; }, []);
   const [toast, setToast] = useState("");
   const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(""), 3000); };
 
@@ -119,6 +125,13 @@ export function AddAppointmentModal({
   useEffect(() => {
     if (previousResourceScope.current === resourceScope) return;
     previousResourceScope.current = resourceScope;
+    submitContext.current += 1;
+    if (submitState.current === "pending") submitState.current = "uncertain";
+    const uncertain = submitState.current === "uncertain";
+    if (!uncertain) submitState.current = "idle";
+    setSubmitUncertain(uncertain);
+    setSubmitError(uncertain ? UNCERTAIN_BOOKING_MESSAGE : "");
+    setSaving(false);
     setOpen(false);
     setShown(false);
     reset();
@@ -126,20 +139,27 @@ export function AddAppointmentModal({
 
   // Animated close: slide the sheet down, then unmount.
   const close = useCallback(() => {
+    if (submitState.current === "pending") return;
+    const context = submitContext.current;
     setShown(false);
-    window.setTimeout(() => setOpen(false), 240);
+    window.setTimeout(() => { if (submitContext.current === context) setOpen(false); }, 240);
   }, []);
 
   // Both quick-add and client-profile rebooking use this same sheet/API.
   useEffect(() => {
     const openIt = (event: Event) => {
-      if (open || saving) return;
+      if (open || saving || submitState.current === "pending") return;
       const detail = (event as CustomEvent<NewAppointmentDetail | undefined>).detail;
       // A stale profile from another location must not prefill this shop's form.
       if (detail && (!shop || detail.shopId !== shop.id)) return;
+      submitContext.current += 1;
       setResourcesLoading(true);
       setResourcesError("");
       setLoadedResourceScope("");
+      if (submitState.current === "uncertain") { setOpen(true); return; }
+      submitState.current = "idle";
+      setSubmitError("");
+      setSubmitUncertain(false);
       reset();
       if (!detail && shop) {
         const context = requestCalendarAddContext(shop.id);
@@ -339,12 +359,14 @@ export function AddAppointmentModal({
 
   const submit = async () => {
     if (!resourcesReady) return;
+    if (submitState.current !== "idle" || activeResourceScope.current !== resourceScope) return;
     if (!shop) return;
-    if (!barberId) { showToast("Pick a barber"); return; }
+    if (!barberId || !barbers.some(b => b.id === barberId)) { showToast("Pick a barber"); return; }
     const name = query.trim();
     const chosen = serviceIds.filter(Boolean);
     if (!name || chosen.length === 0) { showToast("Add a client and pick a service"); return; }
     const svcs = chosen.map(id => services.find(s => s.id === id)).filter(Boolean) as ServiceLite[];
+    if (svcs.length !== chosen.length) { showToast("Please choose services from the current list."); return; }
     const duration = svcs.reduce((n, s) => n + (s.duration_minutes || 0), 0);
     const price = svcs.reduce((n, s) => n + Number(s.price || 0), 0);
     const send = (overrideBlock: boolean) => fetch("/api/book/in-person", {
@@ -360,24 +382,73 @@ export function AddAppointmentModal({
         override_block: overrideBlock || undefined,
       }),
     });
+    submitState.current = "pending";
+    const context = submitContext.current;
+    const current = () => submitContext.current === context && activeResourceScope.current === resourceScope;
+    const uncertain = () => {
+      submitState.current = "uncertain";
+      if (current()) { setSubmitUncertain(true); setSubmitError(UNCERTAIN_BOOKING_MESSAGE); }
+    };
+    // Only these explicit endpoint responses establish rejection before a write
+    // or rejection of the insert by the DB. Unknown statuses/bodies stay uncertain.
+    const knownErrors: Record<number, string[]> = {
+      400: ["Missing required fields", "That time has already passed — please pick a future time.", "One or more selected services are unavailable.", "That date is beyond this shop's booking window.", "That barber isn't part of this shop."],
+      403: ["This shop isn't accepting bookings.", "This shop isn't accepting bookings right now.", "This shop requires a card to book online."],
+      409: ["Sorry, that time was just booked. Please pick another slot.", "Sorry, that time is fully booked. Please pick another slot.", "That time was just booked — please pick another slot."],
+      429: ["Too many requests — please slow down and try again shortly.", "You already have several bookings with this shop for that day. Please call the shop if you need to add more."],
+    };
+    const rejected = (status: number, data: Record<string, unknown> | null) =>
+      typeof data?.error === "string" && ((status === 409 && data.blocked === true) || knownErrors[status]?.includes(data.error));
+    const readReply = async (res: Response): Promise<Record<string, unknown> | null> => {
+      try {
+        const data: unknown = await res.json();
+        return data && typeof data === "object" ? data as Record<string, unknown> : null;
+      } catch { return null; }
+    };
+    let requestMayHaveSaved = false;
     setSaving(true);
-    let res = await send(false);
-    let data = await res.json().catch(() => ({}));
-    if (!res.ok && data.blocked) {
-      setSaving(false);
-      const barberName = barbers.find(b => b.id === barberId)?.name ?? "That barber";
-      const ok = await confirm({ message: `${barberName} has time off or a break during this slot. Book them in anyway?`, confirmText: "Book anyway" });
-      if (!ok) return;
-      setSaving(true);
-      res = await send(true);
-      data = await res.json().catch(() => ({}));
+    setSubmitError("");
+    try {
+      requestMayHaveSaved = true;
+      let res = await send(false);
+      let data = await readReply(res);
+      if (!current()) return;
+      if (!res.ok && res.status === 409 && data?.blocked === true && typeof data.error === "string") {
+        requestMayHaveSaved = false;
+        const barberName = barbers.find(b => b.id === barberId)?.name ?? "That barber";
+        const ok = await confirm({ message: `${barberName} has time off or a break during this slot. Book them in anyway?`, confirmText: "Book anyway" });
+        if (!current()) return;
+        if (!ok) { submitState.current = "idle"; return; }
+        requestMayHaveSaved = true;
+        res = await send(true);
+        data = await readReply(res);
+        if (!current()) return;
+      }
+      if (!res.ok) {
+        if (rejected(res.status, data)) {
+          requestMayHaveSaved = false;
+          submitState.current = "idle";
+          setSubmitError(data!.error as string);
+        } else uncertain();
+        return;
+      }
+      if (typeof data?.id !== "string" || !data.id.trim()) { uncertain(); return; }
+      requestMayHaveSaved = false;
+      submitState.current = "complete";
+      close();
+      reset();
+      showToast("Booked ✓");
+      window.dispatchEvent(new Event("cw-appt-created"));
+    } catch {
+      if (requestMayHaveSaved) uncertain();
+      else if (current() && submitState.current !== "complete") {
+        submitState.current = "idle";
+        setSubmitError("Couldn't continue the booking. Please try again.");
+      }
+    } finally {
+      if (submitState.current === "pending") submitState.current = "uncertain";
+      if (current()) setSaving(false);
     }
-    setSaving(false);
-    if (!res.ok) { showToast(data.error ?? "Couldn't add the appointment"); return; }
-    close();
-    reset();
-    showToast("Booked ✓");
-    window.dispatchEvent(new Event("cw-appt-created"));
   };
 
   return (
@@ -421,12 +492,13 @@ export function AddAppointmentModal({
                 </div>
               </div>
 
+              {submitError && <p role="alert" className="mt-3 text-sm text-amber-400">{submitError}</p>}
               {!resourcesReady ? (
                 <div className="py-6 text-sm text-grey" role={resourcesError ? "alert" : "status"}>
                   <p>{resourcesError || "Loading appointment options…"}</p>
                   {resourcesError && <Button variant="outline" className="mt-3" onClick={() => setResourceAttempt(value => value + 1)}>Retry loading</Button>}
                 </div>
-              ) : (<>
+              ) : (<fieldset disabled={saving || submitUncertain} className="min-w-0">
               {/* Barber picker — only when the owner has several to choose from. */}
               {!fixedBarber && (
                 <div className="mb-3.5 mt-1">
@@ -552,11 +624,11 @@ export function AddAppointmentModal({
                 </p>
               )}
 
-              </>)}
+              </fieldset>)}
               {/* Sticky action bar */}
               <div className="sticky bottom-0 -mx-5 px-5 pt-3 mt-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] bg-card border-t border-border flex gap-3">
-                <Button variant="outline" className="flex-1" disabled={saving} onClick={close}>Cancel</Button>
-                <Button className="flex-1" loading={saving} disabled={!resourcesReady} onClick={submit}>Add</Button>
+                <Button variant="outline" className="flex-1" disabled={saving} onClick={close}>{submitUncertain ? "Close" : "Cancel"}</Button>
+                <Button className="flex-1" loading={saving} disabled={!resourcesReady || submitUncertain} onClick={submit}>Add</Button>
               </div>
             </div>
           </div>

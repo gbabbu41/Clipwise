@@ -1,0 +1,9 @@
+# Quick-add appointment submit recovery — September 18, 2026
+
+Actual-handler mocks reproduced two requests from overlapping Add calls, false success/reset from HTTP 200 with no appointment ID, and a thrown request leaving the sheet busy. No live requests were used.
+
+A synchronous pending guard now covers both the initial request and override confirmation. Success requires a nonempty canonical appointment ID. Failed drafts remain visible; pending controls/dismissal are locked and busy state is released. Only explicitly recognized endpoint rejection responses permit another attempt. Network errors, server failures, unknown rejections and malformed success stay uncertain, lock resubmission and direct staff to refresh/check the original shop calendar. Closing/reopening does not clear the uncertainty. Scope changes/unmount suppress stale callbacks and follow-on override requests; old close timers cannot close a newer opening. Existing payload, schedule override prompt/permissions, pricing and endpoint remain unchanged.
+
+Regression checks execute extracted actual handlers and cover duplicate calls, override reentry/cancel, malformed/null/unparseable responses, thrown requests, server/unknown-4xx uncertainty, known rejection retry, draft retention, scope/unmount cleanup, dismissal and reopening. Full npm run test:flows passed. Targeted ESLint diagnostics exactly match the preexisting baseline: one unused selectedClientId error and two shop-dependency warnings; this is not a clean lint result. Real isolated production build passed using dummy credentials (202 pages). No browser smoke tests, deployment-health verification, customer messages or production writes.
+
+This UI guard is not server idempotency. Cross-session requests, refreshes and already-sent writes can still produce uncertain outcomes; no rollback or atomicity guarantee is claimed.
