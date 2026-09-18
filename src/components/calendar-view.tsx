@@ -15,7 +15,7 @@ import {
 import { freesSlot, apptDuration } from "@/lib/availability";
 import { clientMatchesQuery } from "@/lib/client-search";
 import { safeTz, todayInTz, nowMinutesInTz } from "@/lib/timezone";
-import { fullDayCalendarWindow, startCalendarAutofocus } from "@/lib/calendar-autofocus";
+import { calendarFocusTop, calendarLandingHour, fullDayCalendarWindow, startCalendarAutofocus } from "@/lib/calendar-autofocus";
 import { calendarEditTotals, type CalendarAddContext } from "@/lib/calendar-workflow";
 import { clampNoShowPct, NO_SHOW_LEAD_MINUTES, formatPhone } from "@/lib/validation";
 
@@ -1476,6 +1476,18 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   // Day-view working hours (per barber, for the current weekday) + services for
   // the quick-add modal, and the "+" empty-slot add context/form.
   const [schedules, setSchedules] = useState<Map<string, { start: string; end: string }>>(new Map());
+  const [weeklyHours, setWeeklyHours] = useState<{ barber_id: string; day_of_week: number; start_time: string }[]>([]);
+  const [hoursReady, setHoursReady] = useState(false);
+  const [, setClockTick] = useState(0);
+  const shopTz = safeTz(shop?.timezone);
+  const shopToday = todayInTz(shopTz);
+  const shopHour = nowMinutesInTz(shopTz) / 60;
+  useEffect(() => {
+    const tick = () => setClockTick(value => value + 1);
+    const timer = window.setInterval(tick, 60_000);
+    window.addEventListener("pageshow", tick);
+    return () => { window.clearInterval(timer); window.removeEventListener("pageshow", tick); };
+  }, []);
   const [services, setServices] = useState<ServiceLite[]>([]);
   const [addCtx, setAddCtx] = useState<{ barberId: string; barberName: string; time: string; boxMinutes?: number; general?: boolean } | null>(null);
   const [addShown, setAddShown] = useState(false); // drives the add sheet slide-up
@@ -1700,18 +1712,21 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   // view's working-window bounds + empty-slot generation. Authenticated owner /
   // barber can read time_slots under RLS; barbers with no row fall back to 9–6.
   useEffect(() => {
-    if (!shop || barbers.length === 0) { setSchedules(new Map()); return; }
+    if (!shop || barbers.length === 0) { setSchedules(new Map()); setWeeklyHours([]); setHoursReady(true); return; }
     const dow = currentDate.getDay();
     const ids = barbers.map(b => b.id);
     let active = true;
-    supabase.from("time_slots").select("barber_id, start_time, end_time")
-      .in("barber_id", ids).eq("day_of_week", dow).eq("is_available", true)
-      .then(({ data }) => {
+    setHoursReady(false);
+    supabase.from("time_slots").select("barber_id, day_of_week, start_time, end_time")
+      .in("barber_id", ids).eq("is_available", true)
+      .then(({ data, error }) => {
         if (!active) return;
         const m = new Map<string, { start: string; end: string }>();
-        (data ?? []).forEach(s => m.set(s.barber_id as string, { start: s.start_time as string, end: s.end_time as string }));
+        (data ?? []).filter(s => s.day_of_week === dow).forEach(s => m.set(s.barber_id as string, { start: s.start_time as string, end: s.end_time as string }));
         setSchedules(m);
-      });
+        setWeeklyHours(error ? [] : data ?? []);
+        setHoursReady(true);
+      }, () => { if (active) { setWeeklyHours([]); setHoursReady(true); } });
     // Recurring breaks (all weekdays — a tiny table) so the day AND 3-day views
     // can both draw a subdued "Break" band without a per-day refetch. Best-effort:
     // a shop with no barber_breaks table/rows just shows no break bands.
@@ -1783,8 +1798,8 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   // One focus attempt per mounted date/view, not per fetch or responsive render.
   // Keep readiness live without changing the callback ref and re-arming a scroll.
   const focusKey = `${view}:${formatDateForDb(currentDate)}:${dayLayout}`;
-  const focusStateRef = useRef({ loading, isMobile });
-  focusStateRef.current = { loading, isMobile };
+  const focusStateRef = useRef({ loading, hoursReady });
+  focusStateRef.current = { loading, hoursReady };
   const timelineAnimatingRef = useRef(false);
   const focusCleanupRef = useRef<(() => void) | null>(null);
   const attachScroll = useCallback((el: HTMLDivElement | null) => {
@@ -1795,25 +1810,37 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     focusCleanupRef.current = startCalendarAutofocus(el, () => {
       // AnimatePresence can still hold the outgoing date's DOM. Never measure it
       // for the incoming date, or scroll while its entry transform is running.
-      if (el.dataset.focusKey !== focusKey || focusStateRef.current.loading || timelineAnimatingRef.current) return null;
+      if (el.dataset.focusKey !== focusKey || focusStateRef.current.loading || !focusStateRef.current.hoursReady || timelineAnimatingRef.current) return null;
       const grid = el.querySelector<HTMLElement>("[data-calendar-time-grid]");
       if (!grid) return null;
-      const date = new Date(`${focusKey.split(":")[1]}T00:00:00`);
-      const count = focusStateRef.current.isMobile ? 3 : 5;
-      const showsToday = view === "day" ? isToday(date)
-        : Array.from({ length: count }, (_, i) => addDays(date, i)).some(isToday);
-      if (!showsToday) return 0;
       const start = Number(grid.dataset.startHour);
       const end = Number(grid.dataset.endHour);
-      const now = new Date();
-      const hour = Math.max(start, Math.min(end, now.getHours() + now.getMinutes() / 60));
-      // Use the whole grid, not the optional red line: after closing, focus the
-      // end of today instead of falling back to the morning when the line hides.
+      const hour = Number(grid.dataset.landingHour);
+      // Morning starts align near the top; today's time is centred. This only
+      // measures during the initial attempt, never after user takeover.
       return grid.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop
-        + ((hour - start) / (end - start)) * grid.offsetHeight;
+        + ((hour - start) / (end - start)) * grid.offsetHeight
+        + (grid.dataset.landingAlign === "start" ? el.clientHeight / 2 - 8 : 0);
     });
   }, [focusKey, view]);
   useEffect(() => () => focusCleanupRef.current?.(), []);
+
+  const focusNow = () => {
+    focusCleanupRef.current?.();
+    const el = scrollRef.current;
+    const grid = el?.querySelector<HTMLElement>("[data-calendar-time-grid]");
+    if (!el || !grid) return;
+    const target = grid.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop
+      + (nowMinutesInTz(shopTz) / 1440) * grid.offsetHeight;
+    el.scrollTop = calendarFocusTop(target, el.clientHeight, el.scrollHeight);
+  };
+
+  const landingFor = (dates: string[], barberIds: string[]) => {
+    const starts = appointments.filter(a => dates.includes(a.date) && !!a.barber_id && barberIds.includes(a.barber_id) && !freesSlot(a)).map(a => parseTime(a.time_slot));
+    const weekdays = dates.map(date => new Date(`${date}T00:00:00`).getDay());
+    weeklyHours.filter(s => barberIds.includes(s.barber_id) && weekdays.includes(s.day_of_week)).forEach(s => starts.push(hourOfDb(s.start_time)));
+    return calendarLandingHour(dates.includes(shopToday), shopHour, starts);
+  };
 
   // Measure the day-columns area so we can page however many barber columns fit.
   useEffect(() => {
@@ -2726,10 +2753,8 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
             </button>
           );
         })()}
-        <div ref={attachScroll} data-focus-key={focusKey} className="overflow-y-auto overflow-x-hidden flex-1 min-h-0" style={{ overflowAnchor: "none" }}>
-          <div>
             {!single && (
-            <div className="grid sticky top-0 z-10 bg-background border-b border-border" style={{ gridTemplateColumns: `56px repeat(${cols.length}, minmax(0, 1fr))` }}>
+            <div className="grid shrink-0 z-10 bg-background border-b border-border" style={{ gridTemplateColumns: `56px repeat(${cols.length}, minmax(0, 1fr))` }}>
               {/* "All barbers" — focused here since we're in the all-barbers view */}
               <button type="button" onClick={() => setBarberFilter("all")}
                 className="flex items-center justify-center py-1.5 transition-colors hover:bg-card-raised">
@@ -2755,7 +2780,8 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
             </div>
             )}
 
-          <div className="relative" data-calendar-time-grid data-start-hour={winStart} data-end-hour={winEnd}>
+        <div ref={attachScroll} data-focus-key={focusKey} className="overflow-y-auto overflow-x-hidden overscroll-y-contain flex-1 min-h-0" style={{ overflowAnchor: "none" }}>
+          <div className="relative" data-calendar-time-grid data-start-hour={winStart} data-end-hour={winEnd} data-landing-hour={landingFor([dateStr], cols.map(b => b.id))} data-landing-align={dateStr === shopToday ? "center" : "start"}>
             {hours.map(hour => (
               <div key={hour} className="grid border-b border-border relative" style={{ gridTemplateColumns: `56px repeat(${cols.length}, minmax(0, 1fr))`, height: `${rowH}px` }}>
                 <div className="relative text-right pr-2">
@@ -2922,9 +2948,8 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
               })}
             </div>
 
-            {isToday(currentDate) && (() => {
-              const now = new Date();
-              const currentH = now.getHours() + now.getMinutes() / 60;
+            {dateStr === shopToday && (() => {
+              const currentH = shopHour;
               if (currentH < winStart || currentH > winEnd) return null;
               const top = (currentH - winStart) * rowH;
               return (
@@ -2939,14 +2964,13 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
               );
             })()}
           </div>
-          </div>
         </div>
       </div>
     );
   };
 
   // ── MULTI-DAY ("3-Day") VIEW ────────────────────────────────────────────────
-  // One barber across a window of consecutive days (3 on phones, 5 on desktop).
+  // One barber across three consecutive days on every screen size.
   // Columns are DAYS instead of barbers, but it reuses the day view's proven
   // helpers (windowEmpties / blocksFor / layoutColumn) so behaviour matches and
   // the single-day renderer stays untouched. All data is already in memory.
@@ -2964,14 +2988,13 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     const gridWin = { start: `${String(winStart).padStart(2, "0")}:00:00`, end: `${String(winEnd).padStart(2, "0")}:00:00` };
 
     const gridCols = `48px repeat(${multiDayCount}, minmax(0, 1fr))`;
-    const anyToday = multiDays.some(isToday);
+    const anyToday = dayStrs.includes(shopToday);
 
     return (
       <div className="flex flex-col h-full min-h-0">
-        <div ref={attachScroll} data-focus-key={focusKey} className="overflow-auto flex-1 min-h-0" style={{ overflowAnchor: "none" }}>
           {/* Day headers — tap a day to open it in your day-level view (re-anchors
               the 3-Day window to start on that day). */}
-          <div className="grid sticky top-0 z-10 bg-background border-b border-border" style={{ gridTemplateColumns: gridCols }}>
+          <div className="grid shrink-0 z-10 bg-background border-b border-border" style={{ gridTemplateColumns: gridCols }}>
             <div />
             {multiDays.map(day => {
               const ds = formatDateForDb(day);
@@ -2996,7 +3019,8 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
             })}
           </div>
 
-          <div className="relative" data-calendar-time-grid data-start-hour={winStart} data-end-hour={winEnd}>
+        <div ref={attachScroll} data-focus-key={focusKey} className="overflow-auto overscroll-y-contain flex-1 min-h-0" style={{ overflowAnchor: "none" }}>
+          <div className="relative" data-calendar-time-grid data-start-hour={winStart} data-end-hour={winEnd} data-landing-hour={landingFor(dayStrs, [barber.id])} data-landing-align={anyToday ? "center" : "start"}>
             {hours.map(hour => (
               <div key={hour} className="grid border-b border-border" style={{ gridTemplateColumns: gridCols, height: `${ROW_PX}px` }}>
                 <div className="text-[10px] text-grey text-right pr-2 pt-1">
@@ -3083,8 +3107,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
 
             {/* Current-time line — drawn if any visible day is today. */}
             {anyToday && (() => {
-              const now = new Date();
-              const currentH = now.getHours() + now.getMinutes() / 60;
+              const currentH = shopHour;
               if (currentH < winStart || currentH > winEnd) return null;
               const top = (currentH - winStart) * ROW_PX;
               return (
@@ -3397,10 +3420,10 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   const dayBarberId = forceBarberId ?? (barberFilter !== "all" ? barberFilter : (myBarberId ?? scheduledBarbers[0]?.id ?? orderedBarbers[0]?.id ?? null));
 
   // Multi-day ("3-Day") view: one barber, a window of consecutive days starting at
-  // currentDate — 3 columns on phones (readable width), 5 on bigger screens. All
+  // currentDate — the selected day and the next two days on every screen. All
   // the data is already loaded (the day-view fetch pulls ~3 weeks), so this is a
   // pure render over what's in memory.
-  const multiDayCount = isMobile ? 3 : 5;
+  const multiDayCount = 3;
   const multiDays = Array.from({ length: multiDayCount }, (_, i) => addDays(currentDate, i));
   const multiBarber = barbers.find(b => b.id === dayBarberId) ?? null;
 
@@ -3501,7 +3524,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   return (
     // data-no-swipe: the calendar owns horizontal gestures (day/month/year
     // swipe), so the app-level page swipe-navigator must not fire inside it.
-    <div data-no-swipe className={cn("flex flex-col h-full bg-background text-foreground overflow-x-clip", embedded && "min-h-[100dvh]")}>
+    <div data-no-swipe className={cn("flex flex-col h-full min-h-0 bg-background text-foreground overflow-hidden", embedded && "min-h-[100dvh]")}>
       {/* Header — ONE unified row: date hero (left) · calendar controls +
           universal bell/avatar (right). We fold the bell+avatar into this
           toolbar (owner standalone only, via HeaderControls) instead of a
@@ -3510,7 +3533,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
           calendar whose real title IS the date shown here. On mobile the
           sidebar's fixed top bar still carries the bell+avatar (HeaderControls
           is max-lg:hidden), so nothing doubles up. */}
-      <div className="border-b border-border px-4 sm:px-6 py-2 lg:pt-4 flex items-center justify-between gap-3">
+      <div className="shrink-0 border-b border-border px-4 sm:px-6 py-2 lg:pt-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-1.5 min-w-0">
           {backLabel && (
             <button onClick={goBack} aria-label={`Back to ${backLabel}`}
@@ -3626,8 +3649,11 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
               <Plus size={16} />
             </button>
           )}
-          {!onToday && (
-            <button onClick={() => { setNavDir(0); setCurrentDate(new Date()); }}
+          {(view === "day" && dayLayout === "timeline" && formatDateForDb(currentDate) === shopToday || view === "multiday" && multiDays.some(day => formatDateForDb(day) === shopToday)) && (
+            <button type="button" onClick={focusNow} aria-label="Scroll to current time" className="px-2.5 py-1.5 text-xs font-medium text-[#ccc] border border-border bg-card-raised rounded-lg">Now</button>
+          )}
+          {(!onToday || view === "multiday" && formatDateForDb(currentDate) !== shopToday) && (
+            <button onClick={() => { setNavDir(0); setCurrentDate(new Date(`${shopToday}T00:00:00`)); }}
               className="px-2.5 py-1.5 text-xs font-medium text-[#ccc] border border-border bg-card-raised rounded-lg hover:bg-surface-overlay hover:text-foreground transition-colors">
               Today
             </button>

@@ -81,6 +81,21 @@ function editor(action) {
   assert.deepEqual((await snapshot(-1, false, true)).appointments, ['previous']);
   const staleRead = await snapshot(-1, true); assert.equal(staleRead.error, 'previous error'); assert.equal(staleRead.loading, true);
   const goodRead = await snapshot(-1); assert.deepEqual(goodRead.appointments, [0]); assert.deepEqual(goodRead.timeOff, [3]); assert.equal(goodRead.error, '');
+  // Exercise the actual weekly-hours query and mapping without a live database.
+  const hoursStart = source.indexOf('    if (!shop || barbers.length === 0) { setSchedules');
+  const hoursEnd = source.indexOf('    // Recurring breaks', hoursStart);
+  const hoursCode = compile(`function readHours() { ${source.slice(hoursStart, hoursEnd)} }`);
+  for (const error of [null, { message: 'unavailable' }]) {
+    const rows = [{ barber_id: 'one', day_of_week: 1, start_time: '06:00', end_time: '18:00' }, { barber_id: 'one', day_of_week: 2, start_time: '05:00', end_time: '18:00' }];
+    const state = {}, calls = [];
+    const query = { select(value) { calls.push(['select', value]); return this; }, in(key, ids) { calls.push(['in', key, ids]); return this; }, eq(key, value) { calls.push(['eq', key, value]); return this; }, then(callback) { callback({ data: error ? null : rows, error }); } };
+    const env = { shop: { id: 'shop' }, barbers: [{ id: 'one' }], currentDate: new Date('2026-09-21T12:00:00'), supabase: { from: () => query }, setSchedules: value => { state.schedules = value; }, setWeeklyHours: value => { state.week = value; }, setHoursReady: value => { state.ready = value; } };
+    new Function(...Object.keys(env), `${hoursCode}; readHours();`)(...Object.values(env));
+    assert(calls.some(call => call[0] === 'in' && call[1] === 'barber_id' && call[2][0] === 'one'));
+    assert(!calls.some(call => call[0] === 'eq' && call[1] === 'day_of_week'));
+    assert.equal(state.ready, true); assert.equal(state.week.length, error ? 0 : 2);
+    if (!error) assert.equal(state.schedules.get('one').start, '06:00');
+  }
   assert.match(source, /apptsErr \|\| barbersErr \|\| blocksErr \|\| timeOffErr/);
   assert.match(source, /seq === loadSeqRef.current\) setLoadError/);
   assert.match(source, /Retry calendar/);

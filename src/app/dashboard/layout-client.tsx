@@ -163,12 +163,12 @@ export default function DashboardLayoutClient({ children, native }: { children: 
           main's background follows the active page so that spacer is the page's
           own color — no separate bar. The calendar pins its own sunken canvas so
           the spacer matches it; everything else uses the calm page background. */}
-      <main className={`cw-main lg:ml-64 pt-[calc(3.5rem+env(safe-area-inset-top))] lg:pt-0 ${isCalendar ? "pb-[calc(4.25rem+env(safe-area-inset-bottom))]" : "pb-[calc(6rem+env(safe-area-inset-bottom))]"} lg:pb-0 ${isCalendar ? "bg-background h-[100lvh] overflow-hidden" : ""}`}>
+      <main className={`cw-main lg:ml-64 pt-[calc(3.5rem+env(safe-area-inset-top))] lg:pt-0 ${isCalendar ? "pb-[calc(4.25rem+env(safe-area-inset-bottom))]" : "pb-[calc(6rem+env(safe-area-inset-bottom))]"} lg:pb-0 ${isCalendar ? "bg-background fixed inset-0 h-[100dvh] flex flex-col overflow-hidden [&>div:not(.cw-swipe-clip)]:shrink-0" : ""}`}>
         <MaintenanceBanner />
         <TrialBanner native={native} />
         <StripeWarningBanner />
         <AddSelfBarberBanner />
-        <SwipeNavigator order={OWNER_SWIPE_ORDER}>
+        <SwipeNavigator order={OWNER_SWIPE_ORDER} contained={isCalendar}>
           {isCalendar ? children : <div className="mx-auto w-full max-w-6xl">{children}</div>}
         </SwipeNavigator>
       </main>

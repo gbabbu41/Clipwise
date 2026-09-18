@@ -3,7 +3,15 @@ const root = path.resolve(__dirname, '../..'), appReq = Module.createRequire(pat
 const filename = path.join(root, 'src/lib/calendar-autofocus.ts'), m = new Module(filename, module);
 m.filename = filename; m.require = appReq;
 m._compile(ts.transpileModule(fs.readFileSync(filename, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, filename);
-const { fullDayCalendarWindow, calendarFocusTop, startCalendarAutofocus } = m.exports;
+const { calendarLandingHour, fullDayCalendarWindow, calendarFocusTop, startCalendarAutofocus } = m.exports;
+assert.equal(calendarLandingHour(true, 22.5, [5, 9]), 22.5);
+assert.equal(calendarLandingHour(false, 22.5, []), 7);
+assert.equal(calendarLandingHour(false, 22.5, [9, 10]), 7);
+assert.equal(calendarLandingHour(false, 22.5, [6.5, 9]), 6.5);
+assert.equal(calendarLandingHour(false, 22.5, [0, 6]), 0);
+assert.equal(calendarLandingHour(false, 22.5, [NaN, -1, 25]), 7);
+// Morning starts are near the top, not centred several hours earlier.
+assert.equal(calendarFocusTop(7 * 62 + 400 / 2 - 8, 400, 1488), 426);
 const dayWindow = fullDayCalendarWindow();
 assert.equal(dayWindow.winStart, 0); assert.equal(dayWindow.winEnd, 24);
 assert.deepEqual(dayWindow.hours, Array.from({ length: 24 }, (_, hour) => hour));
@@ -71,4 +79,14 @@ assert(!source.includes('lastProgScrollRef')); assert(!source.includes('[50, 400
 assert(source.includes('onAnimationComplete')); assert(source.includes('el.dataset.focusKey !== focusKey'));
 assert.equal((source.match(/const \{ winStart, winEnd, hours \} = fullDayCalendarWindow\(\)/g) || []).length, 2);
 assert(!source.includes('Math.max(winEnd, 22)'));
+assert(source.includes('const multiDayCount = 3;'));
+assert(source.includes('data-landing-align={anyToday ? "center" : "start"}'));
+assert(source.includes('!focusStateRef.current.hoursReady'));
+assert(source.includes('aria-label="Scroll to current time"'));
+assert(source.includes('const currentH = shopHour;'));
+for (const file of ['src/app/dashboard/layout-client.tsx', 'src/app/barber-dashboard/layout.tsx']) {
+  const layout = fs.readFileSync(path.join(root, file), 'utf8');
+  assert(layout.includes('fixed inset-0 h-[100dvh] flex flex-col overflow-hidden'));
+  assert(layout.includes('contained={isCalendar}'));
+}
 console.log('PASS calendar one-shot focus, late-night bounds, user takeover without grace period, loading/animation geometry, background/detach cleanup and day/multiday integration');

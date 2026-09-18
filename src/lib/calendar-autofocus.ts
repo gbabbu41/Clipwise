@@ -9,6 +9,11 @@ export function calendarFocusTop(target: number, viewport: number, content: numb
   return Math.max(0, Math.min(Math.max(0, content - viewport), target - viewport / 2));
 }
 
+export function calendarLandingHour(showsToday: boolean, currentHour: number, starts: number[]): number {
+  if (showsToday) return Math.max(0, Math.min(24, currentHour));
+  return Math.min(7, ...starts.filter(hour => Number.isFinite(hour) && hour >= 0 && hour < 24));
+}
+
 export function startCalendarAutofocus(el: HTMLElement, measure: () => number | null): () => void {
   let frame: number | null = null;
   let stopped = false;

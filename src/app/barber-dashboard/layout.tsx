@@ -34,7 +34,7 @@ function BarberSwipe({ isCalendar, children }: { isCalendar: boolean; children: 
     h !== "/barber-dashboard/earnings" || perms?.view_earnings !== false,
   );
   return (
-    <SwipeNavigator order={order}>
+    <SwipeNavigator order={order} contained={isCalendar}>
       {isCalendar ? children : <div className="mx-auto w-full max-w-6xl">{children}</div>}
     </SwipeNavigator>
   );
@@ -166,7 +166,7 @@ export default function BarberDashboardLayout({ children }: { children: React.Re
               below lg (so iPad shows the dismissible drawer, not a stuck sidebar).
               pt-14 reserves the mobile top-bar height. The full-bleed calendar
               pins its own sunken canvas, so the top spacer matches it there. */}
-          <main className={`cw-main lg:ml-64 pt-[calc(3.5rem+env(safe-area-inset-top))] lg:pt-0 ${isCalendar ? "pb-[calc(4.25rem+env(safe-area-inset-bottom))]" : "pb-24"} lg:pb-0 ${isCalendar ? "bg-background h-[100lvh] overflow-hidden" : ""}`}>
+          <main className={`cw-main lg:ml-64 pt-[calc(3.5rem+env(safe-area-inset-top))] lg:pt-0 ${isCalendar ? "pb-[calc(4.25rem+env(safe-area-inset-bottom))]" : "pb-24"} lg:pb-0 ${isCalendar ? "bg-background fixed inset-0 h-[100dvh] flex flex-col overflow-hidden" : ""}`}>
             <BarberSwipe isCalendar={isCalendar}>{children}</BarberSwipe>
           </main>
           <BarberMobileNav />

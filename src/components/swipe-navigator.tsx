@@ -40,8 +40,9 @@ function labelFor(pathname: string): string {
 export function SwipeNavigator({
   order,
   children,
+  contained = false,
   ...config
-}: { children: React.ReactNode } & Omit<SwipeNavConfig, "order"> & { order: string[] }) {
+}: { children: React.ReactNode; contained?: boolean } & Omit<SwipeNavConfig, "order"> & { order: string[] }) {
   const ref = useRef<HTMLDivElement>(null);
   useSwipeNavigation(ref, { order, ...config });
 
@@ -57,7 +58,7 @@ export function SwipeNavigator({
   }, [pathname]);
 
   return (
-    <div className="cw-swipe-clip overflow-x-clip h-full">
+    <div className={contained ? "cw-swipe-clip flex-1 min-h-0 overflow-hidden" : "cw-swipe-clip overflow-x-clip h-full"}>
       <div ref={ref} className="cw-swipe-root h-full">
         {children}
       </div>
