@@ -49,7 +49,7 @@ async function sendEmail(type: string, data: Record<string, unknown>) {
   for (const [k, v] of Object.entries(data)) {
     if (v != null) strData[k] = String(v);
   }
-  await sendAppEmail(type, strData).then(null, () => null);
+  return sendAppEmail(type, strData).then(null, () => null);
 }
 
 type ClientRow = {
@@ -271,7 +271,8 @@ async function run() {
     // (completed, or confirmed-and-past — never cancelled/no-show/pending). This
     // is what finally covers CASH / in-person visits the barber never taps
     // "Complete" on. review_request_sent_at (set here AND by the immediate
-    // Complete-button / online-paid sends) guarantees a customer is asked once.
+    // Complete-button / online-paid sends) avoids a repeat on a later run.
+    // Concurrent sends still need a separate atomic claim/delivery design.
     if (sends < MAX_SENDS) {
       const yesterday = shiftYmd(today, -1);
       const { data: visited } = await supabaseAdmin
@@ -284,7 +285,7 @@ async function run() {
       for (const a of visited ?? []) {
         if (sends >= MAX_SENDS) break;
         if (!a.client_email) continue;
-        await sendEmail("review_request", {
+        const handled = await sendEmail("review_request", {
           clientName: a.client_name ?? "there", clientEmail: a.client_email,
           shopName: shop.name, shopEmail: shop.email,
           barberName: a.barber_id ? (barberNameById.get(a.barber_id) ?? "Your barber") : "Your barber",
@@ -293,9 +294,15 @@ async function run() {
           appointmentId: a.id,
           googlePlaceId: (shop as { google_place_id?: string }).google_place_id ?? "",
         });
-        await supabaseAdmin.from("appointments")
-          .update({ review_request_sent_at: new Date().toISOString() }).eq("id", a.id).then(null, () => null);
-        emails++; sends++;
+        sends++; // Keep failed attempts inside the existing safety cap.
+        // Sender success is provider acceptance OR existing already-reviewed
+        // suppression, not confirmed inbox delivery. Do not stamp a rejection.
+        if (handled && "success" in handled && handled.success) {
+          const recorded = await supabaseAdmin.from("appointments")
+            .update({ review_request_sent_at: new Date().toISOString() }).eq("id", a.id).then(null, () => null);
+          if (!recorded || recorded.error) console.warn("[reminders-review] Could not record handled review request");
+          emails++;
+        }
       }
     }
 
