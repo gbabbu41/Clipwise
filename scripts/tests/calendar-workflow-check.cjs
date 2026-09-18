@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const ts = require('typescript');
 const root = path.resolve(__dirname, '../..');
-const source = fs.readFileSync(path.join(root, 'src/components/calendar-view.tsx'), 'utf8');
+const source = fs.readFileSync(path.join(root, 'src/components/calendar-view.tsx'), 'utf8').replace(/\r\n/g, '\n');
 const compile = text => ts.transpileModule(text, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
 const helperExports = {};
 new Function('exports', compile(fs.readFileSync(path.join(root, 'src/lib/calendar-workflow.ts'), 'utf8')))(helperExports);
