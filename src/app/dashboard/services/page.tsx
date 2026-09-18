@@ -65,6 +65,8 @@ export default function ServicesPage() {
   const [showServiceModal, setShowServiceModal] = useState(false);
   const [editService, setEditService] = useState<Service | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const deletionInFlight = useRef(false);
   const [saving, setSaving] = useState(false);
   const serviceSaveInFlight = useRef(false);
   const activeShopId = useRef(shop?.id);
@@ -189,19 +191,33 @@ export default function ServicesPage() {
   };
 
   const deleteService = async (id: string) => {
-    // Check for upcoming appointments
-    const today = new Date().toISOString().split("T")[0];
-    const { count } = await supabase.from("appointments").select("id", { count: "exact", head: true })
-      .eq("service_id", id).gte("date", today).in("status", ["pending", "confirmed"]);
-    if (count && count > 0) {
-      showToast(`Cannot delete — has ${count} upcoming booking${count > 1 ? "s" : ""}`);
+    if (!shop || deletionInFlight.current) return;
+    deletionInFlight.current = true;
+    setDeleting(true);
+    try {
+      // A failed check is not evidence that deletion is safe.
+      const today = new Date().toISOString().split("T")[0];
+      const { count, error: readError } = await supabase.from("appointments").select("id", { count: "exact", head: true })
+        .eq("shop_id", shop.id).eq("service_id", id).gte("date", today).in("status", ["pending", "confirmed"]);
+      if (shop.id !== activeShopId.current) return;
+      if (readError || count == null) { showToast("Couldn't check upcoming bookings. Nothing was deleted; please try again."); return; }
+      if (count > 0) {
+        showToast(`Cannot delete — has ${count} upcoming booking${count > 1 ? "s" : ""}`);
+        setDeleteConfirm(null);
+        return;
+      }
+      const { data, error } = await supabase.from("services").delete().eq("id", id).eq("shop_id", shop.id).select("id").maybeSingle();
+      if (shop.id !== activeShopId.current) return;
+      if (error || !data) { showToast("Couldn't confirm deletion. Refresh the service list before trying again."); return; }
+      setServices(prev => prev.filter(s => s.id !== id));
+      showToast("Service deleted.");
       setDeleteConfirm(null);
-      return;
+    } catch {
+      if (shop.id === activeShopId.current) showToast("Couldn't confirm deletion. Refresh the service list before trying again.");
+    } finally {
+      deletionInFlight.current = false;
+      setDeleting(false);
     }
-    const { error } = await supabase.from("services").delete().eq("id", id);
-    if (!error) { setServices(prev => prev.filter(s => s.id !== id)); showToast("Service deleted."); }
-    else showToast("Error: " + error.message);
-    setDeleteConfirm(null);
   };
 
   if (!shop) {
@@ -419,14 +435,14 @@ export default function ServicesPage() {
       {/* Delete Confirm */}
       {deleteConfirm && (
         <>
-          <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setDeleteConfirm(null)} />
+          <div className="fixed inset-0 bg-black/70 z-40" onClick={() => { if (!deletionInFlight.current) setDeleteConfirm(null); }} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
             <div className="bg-card shadow-sm border border-border rounded-2xl p-6 w-full max-w-sm space-y-4 text-center">
               <p className="text-lg font-bold text-foreground">Delete Service?</p>
               <p className="text-sm text-grey">This action cannot be undone.</p>
               <div className="flex gap-3">
-                <Button variant="outline" className="flex-1" onClick={() => setDeleteConfirm(null)}>Cancel</Button>
-                <Button variant="danger" className="flex-1" onClick={() => deleteService(deleteConfirm)}>Delete</Button>
+                <Button variant="outline" className="flex-1" disabled={deleting} onClick={() => setDeleteConfirm(null)}>Cancel</Button>
+                <Button variant="danger" className="flex-1" loading={deleting} onClick={() => deleteService(deleteConfirm)}>Delete</Button>
               </div>
             </div>
           </div>
