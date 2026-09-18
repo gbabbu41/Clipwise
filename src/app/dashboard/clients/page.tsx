@@ -51,6 +51,11 @@ export default function ClientsPage() {
   const [loading, setLoading] = useState(true);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [clientAppointments, setClientAppointments] = useState<AppointmentRow[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState("");
+  const historySequence = useRef(0);
+  const activeShopId = useRef(shop?.id);
+  activeShopId.current = shop?.id;
   const [notes, setNotes] = useState("");
   const [toast, setToast] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
@@ -195,7 +200,20 @@ export default function ClientsPage() {
     } catch { return null; }
   };
 
-  const openClient = async (client: Client) => {
+  useEffect(() => {
+    const sequence = historySequence;
+    setSelectedClient(null);
+    setClientAppointments([]);
+    setHistoryError("");
+    setHistoryLoading(false);
+    return () => { sequence.current++; };
+  }, [shop?.id]);
+
+  const openClient = async (client: Client, historyOnly = false) => {
+    if (!shop || client.shop_id !== shop.id || shop.id !== activeShopId.current) return;
+    const request = ++historySequence.current;
+    const isCurrent = () => request === historySequence.current && shop.id === activeShopId.current;
+    if (!historyOnly) {
     setSelectedClient(client);
     setNotes(client.notes ?? "");
     setActiveTab("overview");
@@ -203,6 +221,11 @@ export default function ClientsPage() {
     const hp = (client as Client & { hair_profile?: HairProfile }).hair_profile;
     setHairProfile(hp ?? BLANK_HAIR);
     setBirthday(client.birthday ?? "");
+    }
+    setClientAppointments([]);
+    setHistoryLoading(true);
+    setHistoryError("");
+    try {
     // Pull this person's appointments by ALL of their identifiers (name, email,
     // phone), then keep only the ones that truly share their identity — so the
     // history matches the visit count exactly (and a same-name stranger's
@@ -218,18 +241,20 @@ export default function ClientsPage() {
     if (client.phone?.trim())
       queries.push(supabase.from("appointments").select(FIELDS).eq("shop_id", sid).eq("client_phone", client.phone.trim()).order("date", { ascending: false }).limit(100));
     // Also pull anything hard-linked by the phase-36 client_id (catches a person
-    // who later changed BOTH their email and phone). Best-effort — this query
-    // just returns nothing if the migration isn't run yet.
+    // who later changed BOTH their email and phone). A failed read is surfaced
+    // rather than presenting incomplete history as a complete result.
     if (!client.id.startsWith("synthetic:"))
       queries.push(supabase.from("appointments").select(`${FIELDS}, client_id`).eq("shop_id", sid).eq("client_id", client.id).order("date", { ascending: false }).limit(100));
     const results = await Promise.all(queries);
+    if (!isCurrent()) return;
+    if (results.some(result => result.error)) {
+      setHistoryError("Couldn't load the full appointment history. Please try again.");
+      return;
+    }
     type Row = AppointmentRow & { client_id?: string | null; client_email?: string | null; client_phone?: string | null; client_name?: string | null };
     const seen = new Set<string>();
     const merged: Row[] = [];
-    for (const { data, error } of results) {
-      // The client_id query errors on shops without phase-36 (expected + handled);
-      // log any real failure instead of silently dropping that query's history.
-      if (error) { console.error("client history query failed:", error.message); continue; }
+    for (const { data } of results) {
       for (const a of ((data as unknown as Row[]) ?? [])) {
         if (!seen.has(a.id)) { seen.add(a.id); merged.push(a); }
       }
@@ -240,6 +265,11 @@ export default function ClientsPage() {
       .sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""))
       .slice(0, 50);
     setClientAppointments(rows as unknown as AppointmentRow[]);
+    } catch {
+      if (isCurrent()) setHistoryError("Couldn't load appointment history. Check your connection and try again.");
+    } finally {
+      if (isCurrent()) setHistoryLoading(false);
+    }
   };
 
   const saveNotes = async () => {
@@ -647,7 +677,7 @@ export default function ClientsPage() {
       )}
 
       {/* Client Profile Panel */}
-      {selectedClient && (
+      {selectedClient && selectedClient.shop_id === shop?.id && (
         <>
           <div className="fixed inset-0 bg-black/50 z-40" onClick={() => setSelectedClient(null)} />
           <div className="fixed right-0 top-0 h-full w-full max-w-md bg-card shadow-sm border-l border-border z-50 overflow-y-auto overscroll-contain px-6 pt-[calc(env(safe-area-inset-top)+1.5rem)] pb-[calc(env(safe-area-inset-bottom)+6rem)] lg:pb-6 space-y-5">
@@ -924,7 +954,14 @@ export default function ClientsPage() {
             {/* History tab */}
             {activeTab === "history" && (
               <div>
-                {clientAppointments.length === 0 ? (
+                {historyLoading ? (
+                  <p className="text-sm text-grey text-center py-8">Loading history…</p>
+                ) : historyError ? (
+                  <div role="alert" className="text-center py-8 space-y-3">
+                    <p className="text-sm text-grey">{historyError}</p>
+                    <Button variant="outline" onClick={() => openClient(selectedClient, true)}>Try again</Button>
+                  </div>
+                ) : clientAppointments.length === 0 ? (
                   <p className="text-sm text-grey text-center py-8">No appointments found</p>
                 ) : (
                   <div className="space-y-2">
