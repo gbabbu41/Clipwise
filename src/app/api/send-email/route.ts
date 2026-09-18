@@ -25,6 +25,54 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { type, data } = body as { type: string; data: Record<string, string> };
     let emailData = data;
+    let reviewAuthorized = false;
+    if (type === "review_request") {
+      if (!data || typeof data.appointmentId !== "string" ||
+          !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.appointmentId)) {
+        return NextResponse.json({ error: "Invalid appointment reference." }, { status: 400 });
+      }
+      const token = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
+      if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      const { data: userData, error: userError } = await supabaseAdmin.auth.getUser(token);
+      if (userError || !userData.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      const { data: profile, error: profileError } = await supabaseAdmin.from("users")
+        .select("role").eq("id", userData.user.id).maybeSingle();
+      if (profileError) return NextResponse.json({ error: "Unable to verify access." }, { status: 503 });
+      if (!profile || !["shop_owner", "barber", "super_admin"].includes(profile.role)) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+      const { data: appt, error: apptError } = await supabaseAdmin.from("appointments")
+        .select("id, shop_id, client_name, client_email, services(name), barbers(name)")
+        .eq("id", data.appointmentId).maybeSingle();
+      if (apptError) return NextResponse.json({ error: "Unable to verify appointment." }, { status: 503 });
+      if (!appt) return NextResponse.json({ error: "Appointment not found." }, { status: 404 });
+      let reviewShop: Record<string, unknown>;
+      if (profile.role === "super_admin") {
+        // Preserve this endpoint's existing verified platform-admin exception.
+        const { data: savedShop, error: shopError } = await supabaseAdmin.from("shops")
+          .select("id, name, email, slug, google_place_id").eq("id", appt.shop_id).maybeSingle();
+        if (shopError) return NextResponse.json({ error: "Unable to verify shop." }, { status: 503 });
+        if (!savedShop) return NextResponse.json({ error: "Shop not found." }, { status: 404 });
+        reviewShop = savedShop;
+      } else {
+        // Same completion permission as appointments/update and loyalty/award.
+        const auth = await authorizeShop(req, appt.shop_id, { permission: "manage_appointments" });
+        if ("error" in auth) return auth.error;
+        reviewShop = auth.shop;
+      }
+      if (!appt.client_email) return NextResponse.json({ error: "Appointment has no email recipient." }, { status: 400 });
+      const service = Array.isArray(appt.services) ? appt.services[0] : appt.services;
+      const barber = Array.isArray(appt.barbers) ? appt.barbers[0] : appt.barbers;
+      const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca").replace(/\/+$/, "");
+      emailData = {
+        clientName: appt.client_name ?? "", clientEmail: appt.client_email,
+        shopName: String(reviewShop.name ?? ""), shopEmail: String(reviewShop.email ?? ""),
+        barberName: barber?.name ?? "Your barber", serviceName: service?.name ?? "Your service",
+        reviewUrl: `${baseUrl}/book/${String(reviewShop.slug ?? "")}/review?booking=${appt.id}`,
+        appointmentId: appt.id, googlePlaceId: String(reviewShop.google_place_id ?? ""),
+      };
+      reviewAuthorized = true;
+    }
     // Browser messages must belong to this shop and a known recipient.
     // Birthday sends remain owner-only; direct messages also allow active staff.
     if (type === "birthday_wish" || type === "direct_message") {
@@ -100,7 +148,7 @@ export async function POST(req: NextRequest) {
 
     // Gate the abusable types so /api/send-email can't be used as an open
     // phishing/spam relay (arbitrary HTML/recipient or a login/invite link).
-    if (PRIVILEGED_EMAIL_TYPES.has(type)) {
+    if (PRIVILEGED_EMAIL_TYPES.has(type) && !reviewAuthorized) {
       const internal = req.headers.get("x-internal-secret");
       const okInternal = !!process.env.CRON_SECRET && internal === process.env.CRON_SECRET;
       let okStaff = false;
