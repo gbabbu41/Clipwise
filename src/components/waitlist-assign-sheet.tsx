@@ -57,7 +57,9 @@ export function WaitlistAssignSheet({
 }) {
   const [shown, setShown] = useState(false);
   const sheetRef = useRef<HTMLDivElement | null>(null);
-  const close = () => { setShown(false); setTimeout(onClose, 280); };
+  const bookingInFlight = useRef(false);
+  const bookingBlocked = useRef(false);
+  const close = () => { if (bookingInFlight.current) return; setShown(false); setTimeout(onClose, 280); };
   const { dragY, dragging } = useSheetDrag(sheetRef, close);
 
   const [loading, setLoading] = useState(true);
@@ -66,6 +68,7 @@ export function WaitlistAssignSheet({
   const [serviceId, setServiceId] = useState<string | null>(request.service_id ?? services?.[0]?.id ?? null);
   const [slot, setSlot] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [uncertain, setUncertain] = useState(false);
   const [err, setErr] = useState("");
   const showSwitch = allowBarberSwitch || !request.barber_id;
 
@@ -122,27 +125,39 @@ export function WaitlistAssignSheet({
   useEffect(() => { setSlot(s => (s && openSlots.includes(s) ? s : null)); }, [openSlots]);
 
   const book = async () => {
-    if (!barberId || !slot || busy) return;
+    if (!barberId || !slot || busy || bookingInFlight.current || bookingBlocked.current) return;
     if (services && services.length > 0 && !serviceId) { setErr("Pick a service."); return; }
+    bookingInFlight.current = true;
     setBusy(true); setErr("");
-    if (onBook) {
-      const error = await onBook({ barberId, slot, serviceId });
-      setBusy(false);
-      if (error) { setErr(error); return; }
-      onDone("Assigned · added to the schedule");
+    try {
+      if (onBook) {
+        const error = await onBook({ barberId, slot, serviceId });
+        if (error) { setErr(error); return; }
+        if (error !== null) throw new Error("Unconfirmed booking");
+      } else {
+        const r = await fetch("/api/waitlist/accept", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
+          body: JSON.stringify({ waitlist_id: request.id, barber_id: barberId, time_slot: slot, service_id: serviceId }),
+        });
+        const d = await r.json().catch(() => null);
+        if (r.status >= 500 || !d) throw new Error("Unconfirmed booking");
+        if (!r.ok || d.error) { setErr(typeof d.error === "string" ? d.error : "Couldn't book that slot."); return; }
+        if (d.ok !== true || typeof d.appointment_id !== "string" || !d.appointment_id) throw new Error("Unconfirmed booking");
+      }
+      // Keep repeat clicks blocked during the sheet's closing animation too.
+      bookingBlocked.current = true;
+      onDone(onBook ? "Assigned · added to the schedule" : "Booked · waitlist cleared");
+      bookingInFlight.current = false;
       close();
-      return;
+    } catch {
+      bookingBlocked.current = true;
+      setUncertain(true);
+      setErr("Could not confirm the booking. Close this form and refresh the calendar and waitlist before trying again; it may already be booked.");
+    } finally {
+      bookingInFlight.current = false;
+      setBusy(false);
     }
-    const r = await fetch("/api/waitlist/accept", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
-      body: JSON.stringify({ waitlist_id: request.id, barber_id: barberId, time_slot: slot, service_id: serviceId }),
-    });
-    const d = await r.json().catch(() => ({ error: "Network error" }));
-    setBusy(false);
-    if (!r.ok || d.error) { setErr(d.error || "Couldn't book that slot."); return; }
-    onDone("Booked · waitlist cleared");
-    close();
   };
 
   return (
@@ -162,7 +177,7 @@ export function WaitlistAssignSheet({
             {showSwitch && barbers.length > 1 && (
               <div className="mt-3">
                 <label className="text-[10px] font-semibold uppercase tracking-wider text-grey block mb-1">Barber</label>
-                <select value={barberId ?? ""} onChange={e => { setBarberId(e.target.value); setSlot(null); }}
+                <select disabled={busy || uncertain} value={barberId ?? ""} onChange={e => { setBarberId(e.target.value); setSlot(null); }}
                   className="w-full bg-card-raised border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-white [color-scheme:dark]">
                   {barbers.map(b => <option key={b.id} value={b.id}>{b.name}{b.fullDayOff ? " — off today" : ""}</option>)}
                 </select>
@@ -172,7 +187,7 @@ export function WaitlistAssignSheet({
             {services && services.length > 0 && (
               <div className="mt-3">
                 <label className="text-[10px] font-semibold uppercase tracking-wider text-grey block mb-1">Service</label>
-                <select value={serviceId ?? ""} onChange={e => setServiceId(e.target.value || null)}
+                <select disabled={busy || uncertain} value={serviceId ?? ""} onChange={e => setServiceId(e.target.value || null)}
                   className="w-full bg-card-raised border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-white [color-scheme:dark]">
                   <option value="">Select a service</option>
                   {services.map(s => <option key={s.id} value={s.id}>{s.name} — {formatCurrency(s.price)}</option>)}
@@ -189,7 +204,7 @@ export function WaitlistAssignSheet({
               ) : (
                 <div className="grid grid-cols-3 gap-2">
                   {openSlots.map(s => (
-                    <button key={s} type="button" onClick={() => setSlot(s)}
+                    <button key={s} type="button" disabled={busy || uncertain} onClick={() => setSlot(s)}
                       className={cn("py-2.5 rounded-lg text-sm font-medium border transition-colors",
                         slot === s ? "bg-white text-black border-white" : "bg-card-raised text-[#ccc] border-border hover:border-border")}>
                       {s}
@@ -201,7 +216,7 @@ export function WaitlistAssignSheet({
 
             {err && <p className="text-xs text-rose-400 mt-3">{err}</p>}
 
-            <button type="button" disabled={!slot || busy} onClick={book}
+            <button type="button" disabled={!slot || busy || uncertain} onClick={book}
               className="mt-4 w-full rounded-xl bg-[#00e5a0] text-black text-sm font-bold py-3 disabled:opacity-40 transition-opacity">
               {busy ? "Booking…" : slot ? `Book ${slot}` : "Pick a slot"}
             </button>

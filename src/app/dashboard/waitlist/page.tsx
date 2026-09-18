@@ -185,8 +185,10 @@ export default function WaitlistPage() {
       headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
       body: JSON.stringify({ waitlist_id: seatEntry.id, barber_id: barberId, time_slot: slot, service_id: serviceId }),
     });
-    const d = await r.json().catch(() => ({ error: "Network error" }));
-    if (!r.ok || d.error) return d.error || "Couldn't seat that walk-in.";
+    const d = await r.json().catch(() => null);
+    if (r.status >= 500 || !d) throw new Error("Unconfirmed booking");
+    if (!r.ok || d.error) return typeof d.error === "string" ? d.error : "Couldn't seat that walk-in.";
+    if (d.ok !== true || typeof d.appointment_id !== "string" || !d.appointment_id) throw new Error("Unconfirmed booking");
     const barberName = barbers.find(b => b.id === barberId)?.name ?? "barber";
     setConfirmedNotice({ name: seatEntry.client_name, barber: barberName });
     setTimeout(() => setConfirmedNotice(null), 2800);
@@ -262,7 +264,7 @@ export default function WaitlistPage() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-foreground uppercase tracking-wide">Walk-In Waitlist</h1>
-          <p className="text-sm text-grey mt-0.5">Manage today's walk-in queue</p>
+          <p className="text-sm text-grey mt-0.5">Manage today&apos;s walk-in queue</p>
         </div>
         <div className="flex gap-3">
           <button onClick={load} className="text-grey hover:text-foreground transition-colors p-2 rounded-xl hover:bg-card-raised">
@@ -444,7 +446,7 @@ export default function WaitlistPage() {
               onClick={() => setShowHistory(p => !p)}
               className="flex items-center justify-between w-full"
             >
-              <CardTitle>Today's History ({history.length})</CardTitle>
+              <CardTitle>Today&apos;s History ({history.length})</CardTitle>
               <span className="text-xs text-grey">{showHistory ? "Hide" : "Show"}</span>
             </button>
           </CardHeader>

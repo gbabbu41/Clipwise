@@ -4,7 +4,6 @@ import { Phone, Scissors, Clock, Bell, RefreshCw, ListOrdered, Check } from "luc
 import { useAuth } from "@/lib/auth-context";
 import { useBarber } from "@/lib/barber-context";
 import { supabase } from "@/lib/supabase";
-import { cn } from "@/lib/utils";
 import { WaitlistAssignSheet } from "@/components/waitlist-assign-sheet";
 import type { Service } from "@/lib/database.types";
 
@@ -81,8 +80,10 @@ export default function BarberWaitlistPage() {
       headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
       body: JSON.stringify({ waitlist_id: seatEntry.id, barber_id: barberId, time_slot: slot, service_id: serviceId }),
     });
-    const d = await r.json().catch(() => ({ error: "Network error" }));
-    if (!r.ok || d.error) return d.error || "Couldn't seat that walk-in.";
+    const d = await r.json().catch(() => null);
+    if (r.status >= 500 || !d) throw new Error("Unconfirmed booking");
+    if (!r.ok || d.error) return typeof d.error === "string" ? d.error : "Couldn't seat that walk-in.";
+    if (d.ok !== true || typeof d.appointment_id !== "string" || !d.appointment_id) throw new Error("Unconfirmed booking");
     return null;
   };
 
