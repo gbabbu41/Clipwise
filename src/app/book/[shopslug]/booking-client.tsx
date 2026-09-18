@@ -924,12 +924,18 @@ export default function BookingClient() {
     const inPersonSaveCard = method === "in_person" && payInPersonSavesCard;
     const useHold = false;                     // holds retired — pay-now charges now
     const useSaveCard = inPersonSaveCard;      // only the pay-at-shop card-on-file path saves
-    // Amount to send (server recomputes authoritatively): online pay-now charges the
-    // full total now; saved-card + in-person + free bookings charge nothing now.
-    const chargeAmount = useSaveCard ? 0 : total;
-    // Route to Stripe whenever a card is collected (online charge/hold/save, or the
-    // pay-in-person save-card path).
-    if (method === "online" || inPersonSaveCard || chargeAmount > 0) {
+    // Amount to send (server recomputes authoritatively): ONLY "pay online now"
+    // charges today. Pay-at-shop (with or without a saved card) and free bookings
+    // charge nothing now — so a Starter/no-Stripe shop's in-person booking must NOT
+    // carry a charge amount, or it gets wrongly routed to the online-checkout API
+    // and rejected ("Online payments require a paid plan"). This bit us when holds
+    // were dropped and the amount became `useSaveCard ? 0 : total`, which left a
+    // plain in-person booking charging the full total.
+    const chargeAmount = method === "online" ? total : 0;
+    // Route to Stripe only when a card is actually collected — an online charge, or
+    // the pay-in-person save-card (SetupIntent) path. A plain pay-at-shop booking
+    // (no card) skips Stripe entirely and books via /api/book/in-person below.
+    if (method === "online" || inPersonSaveCard) {
       try {
         const res = await fetch("/api/stripe/booking-checkout", {
           method: "POST",
