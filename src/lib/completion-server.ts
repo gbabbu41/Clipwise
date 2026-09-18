@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
 import { ensurePlansHydrated } from "@/lib/plans-server";
+import { sendAppEmail } from "@/lib/emailer";
 
 // Server-side completion effects — the same side-effects a manual "Complete"
 // runs client-side (loyalty award, client-stat bump, review-request email), but
@@ -77,14 +78,15 @@ export async function awardLoyaltyForAppointment(appointmentId: string): Promise
  *  a visit finished by paying a checkout link earns the same points, stat bump,
  *  and review nudge as one finished by tapping Complete. Never throws. */
 export async function runServerCompletionEffects(opts: { appointmentId: string; baseUrl: string }): Promise<void> {
-  const { appointmentId, baseUrl } = opts;
+  const { appointmentId } = opts;
+  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca").replace(/\/+$/, "");
   await awardLoyaltyForAppointment(appointmentId).catch(() => null);
 
-  const { data: appt } = await supabaseAdmin
+  const { data: appt, error: apptError } = await supabaseAdmin
     .from("appointments")
-    .select("id, shop_id, client_name, client_email, client_phone, date, total_amount, services(name), barbers(name)")
+    .select("id, shop_id, client_name, client_email, client_phone, date, total_amount, review_request_sent_at, services(name), barbers(name)")
     .eq("id", appointmentId).maybeSingle();
-  if (!appt) return;
+  if (apptError || !appt) return;
   const { data: shop } = await supabaseAdmin
     .from("shops").select("id, name, email, slug, google_place_id").eq("id", appt.shop_id).maybeSingle();
   if (!shop) return;
@@ -125,25 +127,23 @@ export async function runServerCompletionEffects(opts: { appointmentId: string; 
   if (appt.client_email && !(appt as { review_request_sent_at?: string | null }).review_request_sent_at) {
     const svcName = Array.isArray(appt.services) ? (appt.services[0]?.name ?? "") : ((appt.services as { name?: string } | null)?.name ?? "");
     const barberName = Array.isArray(appt.barbers) ? (appt.barbers[0]?.name ?? "Your barber") : ((appt.barbers as { name?: string } | null)?.name ?? "Your barber");
-    await fetch(`${baseUrl}/api/send-email`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        type: "review_request",
-        data: {
-          clientName: appt.client_name,
-          clientEmail: appt.client_email,
-          shopName: shop.name,
-          shopEmail: shop.email ?? "",
-          barberName,
-          serviceName: svcName || "Your service",
-          reviewUrl: `${baseUrl}/book/${shop.slug}/review?booking=${appt.id}`,
-          appointmentId: appt.id,
-          googlePlaceId: shop.google_place_id ?? "",
-        },
-      }),
+    const sent = await sendAppEmail("review_request", {
+      clientName: appt.client_name ?? "",
+      clientEmail: appt.client_email,
+      shopName: shop.name,
+      shopEmail: shop.email ?? "",
+      barberName,
+      serviceName: svcName || "Your service",
+      reviewUrl: `${baseUrl}/book/${shop.slug}/review?booking=${appt.id}`,
+      appointmentId: appt.id,
+      googlePlaceId: shop.google_place_id ?? "",
     }).catch(() => null);
-    await supabaseAdmin.from("appointments")
-      .update({ review_request_sent_at: new Date().toISOString() }).eq("id", appt.id).then(null, () => null);
+    // Success means provider acceptance OR the sender's existing already-reviewed
+    // suppression, never confirmed inbox delivery. Rejection must not mark sent.
+    if (sent && "success" in sent && sent.success) {
+      const recorded = await supabaseAdmin.from("appointments")
+        .update({ review_request_sent_at: new Date().toISOString() }).eq("id", appt.id).then(null, () => null);
+      if (!recorded || recorded.error) console.warn("[completion-review] Could not record handled review request");
+    }
   }
 }
