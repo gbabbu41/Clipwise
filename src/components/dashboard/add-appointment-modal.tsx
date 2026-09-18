@@ -84,6 +84,15 @@ export function AddAppointmentModal({
   const [barbers, setBarbers] = useState<BarberLite[]>([]);
   const [services, setServices] = useState<ServiceLite[]>([]);
   const [clients, setClients] = useState<ClientLite[]>([]);
+  const [resourcesLoading, setResourcesLoading] = useState(true);
+  const [resourcesError, setResourcesError] = useState("");
+  const [resourceAttempt, setResourceAttempt] = useState(0);
+  const [loadedResourceScope, setLoadedResourceScope] = useState("");
+  const resourceScope = `${shop?.id ?? ""}:${lockBarber?.id ?? ""}:${preferUserId ?? ""}`;
+  const activeResourceScope = useRef(resourceScope);
+  activeResourceScope.current = resourceScope;
+  const previousResourceScope = useRef(resourceScope);
+  const resourcesReady = open && !resourcesLoading && !resourcesError && loadedResourceScope === resourceScope;
   const [barberId, setBarberId] = useState("");
   const [serviceIds, setServiceIds] = useState<string[]>([]);
 
@@ -106,6 +115,15 @@ export function AddAppointmentModal({
     if (!lockBarber) setBarberId("");
   }, [lockBarber]);
 
+  // A location/account change must not carry this appointment draft into another scope.
+  useEffect(() => {
+    if (previousResourceScope.current === resourceScope) return;
+    previousResourceScope.current = resourceScope;
+    setOpen(false);
+    setShown(false);
+    reset();
+  }, [resourceScope, reset]);
+
   // Animated close: slide the sheet down, then unmount.
   const close = useCallback(() => {
     setShown(false);
@@ -119,6 +137,9 @@ export function AddAppointmentModal({
       const detail = (event as CustomEvent<NewAppointmentDetail | undefined>).detail;
       // A stale profile from another location must not prefill this shop's form.
       if (detail && (!shop || detail.shopId !== shop.id)) return;
+      setResourcesLoading(true);
+      setResourcesError("");
+      setLoadedResourceScope("");
       reset();
       if (!detail && shop) {
         const context = requestCalendarAddContext(shop.id);
@@ -153,32 +174,54 @@ export function AddAppointmentModal({
 
   // Load barbers + services + clients when the sheet opens.
   useEffect(() => {
-    if (!open || !shop) return;
-    if (lockBarber) {
-      setBarbers([lockBarber]);
-      setBarberId(lockBarber.id);
-    } else {
-      supabase.from("barbers").select("id, name, user_id").eq("shop_id", shop.id).eq("is_active", true).order("name")
-        .then(({ data }) => {
-          const b = (data ?? []) as BarberLite[];
-          const sorted = [...b].sort((x, y) => (x.user_id === preferUserId ? 0 : 1) - (y.user_id === preferUserId ? 0 : 1));
-          setBarbers(sorted);
-          // Default the barber to the logged-in user's own row — they're usually
-          // booking their own client. Only fills an empty pick (never overrides a
-          // manual choice); a non-barber owner gets no match → stays on "Select".
+    if (!open) return;
+    if (!shop) {
+      setResourcesLoading(false);
+      setResourcesError("Choose a shop before adding an appointment.");
+      setLoadedResourceScope("");
+      return;
+    }
+    let cancelled = false;
+    const current = () => !cancelled && activeResourceScope.current === resourceScope;
+    setResourcesLoading(true);
+    setResourcesError("");
+    setLoadedResourceScope("");
+    setBarbers([]);
+    setServices([]);
+    setClients([]);
+    (async () => {
+      try {
+        const [barberResult, serviceResult, clientResult] = await Promise.all([
+          lockBarber ? Promise.resolve({ data: [lockBarber], error: null }) :
+            supabase.from("barbers").select("id, name, user_id").eq("shop_id", shop.id).eq("is_active", true).order("name"),
+          supabase.from("services").select("id, name, price, duration_minutes").eq("shop_id", shop.id).order("name"),
+          // Keep existing RLS-scoped client visibility and search limit.
+          supabase.from("clients").select("id, name, phone, email, total_visits").eq("shop_id", shop.id).order("total_visits", { ascending: false }).limit(500),
+        ]);
+        if (!current()) return;
+        if (barberResult.error || serviceResult.error || clientResult.error || !barberResult.data || !serviceResult.data || !clientResult.data) {
+          throw new Error("Appointment options lookup failed");
+        }
+        const b = barberResult.data as BarberLite[];
+        const sorted = [...b].sort((x, y) => (x.user_id === preferUserId ? 0 : 1) - (y.user_id === preferUserId ? 0 : 1));
+        setBarbers(sorted);
+        setServices(serviceResult.data as ServiceLite[]);
+        setClients(clientResult.data as ClientLite[]);
+        if (lockBarber) setBarberId(lockBarber.id);
+        else {
           const mine = sorted.find(x => !!preferUserId && x.user_id === preferUserId);
           if (mine) setBarberId(prev => prev || mine.id);
-        });
-    }
-    supabase.from("services").select("id, name, price, duration_minutes").eq("shop_id", shop.id).order("name")
-      .then(({ data }) => setServices((data ?? []) as ServiceLite[]));
-    // Clients for the search. RLS scopes this: the owner sees the whole book; a
-    // barber only sees clients they've served (phase43) — safe either way.
-    supabase.from("clients").select("id, name, phone, email, total_visits").eq("shop_id", shop.id).order("total_visits", { ascending: false }).limit(500)
-      .then(({ data }) => setClients((data ?? []) as ClientLite[]));
+        }
+        setLoadedResourceScope(resourceScope);
+      } catch {
+        if (current()) setResourcesError("Couldn't load appointment options. Please retry before booking.");
+      } finally {
+        if (current()) setResourcesLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, shop?.id, lockBarber, preferUserId]);
-
+  }, [open, shop?.id, lockBarber, preferUserId, resourceScope, resourceAttempt]);
   // One-barber shop: auto-select the sole barber (shown as a fixed chip, no picker).
   useEffect(() => {
     if (lockBarber) return;
@@ -295,6 +338,7 @@ export function AddAppointmentModal({
   }, [slotStatuses, time]);
 
   const submit = async () => {
+    if (!resourcesReady) return;
     if (!shop) return;
     if (!barberId) { showToast("Pick a barber"); return; }
     const name = query.trim();
@@ -368,7 +412,7 @@ export function AddAppointmentModal({
               <div className="flex items-center justify-between gap-2 pt-1 pb-1">
                 <h2 className="text-xl font-extrabold tracking-tight text-foreground truncate">New appointment</h2>
                 <div className="flex items-center gap-2 flex-none">
-                  {fixedBarber && (
+                  {resourcesReady && fixedBarber && (
                     <span className="inline-flex items-center gap-1.5 max-w-[8.5rem] bg-card-raised border border-border text-grey text-xs font-semibold px-2.5 py-1 rounded-full">
                       <Scissors size={12} className="flex-none" /> <span className="truncate">{fixedBarber.name}</span>
                     </span>
@@ -377,6 +421,12 @@ export function AddAppointmentModal({
                 </div>
               </div>
 
+              {!resourcesReady ? (
+                <div className="py-6 text-sm text-grey" role={resourcesError ? "alert" : "status"}>
+                  <p>{resourcesError || "Loading appointment options…"}</p>
+                  {resourcesError && <Button variant="outline" className="mt-3" onClick={() => setResourceAttempt(value => value + 1)}>Retry loading</Button>}
+                </div>
+              ) : (<>
               {/* Barber picker — only when the owner has several to choose from. */}
               {!fixedBarber && (
                 <div className="mb-3.5 mt-1">
@@ -502,10 +552,11 @@ export function AddAppointmentModal({
                 </p>
               )}
 
+              </>)}
               {/* Sticky action bar */}
               <div className="sticky bottom-0 -mx-5 px-5 pt-3 mt-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] bg-card border-t border-border flex gap-3">
                 <Button variant="outline" className="flex-1" disabled={saving} onClick={close}>Cancel</Button>
-                <Button className="flex-1" loading={saving} onClick={submit}>Add</Button>
+                <Button className="flex-1" loading={saving} disabled={!resourcesReady} onClick={submit}>Add</Button>
               </div>
             </div>
           </div>
