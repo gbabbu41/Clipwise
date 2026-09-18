@@ -74,6 +74,8 @@ export default function ClientsPage() {
   const [editField, setEditField] = useState<null | "phone" | "email">(null);
   const [fieldDraft, setFieldDraft] = useState("");
   const [savingField, setSavingField] = useState(false);
+  const profileState = useRef({ clientId: selectedClient?.id, editField, fieldDraft });
+  profileState.current = { clientId: selectedClient?.id, editField, fieldDraft };
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
@@ -281,20 +283,21 @@ export default function ClientsPage() {
     const { error } = await supabase.from("clients").update({ notes }).eq("id", realId);
     setSaving(false);
     if (error) { showToast("Error saving notes"); return; }
-    setSelectedClient(c => c ? { ...c, id: realId, notes } : c);
+    setSelectedClient(c => c && (c.id === prevId || c.id === realId) ? { ...c, id: realId, notes } : c);
     setClients(prev => prev.map(c => c.id === prevId ? { ...c, id: realId, notes } : c));
     showToast("Notes saved!");
   };
 
   const saveHairProfile = async () => {
     if (!selectedClient) return;
+    const prevId = selectedClient.id;
     setSavingHair(true);
     const realId = await ensureRealClient(selectedClient);
     if (!realId) { setSavingHair(false); showToast("Couldn't save hair profile — please try again."); return; }
     const { error } = await supabase.from("clients").update({ hair_profile: hairProfile }).eq("id", realId);
     setSavingHair(false);
     if (error) { showToast("Error saving hair profile"); return; }
-    setSelectedClient(c => c ? { ...c, id: realId } : c);
+    setSelectedClient(c => c && (c.id === prevId || c.id === realId) ? { ...c, id: realId } : c);
     showToast("Hair profile saved!");
   };
 
@@ -307,7 +310,7 @@ export default function ClientsPage() {
     const { error } = await supabase.from("clients").update({ birthday }).eq("id", realId);
     setSavingBirthday(false);
     if (error) { showToast("Couldn't save birthday — please try again."); return; }
-    setSelectedClient(c => c ? { ...c, id: realId, birthday } : c);
+    setSelectedClient(c => c && (c.id === prevId || c.id === realId) ? { ...c, id: realId, birthday } : c);
     setClients(prev => prev.map(c => c.id === prevId ? { ...c, id: realId, birthday } : c));
     showToast("Birthday saved!");
   };
@@ -329,9 +332,12 @@ export default function ClientsPage() {
     const { error } = await supabase.from("clients").update(patch).eq("id", realId);
     setSavingField(false);
     if (error) { showToast("Couldn't save — please try again."); return; }
-    setSelectedClient(c => c ? { ...c, id: realId, ...patch } : c);
+    setSelectedClient(c => c && (c.id === prevId || c.id === realId) ? { ...c, id: realId, ...patch } : c);
     setClients(prev => prev.map(c => c.id === prevId ? { ...c, id: realId, ...patch } : c));
-    setEditField(null);
+    const current = profileState.current;
+    if ((current.clientId === prevId || current.clientId === realId) && current.editField === field && current.fieldDraft === fieldDraft) {
+      setEditField(null);
+    }
     showToast(field === "phone" ? "Phone saved!" : "Email saved!");
   };
 
@@ -374,7 +380,7 @@ export default function ClientsPage() {
     const { error } = await supabase.from("clients").update({ loyalty_points: newTotal }).eq("id", realId);
     setSaving(false);
     if (error) { showToast("Couldn't add points — please try again."); return; }
-    if (selectedClient?.id === addPointsClient.id) setSelectedClient(c => c ? { ...c, id: realId, loyalty_points: newTotal } : c);
+    setSelectedClient(c => c && (c.id === addPointsClient.id || c.id === realId) ? { ...c, id: realId, loyalty_points: newTotal } : c);
     showToast(`${pts > 0 ? "+" : ""}${pts} points · now ${newTotal}`);
     setAddPointsClient(null);
     loadClients({ background: true }); // list is already on screen — don't flash the skeleton

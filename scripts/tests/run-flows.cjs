@@ -11,6 +11,7 @@ execFileSync(process.execPath, [path.join(__dirname, 'promo-save-check.cjs')], {
 execFileSync(process.execPath, [path.join(__dirname, 'loyalty-loading-check.cjs')], { stdio: 'inherit' });
 execFileSync(process.execPath, [path.join(__dirname, 'loyalty-save-check.cjs')], { stdio: 'inherit' });
 execFileSync(process.execPath, [path.join(__dirname, 'client-history-check.cjs')], { stdio: 'inherit' });
+execFileSync(process.execPath, [path.join(__dirname, 'client-profile-save-check.cjs')], { stdio: 'inherit' });
 for (const file of ['billing-flow-check.cjs', 'trial-safety-check.cjs', 'subscription-confirm-check.cjs', 'billing-route-guards-check.cjs', 'plan-prompts-check.cjs', 'portal-revenue-check.cjs', 'analytics-check.cjs', 'earnings-inventory-check.cjs', 'schedule-guards-check.cjs', 'payments-ui-fees-check.cjs', 'dashboard-report-check.cjs', 'schedule-editor-check.cjs', 'subscription-cancel-check.cjs', 'subscription-webhook-check.cjs', 'subscription-reconcile-check.cjs', 'add-location-safety-check.cjs', 'trial-lifecycle-check.cjs', 'calendar-autofocus-check.cjs']) {
   execFileSync(process.execPath, [path.join(__dirname, file)], { stdio: 'inherit' });
 }
