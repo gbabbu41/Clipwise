@@ -67,39 +67,48 @@ export function SetupSheet({ step, onClose }: { step: "location" | "hours"; onCl
     }
   };
   const saveHours = async () => {
+    if (saveInFlight.current) return;
+    saveInFlight.current = true;
+    const context = saveContext.current;
+    const current = () => saveContext.current === context && activeScope.current === scopeId;
     setSaving(true); setError("");
     try {
       // Hours attach to a barber. A brand-new solo shop has none yet — add the
       // owner as their own chair first (same call the self-barber banner uses).
       const { data: existingBarbers, error: barbersError } = await supabase.from("barbers").select("id").eq("shop_id", shop.id);
+      if (!current()) return;
       let barbers = existingBarbers;
       if (barbersError || !barbers) throw new Error("Team lookup failed");
       if (barbers.length === 0) {
-        if (!user?.email || !accessToken) { setError("Session expired — please sign in again."); setSaving(false); return; }
+        if (!user?.email || !accessToken) { setError("Session expired — please sign in again."); return; }
         const res = await fetch("/api/admin/barber/invite", {
           method: "POST",
           headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
           body: JSON.stringify({ name: profile?.name || user.email.split("@")[0] || "Me", email: user.email, commission_percent: 0, shop_id: shop.id }),
         });
         const d = await res.json().catch(() => ({}));
-        if (!res.ok || typeof d.barber?.id !== "string" || !d.barber.id) { setError(d.error || "Couldn't set up your chair. Please try again."); setSaving(false); return; }
+        if (!current()) return;
+        if (!res.ok || typeof d.barber?.id !== "string" || !d.barber.id) { setError(d.error || "Couldn't set up your chair. Please try again."); return; }
         barbers = [{ id: d.barber.id }];
       }
       const slots = hours
         .map((h, idx) => h.open ? { day_of_week: idx, start_time: `${h.start}:00`, end_time: `${h.end}:00`, is_available: true } : null)
         .filter((x): x is { day_of_week: number; start_time: string; end_time: string; is_available: boolean } => x !== null);
       for (const b of barbers) {
+        if (!current()) return;
         const { error: deleteError } = await supabase.from("time_slots").delete().eq("barber_id", b.id);
+        if (!current()) return;
         if (deleteError) throw new Error("Hours deletion failed");
         if (slots.length) {
           const { error: e2 } = await supabase.from("time_slots").insert(slots.map(s => ({ ...s, barber_id: b.id })));
           if (e2) throw e2;
         }
       }
+      if (!current()) return;
       try { await refreshShop(); } catch { /* re-synced on next load */ }
-      onClose();
-    } catch { setError("Couldn't save your hours — please try again."); }
-    finally { setSaving(false); }
+      if (current()) onClose();
+    } catch { if (current()) setError("Couldn't save your hours — please review and retry."); }
+    finally { saveInFlight.current = false; if (current()) setSaving(false); }
   };
 
   return (

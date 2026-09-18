@@ -4,7 +4,7 @@ const start=source.indexOf('  const saveHours ='),end=source.indexOf('\n  return
 const code=ts.transpileModule(source.slice(start,end),{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText;
 function setup(mode='success',open=true){
   const state={writes:[],invites:[],closed:0,refreshes:0,busy:false,error:''};
-  const env={shop:{id:'shop'},user:{email:'owner@example.invalid'},profile:{name:'Owner'},accessToken:'token',hours:[{open,start:'09:00',end:'17:00'}],
+  const env={scopeId:'shop:hours',activeScope:{current:'shop:hours'},saveContext:{current:0},saveInFlight:{current:false},shop:{id:'shop'},user:{email:'owner@example.invalid'},profile:{name:'Owner'},accessToken:'token',hours:[{open,start:'09:00',end:'17:00'}],
     setSaving:value=>{state.busy=value;},setError:value=>{state.error=value;},refreshShop:async()=>{state.refreshes++;},onClose:()=>{state.closed++;},
     fetch:async(url,options)=>{state.invites.push(JSON.parse(options.body));return{ok:true,json:async()=>({barber:mode==='bad-id'?{}:{id:'owner-chair'}})};},
     supabase:{from:table=>({select:()=>({eq:async()=>{if(mode==='read-throw')throw Error('offline');return{data:mode==='read-error'||mode==='read-null'?null:mode==='empty'||mode==='bad-id'?[]:[{id:'barber'}],error:mode==='read-error'?{message:'private'}:null};}}),
