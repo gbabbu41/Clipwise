@@ -38,6 +38,11 @@ export default function WaitlistRequestsPage() {
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [loadedShopId, setLoadedShopId] = useState<string | null>(null);
+  const loadSequence = useRef(0);
+  const activeShopId = useRef(shop?.id);
+  activeShopId.current = shop?.id;
   const [toast, setToast] = useState("");
   const [notifyingDate, setNotifyingDate] = useState("");
   const [removingId, setRemovingId] = useState("");
@@ -46,22 +51,50 @@ export default function WaitlistRequestsPage() {
   const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(""), 3000); };
 
   const load = useCallback(async () => {
-    if (!shop) { setLoading(false); return; }
+    // Late callbacks from the previous location must not start a new load.
+    if (shop?.id !== activeShopId.current) return;
+    const request = ++loadSequence.current;
+    const isCurrent = () => request === loadSequence.current && shop?.id === activeShopId.current;
     setLoading(true);
-    const today = new Date().toISOString().slice(0, 10);
-    const [{ data: wData }, { data: bData }, { data: sData }] = await Promise.all([
-      supabase.from("appointment_waitlist").select("*").eq("shop_id", shop.id)
-        .gte("desired_date", today).order("desired_date").order("created_at"),
-      supabase.from("barbers").select("*").eq("shop_id", shop.id).order("name"),
-      supabase.from("services").select("*").eq("shop_id", shop.id).order("name"),
-    ]);
-    setEntries((wData ?? []) as AppointmentWaitlistEntry[]);
-    setBarbers((bData ?? []) as Barber[]);
-    setServices((sData ?? []) as Service[]);
-    setLoading(false);
+    setLoadError("");
+    setLoadedShopId(shop?.id ?? null);
+    if (!shop) {
+      setEntries([]);
+      setBarbers([]);
+      setServices([]);
+      setLoading(false);
+      return;
+    }
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const [waitlist, staff, catalog] = await Promise.all([
+        supabase.from("appointment_waitlist").select("*").eq("shop_id", shop.id)
+          .gte("desired_date", today).order("desired_date").order("created_at"),
+        supabase.from("barbers").select("*").eq("shop_id", shop.id).order("name"),
+        supabase.from("services").select("*").eq("shop_id", shop.id).order("name"),
+      ]);
+      if (!isCurrent()) return;
+      if (waitlist.error || staff.error || catalog.error) {
+        setLoadError("Couldn't load the waitlist. Please try again.");
+        return;
+      }
+      setEntries((waitlist.data ?? []) as AppointmentWaitlistEntry[]);
+      setBarbers((staff.data ?? []) as Barber[]);
+      setServices((catalog.data ?? []) as Service[]);
+    } catch {
+      if (isCurrent()) setLoadError("Couldn't load the waitlist. Check your connection and try again.");
+    } finally {
+      if (isCurrent()) setLoading(false);
+    }
   }, [shop]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    const sequence = loadSequence;
+    load();
+    return () => { sequence.current++; };
+  }, [load]);
+
+  useEffect(() => { setAssignReq(null); }, [shop?.id]);
 
   // Real-time: new sign-ups appear without a refresh.
   useEffect(() => {
@@ -124,6 +157,7 @@ export default function WaitlistRequestsPage() {
   const active = entries.filter(e => e.status === "waiting" || e.status === "notified");
   const dates = Array.from(new Set(active.map(e => e.desired_date)));
   const waitingCount = active.filter(e => e.status === "waiting").length;
+  const waitingForLoad = loading || loadedShopId !== (shop?.id ?? null);
 
   return (
     <div className="p-6 space-y-6">
@@ -134,7 +168,7 @@ export default function WaitlistRequestsPage() {
           <h1 className="text-2xl font-bold text-foreground uppercase tracking-wide">Spot Waitlist</h1>
           <p className="text-sm text-grey mt-0.5">Customers waiting for a spot to open on a full day</p>
         </div>
-        <button onClick={load} className="text-grey hover:text-foreground transition-colors p-2 rounded-xl hover:bg-card-raised">
+        <button onClick={load} aria-label="Refresh waitlist" className="text-grey hover:text-foreground transition-colors p-2 rounded-xl hover:bg-card-raised">
           <RefreshCw size={18} />
         </button>
       </div>
@@ -147,13 +181,22 @@ export default function WaitlistRequestsPage() {
         ].map(s => (
           <div key={s.label} className="bg-card border border-border rounded-2xl p-4">
             <p className="text-[10px] text-grey font-semibold uppercase tracking-wider">{s.label}</p>
-            <p className="text-[28px] font-extrabold text-foreground mt-2 font-mono tracking-tighter leading-none">{s.value}</p>
+            <p className="text-[28px] font-extrabold text-foreground mt-2 font-mono tracking-tighter leading-none">{waitingForLoad || loadError ? "—" : s.value}</p>
           </div>
         ))}
       </div>
 
-      {loading ? (
+      {waitingForLoad ? (
         <div className="py-16 text-center text-grey">Loading…</div>
+      ) : loadError ? (
+        <Card>
+          <CardContent>
+            <div className="py-16 text-center space-y-4" role="alert">
+              <p className="text-foreground">{loadError}</p>
+              <Button variant="outline" onClick={load}>Try again</Button>
+            </div>
+          </CardContent>
+        </Card>
       ) : active.length === 0 ? (
         <Card>
           <CardContent>
@@ -224,7 +267,7 @@ export default function WaitlistRequestsPage() {
         </div>
       )}
 
-      {assignReq && (
+      {assignReq && assignReq.shop_id === shop?.id && (
         <WaitlistAssignSheet
           request={assignReq}
           slotInterval={slotInterval}
