@@ -204,8 +204,11 @@ export default function OnboardingPage() {
     return `${h24.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:00`;
   };
 
+  const stepSaveInFlight = useRef(false);
   const handleNext = async () => {
     if (!resumeReady) return;
+    if (stepSaveInFlight.current) return;
+    stepSaveInFlight.current = true;
     setError("");
     setSaving(true);
     try {
@@ -259,9 +262,10 @@ export default function OnboardingPage() {
         // (refresh), look the barbers up. If none were added, nothing to do.
         let barberIds = createdBarberIds;
         if (barberIds.length === 0 && createdShopId) {
-          const { data: existing } = await supabase
+          const { data: existing, error: lookupError } = await supabase
             .from("barbers").select("id").eq("shop_id", createdShopId);
-          barberIds = (existing ?? []).map((b) => b.id);
+          if (lookupError || !existing) throw new Error("Couldn't load your team. Please retry before saving hours.");
+          barberIds = existing.map((b) => b.id);
         }
         const slots = hours
           .map((day, idx) => day.open ? { day_of_week: idx, start_time: toDbTime(day.start), end_time: toDbTime(day.end), is_available: true } : null)
@@ -291,6 +295,7 @@ export default function OnboardingPage() {
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
+      stepSaveInFlight.current = false;
       setSaving(false);
     }
   };
