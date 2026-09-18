@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
@@ -39,6 +39,7 @@ export default function LoyaltyPage() {
   const [redeemFor, setRedeemFor] = useState<Client | null>(null);
   const [pointsToRedeem, setPointsToRedeem] = useState("100");
   const [saving, setSaving] = useState(false);
+  const promoSaveInFlight = useRef(false);
   const [savingSettings, setSavingSettings] = useState(false);
   const [reminders, setReminders] = useState({
     appointment_24h: true, rebooking_30d: true, birthday: false, winback_60d: false,
@@ -176,7 +177,12 @@ export default function LoyaltyPage() {
   };
 
   const savePromo = async () => {
-    if (!shop || !newPromo.code.trim()) return;
+    if (!shop || !newPromo.code.trim() || promoSaveInFlight.current) return;
+    if (editPromo && editPromo.shop_id !== shop.id) {
+      showToast("Please reopen this promo in its original shop.");
+      return;
+    }
+    promoSaveInFlight.current = true;
     setSaving(true);
     const payload = {
       shop_id: shop.id,
@@ -184,23 +190,36 @@ export default function LoyaltyPage() {
       discount_type: newPromo.discount_type as "percent" | "fixed",
       discount_value: Number(newPromo.discount_value),
       uses_left: newPromo.uses_left ? Number(newPromo.uses_left) : undefined,
-      total_uses: 0,
       expires_at: newPromo.expires_at || undefined,
       is_active: newPromo.is_active,
     };
-    if (editPromo) {
-      const { error } = await supabase.from("promo_codes").update(payload).eq("id", editPromo.id);
-      if (!error) { showToast("Promo updated!"); loadData(); }
-      else showToast("Error: " + error.message);
-    } else {
-      const { error } = await supabase.from("promo_codes").insert(payload);
-      if (!error) { showToast("Promo code created!"); loadData(); }
-      else showToast("Error: " + error.message);
+    try {
+      if (editPromo) {
+        // Recorded usage belongs to checkout; editing must not reset total_uses.
+        const { data, error } = await supabase.from("promo_codes").update(payload)
+          .eq("id", editPromo.id).eq("shop_id", shop.id).select("id").maybeSingle();
+        if (error || !data) {
+          showToast("Couldn't update this promo. Please refresh and try again.");
+          return;
+        }
+      } else {
+        const { error } = await supabase.from("promo_codes").insert({ ...payload, total_uses: 0 });
+        if (error) {
+          showToast("Couldn't create this promo. Check the code is unique and try again.");
+          return;
+        }
+      }
+      showToast(editPromo ? "Promo updated!" : "Promo code created!");
+      setShowPromoModal(false);
+      setEditPromo(null);
+      setNewPromo(BLANK_PROMO);
+      loadData();
+    } catch {
+      showToast("Couldn't confirm the save. Refresh the promo list before trying again.");
+    } finally {
+      promoSaveInFlight.current = false;
+      setSaving(false);
     }
-    setSaving(false);
-    setShowPromoModal(false);
-    setEditPromo(null);
-    setNewPromo(BLANK_PROMO);
   };
 
   const deletePromo = async (id: string) => {
@@ -626,13 +645,14 @@ export default function LoyaltyPage() {
       {/* Promo Modal */}
       {showPromoModal && (
         <>
-          <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setShowPromoModal(false)} />
+          <div className="fixed inset-0 bg-black/70 z-40" onClick={() => { if (!promoSaveInFlight.current) setShowPromoModal(false); }} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
             <div className="bg-card shadow-sm border border-border rounded-2xl p-6 w-full max-w-md space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-foreground">{editPromo ? "Edit Promo Code" : "Create Promo Code"}</h2>
-                <button onClick={() => setShowPromoModal(false)} className="text-grey hover:text-foreground">✕</button>
+                <button disabled={saving} onClick={() => setShowPromoModal(false)} className="text-grey hover:text-foreground" aria-label="Close promo editor">✕</button>
               </div>
+              <fieldset disabled={saving} className="space-y-4">
               <Input label="Code" value={newPromo.code} onChange={e => setNewPromo(p => ({ ...p, code: e.target.value.toUpperCase() }))} placeholder="SUMMER20" />
               <Select label="Discount Type" value={newPromo.discount_type} onChange={e => setNewPromo(p => ({ ...p, discount_type: e.target.value }))}>
                 <option value="percent">Percentage (%)</option>
@@ -645,6 +665,7 @@ export default function LoyaltyPage() {
                 <Button variant="outline" className="flex-1" onClick={() => setShowPromoModal(false)}>Cancel</Button>
                 <Button className="flex-1" loading={saving} onClick={savePromo}>{editPromo ? "Update" : "Create"}</Button>
               </div>
+              </fieldset>
             </div>
           </div>
         </>
