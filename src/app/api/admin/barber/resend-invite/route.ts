@@ -31,9 +31,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  // Origin-first (real live domain) over NEXT_PUBLIC_APP_URL, which can be
-  // unset/stale in prod and would make the emailed link point at localhost.
-  const baseUrl = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca";
+  // Invitation and login destinations must not come from a caller's Origin.
+  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca").replace(/\/+$/, "");
   const redirectTo = `${baseUrl}/accept-invite`;
 
   // New user → invite link. Existing user → NO magic/login link (that would be

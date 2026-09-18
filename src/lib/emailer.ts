@@ -20,7 +20,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 export const SERVER_ONLY_EMAIL_TYPES = new Set([
   "subscription_started", "subscription_cancelled", "subscription_payment_failed", "subscription_renewal_reminder",
   "subscription_card_updated", "signup_code", "owner_weekly_digest", "connect_reminder",
-  "password_reset", "barber_password_reset",
+  "password_reset", "barber_password_reset", "barber_invite",
 ]);
 export const PRIVILEGED_EMAIL_TYPES = new Set([
   "schedule_updated", "time_off_request", "time_off_decision",
