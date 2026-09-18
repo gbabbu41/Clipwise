@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { notifyRefundIssued } from "@/lib/payment-notify";
 import { recordRefundLedger } from "@/lib/refund-ledger";
 import { refundOrReleaseHold } from "@/lib/stripe-refund";
+import { notifyWaitlistForSlot } from "@/lib/waitlist-notify-server";
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://clipwise.ca";
 
@@ -127,11 +128,7 @@ export async function POST(request: NextRequest) {
     // Smart waitlist: only when we actually freed the slot (cancelled an upcoming
     // booking) — a completed/no-show refund frees nothing, so don't ping.
     if (!served) {
-      fetch(`${BASE_URL}/api/waitlist/slot-opened`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ appointment_id }),
-      }).catch(() => null);
+      await notifyWaitlistForSlot({ shop_id: appt.shop_id, date: appt.date, barber_id: appt.barber_id }).catch(() => null);
     }
 
     return NextResponse.json({ ok: true, released: releasedHold });

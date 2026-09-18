@@ -43,6 +43,7 @@ const mocks = {
   '@/lib/twilio': { sendSmsBestEffort: async () => { effects.push('sms'); } },
   '@/lib/validation': { effectivePlan: p => p, isPaidPlan: p => p === 'pro' },
   '@/lib/rate-limit': { enforceRateLimit: () => limited },
+  '@/lib/waitlist-notify-server': { notifyWaitlistForSlot: async args => { assert.equal(args.date, appt.date); assert.equal(args.shop_id, appt.shop_id); effects.push('waitlist'); return { notified: 1 }; } },
   '@/lib/utils': { timeToMinutes: () => 600, prettyDate: d => d },
   '@/lib/timezone': { hoursUntilBooking: () => hours, isBookingInPast: () => past },
   '@/lib/availability': { OCCUPYING_STATUSES: ['pending', 'confirmed'], holdsSlot: () => true },
@@ -103,7 +104,7 @@ async function checkUi(status, ok = true, networkFailure = false) {
   for (const status of ['confirmed', 'pending']) {
     reset(); appt.status = status;
     const res = await invoke(move); assert.equal(res.status, 200); assert.equal((await res.json()).status, status);
-    assert.equal(effects[0], 'saved'); assert.ok(effects.includes('email')); assert.ok(effects.includes('sms')); assert.equal(effects.includes('refund'), false);
+    assert.equal(effects[0], 'saved'); assert.ok(effects.includes('email')); assert.ok(effects.includes('sms')); assert.ok(effects.includes('waitlist')); assert.equal(effects.includes('refund'), false);
     await checkUi(status);
   }
   for (const hold of [false, true]) { reset(); released = hold; appt.payment_status = hold ? 'held' : 'paid'; const res = await invoke({ action: 'cancel' }); assert.equal(res.status, 200); assert.equal((await res.json()).status, 'cancelled'); assert.equal(effects[0], 'saved'); assert.ok(effects.includes('refund')); assert.equal(effects.includes('ledger'), !hold); }

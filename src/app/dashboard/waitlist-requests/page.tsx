@@ -81,11 +81,12 @@ export default function WaitlistRequestsPage() {
   // Manually nudge everyone still waiting for a given day (email + SMS).
   const notifyDay = async (date: string) => {
     if (!shop) return;
+    if (!accessToken) { showToast("Please sign in again to notify the waitlist."); return; }
     setNotifyingDate(date);
     try {
       const res = await fetch("/api/waitlist/slot-opened", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
         body: JSON.stringify({ shop_id: shop.id, date }),
       });
       const data = await res.json();

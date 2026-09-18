@@ -611,7 +611,7 @@ export function makeApptActions(opts: {
       patch(appt.id, voided ? { status: "cancelled", payment_status: "voided" } : { status: "cancelled" });
       clearBookingNotif(appt.id);
       sendRejectionEmail(appt, shop, "");
-      notifyFreedSlot(appt, shop, "Cancelled");
+      notifyFreedSlot(appt, shop, "Cancelled", accessToken);
       onDone();
       toast(
         refundFailed
@@ -667,7 +667,7 @@ export function makeApptActions(opts: {
       // link (one combined email), so only send the standalone "we missed you"
       // follow-up when there was NO charge. Never the review email on a no-show.
       if (!charged) sendNoShowFollowup(appt, shop, accessToken);
-      notifyFreedSlot(appt, shop, "No-show");
+      notifyFreedSlot(appt, shop, "No-show", accessToken);
       setBusy("");
       onDone();
       toast(charged ? "No-show fee charged · receipt emailed" : holdExpired ? "Marked no-show — card hold had expired, nothing charged" : "Marked no-show");

@@ -13,6 +13,7 @@ import { sendAppEmail } from "@/lib/emailer";
 import { sendSmsBestEffort } from "@/lib/twilio";
 import { effectivePlan, isPaidPlan } from "@/lib/validation";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { notifyWaitlistForSlot } from "@/lib/waitlist-notify-server";
 
 // Customer "manage my booking" access, keyed by the appointment UUID — the
 // unguessable capability sent in the confirmation email/SMS. appointments RLS is
@@ -171,10 +172,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ appointment_id: id, statusLabel: "Cancelled" }),
     }).catch(() => null);
-    fetch(`${base}/api/waitlist/slot-opened`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ appointment_id: id }),
-    }).catch(() => null);
+    await notifyWaitlistForSlot({ shop_id: appt.shop_id, date: appt.date, barber_id: appt.barber_id }).catch(() => null);
     const { data: shopRow } = await supabaseAdmin.from("shops").select("owner_id, name, email").eq("id", appt.shop_id).maybeSingle();
     // Dedupe: on a solo owner-barber shop the owner IS the assigned barber, and
     // notify-cancellation above already alerted them (as the barber). Only add the
@@ -268,10 +266,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     // Reschedule vacates the OLD slot — ping the waitlist for that date/barber so
     // anyone waiting on the original day gets a shot (every other freeing
     // transition — cancel/reject/no-show — already does this).
-    fetch(`${base}/api/waitlist/slot-opened`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ shop_id: appt.shop_id, date: oldDate, barber_id: appt.barber_id }),
-    }).catch(() => null);
+    await notifyWaitlistForSlot({ shop_id: appt.shop_id, date: oldDate, barber_id: appt.barber_id }).catch(() => null);
     // Tell everyone the time moved — the CUSTOMER (email + SMS confirmation), the
     // BARBER (in-app + email), and the owner (in-app). Mirrors the shop-side edit
     // so a reschedule from either side reaches the same people (NOT a re-approval).

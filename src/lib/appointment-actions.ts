@@ -118,7 +118,7 @@ export async function runCompletionEffects(
 
 /** Notify the assigned barber a slot freed + ping the waitlist. Used on
  *  reject / cancel / no-show. Fire-and-forget. */
-export function notifyFreedSlot(appt: AppointmentWithDetails, shop: Shop, statusLabel: string) {
+export function notifyFreedSlot(appt: AppointmentWithDetails, shop: Shop, statusLabel: string, accessToken?: string | null) {
   fetch("/api/appointments/notify-cancellation", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -128,7 +128,7 @@ export function notifyFreedSlot(appt: AppointmentWithDetails, shop: Shop, status
   }).catch(() => null);
   fetch("/api/waitlist/slot-opened", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
     body: JSON.stringify({ shop_id: shop.id, date: appt.date, barber_id: appt.barber_id }),
   }).catch(() => null);
 }

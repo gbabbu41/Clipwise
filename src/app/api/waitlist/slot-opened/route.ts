@@ -1,119 +1,58 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { sendSmsBestEffort } from "@/lib/twilio";
-import { sendAppEmail } from "@/lib/emailer";
+import { authorizeShop, getBearer } from "@/lib/api-auth";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { notifyWaitlistForSlot } from "@/lib/waitlist-notify-server";
 
-/**
- * Fire-and-forget: a booked slot just freed (cancel / reject / no-show), so
- * notify the customers waiting for that day. Matches the smart-waitlist rows
- * on shop + date where the waiter wanted EITHER any barber OR the barber who
- * just freed up, then emails + texts them a booking link and marks them
- * "notified" so they aren't pinged twice.
- *
- * Body: either { appointment_id } (resolved server-side) OR { shop_id, date, barber_id? }.
- * Auth: none by design — it only ever notifies a shop's OWN waitlisters with a
- * fixed template + that shop's own booking link (the caller can't choose the
- * recipient, the copy, or the link), and it marks them "notified" so nobody is
- * pinged twice. A generous per-IP rate limit below blunts anyone hammering it.
- */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Staff may manually notify a day or notify after freeing a slot. Customer
+// cancellation/refund routes call the server-only sender after their own checks.
 export async function POST(request: NextRequest) {
-  // Defense-in-depth. Set high enough that no real burst (staff rejecting
-  // several appointments, a wave of cancellations) ever trips it. Callers
-  // fire-and-forget and ignore the response, so a throttled call simply skips
-  // that notify round — nothing user-facing breaks.
   const limited = enforceRateLimit(request, "waitlist-notify", 40, 60_000);
   if (limited) return limited;
+  if (!getBearer(request)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
-    const body = await request.json() as {
-      appointment_id?: string;
-      shop_id?: string; date?: string; barber_id?: string | null;
-    };
-
-    let shop_id = body.shop_id;
-    let date = body.date;
-    let barber_id = body.barber_id;
-
-    // Preferred path: resolve everything from the freed appointment row.
-    if (body.appointment_id) {
-      const { data: appt } = await supabaseAdmin
-        .from("appointments")
-        .select("shop_id, date, barber_id")
-        .eq("id", body.appointment_id)
-        .maybeSingle();
-      if (appt) { shop_id = appt.shop_id; date = appt.date; barber_id = appt.barber_id; }
+    const body = await request.json().catch(() => null);
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return NextResponse.json({ error: "Invalid request" }, { status: 400 });
     }
-
-    if (!shop_id || !date) return NextResponse.json({ error: "Missing shop_id or date" }, { status: 400 });
-
-    let q = supabaseAdmin
-      .from("appointment_waitlist")
-      .select("*")
-      .eq("shop_id", shop_id)
-      .eq("desired_date", date)
-      .eq("status", "waiting");
-    // Only notify waiters who'll actually be served by the freed barber:
-    // those who asked for "any" barber (null) or for this specific one.
-    // Only ever interpolate a well-formed UUID (never raw body text) into the
-    // PostgREST filter — filter-injection guard. A malformed barber_id falls
-    // back to notifying all of that day's waiters (safe, just broader).
-    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (barber_id && UUID_RE.test(barber_id)) q = q.or(`barber_id.is.null,barber_id.eq.${barber_id}`);
-    const { data: waiters } = await q;
-
-    if (!waiters || waiters.length === 0) return NextResponse.json({ notified: 0 });
-
-    const { data: shop } = await supabaseAdmin
-      .from("shops").select("name, slug, email").eq("id", shop_id).maybeSingle();
-    if (!shop) return NextResponse.json({ notified: 0 });
-
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL
-      || request.headers.get("origin")
-      || "https://clipwise.ca";
-    const bookingUrl = `${baseUrl}/book/${shop.slug}`;
-    const niceDate = new Date(`${date}T12:00:00`).toLocaleDateString("en-CA", {
-      weekday: "long", month: "short", day: "numeric",
-    });
-
-    // Look up barber names once for the email.
-    const barberNames: Record<string, string> = {};
-    const ids = Array.from(new Set(waiters.map(w => w.barber_id).filter(Boolean))) as string[];
-    if (ids.length) {
-      const { data: bs } = await supabaseAdmin.from("barbers").select("id, name").in("id", ids);
-      (bs ?? []).forEach(x => { barberNames[x.id] = x.name; });
-    }
-
-    await Promise.all(waiters.map(async (w) => {
-      const barberName = w.barber_id ? (barberNames[w.barber_id] ?? "") : "";
-      if (w.client_email) {
-        // Send in-process (no HTTP hop, no shared secret) so waitlist alerts
-        // never silently fail when CRON_SECRET isn't set.
-        await sendAppEmail("waitlist_slot_open", {
-          clientName: w.client_name,
-          clientEmail: w.client_email,
-          shopName: shop.name,
-          shopEmail: shop.email ?? "",
-          date: niceDate,
-          barberName,
-          bookingUrl,
-        }).catch(() => null);
+    let shopId: string;
+    let date: string;
+    let barberId: string | null | undefined;
+    if (body.appointment_id !== undefined) {
+      if (typeof body.appointment_id !== "string" || !UUID_RE.test(body.appointment_id)) {
+        return NextResponse.json({ error: "Invalid appointment" }, { status: 400 });
       }
-      await sendSmsBestEffort(
-        w.client_phone,
-        `A spot just opened on ${niceDate}${barberName ? ` with ${barberName}` : ""}. Book now: ${bookingUrl}`,
-        shop.name,
-      );
-    }));
-
-    // Mark them notified so a second cancellation that day doesn't re-spam.
-    const ids2 = waiters.map(w => w.id);
-    await supabaseAdmin
-      .from("appointment_waitlist")
-      .update({ status: "notified", notified_at: new Date().toISOString() })
-      .in("id", ids2);
-
-    return NextResponse.json({ notified: waiters.length });
-  } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Server error" }, { status: 500 });
+      const { data: appt, error } = await supabaseAdmin.from("appointments")
+        .select("shop_id, date, barber_id").eq("id", body.appointment_id).maybeSingle();
+      if (error) return NextResponse.json({ error: "Couldn't load the appointment" }, { status: 503 });
+      if (!appt) return NextResponse.json({ error: "Appointment not found" }, { status: 404 });
+      shopId = appt.shop_id;
+      date = appt.date;
+      barberId = appt.barber_id;
+    } else {
+      if (typeof body.shop_id !== "string" || !UUID_RE.test(body.shop_id)
+        || typeof body.date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(body.date)
+        || !Number.isFinite(Date.parse(`${body.date}T12:00:00Z`))
+        || new Date(`${body.date}T12:00:00Z`).toISOString().slice(0, 10) !== body.date
+        || (body.barber_id != null && (typeof body.barber_id !== "string" || !UUID_RE.test(body.barber_id)))) {
+        return NextResponse.json({ error: "Invalid shop, date or barber" }, { status: 400 });
+      }
+      shopId = body.shop_id;
+      date = body.date;
+      barberId = body.barber_id;
+    }
+    const auth = await authorizeShop(request, shopId, { permission: "manage_appointments" });
+    if ("error" in auth) return auth.error;
+    if (barberId) {
+      const { data: barber, error } = await supabaseAdmin.from("barbers")
+        .select("id").eq("id", barberId).eq("shop_id", shopId).maybeSingle();
+      if (error) return NextResponse.json({ error: "Couldn't verify the barber" }, { status: 503 });
+      if (!barber) return NextResponse.json({ error: "Barber not found in this shop" }, { status: 400 });
+    }
+    return NextResponse.json(await notifyWaitlistForSlot({ shop_id: shopId, date, barber_id: barberId }));
+  } catch {
+    return NextResponse.json({ error: "Couldn't notify the waitlist. Please try again." }, { status: 500 });
   }
 }

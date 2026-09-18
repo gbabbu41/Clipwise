@@ -438,7 +438,7 @@ export default function AppointmentsPage() {
       if (appt && shop) {
         fetch("/api/waitlist/slot-opened", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
           body: JSON.stringify({ shop_id: shop.id, date: appt.date, barber_id: appt.barber_id }),
         }).catch(() => null);
       }
@@ -574,7 +574,7 @@ export default function AppointmentsPage() {
     // Smart waitlist: ping customers waiting for this now-free day.
     fetch("/api/waitlist/slot-opened", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
       body: JSON.stringify({ shop_id: shop.id, date: appt.date, barber_id: appt.barber_id }),
     }).catch(() => null);
 
