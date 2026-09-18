@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { BellRing, Mail, Phone, Scissors, Calendar, RefreshCw, X, Send } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
@@ -40,6 +40,8 @@ export default function WaitlistRequestsPage() {
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState("");
   const [notifyingDate, setNotifyingDate] = useState("");
+  const [removingId, setRemovingId] = useState("");
+  const removalInFlight = useRef(false);
 
   const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(""), 3000); };
 
@@ -72,9 +74,25 @@ export default function WaitlistRequestsPage() {
   }, [shop, load]);
 
   const removeEntry = async (id: string) => {
-    await supabase.from("appointment_waitlist").update({ status: "cancelled" }).eq("id", id);
-    setEntries(prev => prev.map(e => e.id === id ? { ...e, status: "cancelled" } : e));
-    showToast("Removed from waitlist");
+    if (!shop || removalInFlight.current) return;
+    removalInFlight.current = true;
+    setRemovingId(id);
+    try {
+      const { data, error } = await supabase.from("appointment_waitlist")
+        .update({ status: "cancelled" }).eq("id", id).eq("shop_id", shop.id)
+        .select("id").maybeSingle();
+      if (error || !data) {
+        showToast("Couldn't remove this entry. Please refresh and try again.");
+        return;
+      }
+      setEntries(prev => prev.map(e => e.id === id ? { ...e, status: "cancelled" } : e));
+      showToast("Removed from waitlist");
+    } catch {
+      showToast("Couldn't remove this entry. Check your connection and try again.");
+    } finally {
+      removalInFlight.current = false;
+      setRemovingId("");
+    }
   };
 
 
@@ -192,8 +210,8 @@ export default function WaitlistRequestsPage() {
                         <div className="flex flex-col gap-1.5 flex-shrink-0">
                           <button onClick={() => setAssignReq({ id: e.id, shop_id: e.shop_id, barber_id: e.barber_id ?? null, service_id: e.service_id ?? null, client_name: e.client_name, desired_date: e.desired_date })}
                             className="btn btn-success btn-sm whitespace-nowrap">Accept &amp; assign</button>
-                          <button onClick={() => removeEntry(e.id)} className="text-xs text-grey hover:text-red-400 transition-colors flex items-center gap-1 justify-center py-1">
-                            <X size={12} /> Remove
+                          <button onClick={() => removeEntry(e.id)} disabled={!!removingId} className="text-xs text-grey hover:text-red-400 transition-colors flex items-center gap-1 justify-center py-1 disabled:opacity-50 disabled:cursor-not-allowed">
+                            <X size={12} /> {removingId === e.id ? "Removing…" : "Remove"}
                           </button>
                         </div>
                       </div>
