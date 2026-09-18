@@ -74,6 +74,7 @@ export default function ServicesPage() {
   const [showTemplates, setShowTemplates] = useState(false);
   const [selectedTemplates, setSelectedTemplates] = useState<Set<string>>(new Set());
   const [addingTemplates, setAddingTemplates] = useState(false);
+  const templateSaveInFlight = useRef(false);
 
   const [newSvc, setNewSvc] = useState(BLANK_SVC);
 
@@ -165,6 +166,7 @@ export default function ServicesPage() {
   };
 
   const toggleTemplate = (name: string) => {
+    if (templateSaveInFlight.current) return;
     setSelectedTemplates(prev => {
       const next = new Set(prev);
       if (next.has(name)) next.delete(name); else next.add(name);
@@ -173,21 +175,29 @@ export default function ServicesPage() {
   };
 
   const addSelectedTemplates = async () => {
-    if (!shop) return;
+    if (!shop || templateSaveInFlight.current) return;
     const toAdd = SERVICE_TEMPLATES.filter(t => selectedTemplates.has(t.name) && !existingNames.has(t.name.toLowerCase()));
     if (toAdd.length === 0) { showToast("Pick a service or two to add first."); return; }
+    templateSaveInFlight.current = true;
     setAddingTemplates(true);
     const payloads = toAdd.map(t => ({
       shop_id: shop.id, name: t.name, price: t.price, duration_minutes: t.duration_minutes,
       category: t.category, description: t.description, is_active: true, deposit_required: false, deposit_amount: 0,
     }));
-    const { error } = await supabase.from("services").insert(payloads);
-    setAddingTemplates(false);
-    if (error) { showToast("Couldn't add those: " + error.message); return; }
-    showToast(`Added ${toAdd.length} service${toAdd.length > 1 ? "s" : ""}!`);
-    setShowTemplates(false);
-    setSelectedTemplates(new Set());
-    loadData();
+    try {
+      const { error } = await supabase.from("services").insert(payloads);
+      if (shop.id !== activeShopId.current) return;
+      if (error) { showToast("Couldn't add those services. Your selection is still here; refresh the list before trying again."); return; }
+      showToast(`Added ${toAdd.length} service${toAdd.length > 1 ? "s" : ""}!`);
+      setShowTemplates(false);
+      setSelectedTemplates(new Set());
+      loadData();
+    } catch {
+      if (shop.id === activeShopId.current) showToast("Couldn't confirm the save. Refresh the service list before trying again.");
+    } finally {
+      templateSaveInFlight.current = false;
+      setAddingTemplates(false);
+    }
   };
 
   const deleteService = async (id: string) => {
@@ -334,7 +344,7 @@ export default function ServicesPage() {
       {/* Templates picker */}
       {showTemplates && (
         <>
-          <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setShowTemplates(false)} />
+          <div className="fixed inset-0 bg-black/70 z-40" onClick={() => { if (!templateSaveInFlight.current) setShowTemplates(false); }} />
           <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4">
             <div className="bg-card border-t sm:border border-border rounded-t-2xl sm:rounded-2xl w-full sm:max-w-lg max-h-[88vh] flex flex-col">
               <div className="flex items-start justify-between gap-3 p-5 border-b border-border">
@@ -342,7 +352,7 @@ export default function ServicesPage() {
                   <h2 className="text-lg font-bold text-foreground flex items-center gap-2"><Sparkles size={18} className="text-emerald-300" /> Add from templates</h2>
                   <p className="text-xs text-grey mt-0.5">Tap to pick — prices &amp; times are just a starting point.</p>
                 </div>
-                <button onClick={() => setShowTemplates(false)} className="text-grey hover:text-foreground flex-shrink-0">✕</button>
+                <button disabled={addingTemplates} onClick={() => setShowTemplates(false)} className="text-grey hover:text-foreground flex-shrink-0" aria-label="Close templates">✕</button>
               </div>
               <div className="overflow-y-auto overscroll-contain px-4 py-3 space-y-4">
                 {BASE_CATEGORIES.map(cat => {
@@ -356,7 +366,7 @@ export default function ServicesPage() {
                           const already = existingNames.has(t.name.toLowerCase());
                           const selected = selectedTemplates.has(t.name);
                           return (
-                            <button key={t.name} type="button" disabled={already} onClick={() => toggleTemplate(t.name)}
+                            <button key={t.name} type="button" disabled={already || addingTemplates} onClick={() => toggleTemplate(t.name)}
                               className={cn("w-full flex items-center gap-3 rounded-xl border p-3 text-left transition-colors",
                                 already ? "border-border bg-card-raised/50 opacity-60 cursor-default"
                                   : selected ? "border-emerald-400 ring-1 ring-emerald-400 bg-emerald-500/5"
@@ -382,7 +392,7 @@ export default function ServicesPage() {
                 })}
               </div>
               <div className="flex gap-3 p-4 border-t border-border pb-[max(1rem,env(safe-area-inset-bottom))]">
-                <Button variant="outline" className="flex-1" onClick={() => setShowTemplates(false)}>Cancel</Button>
+                <Button variant="outline" className="flex-1" disabled={addingTemplates} onClick={() => setShowTemplates(false)}>Cancel</Button>
                 <Button className="flex-1" loading={addingTemplates} disabled={selectableCount === 0} onClick={addSelectedTemplates}>
                   {selectableCount > 0 ? `Add ${selectableCount} service${selectableCount > 1 ? "s" : ""}` : "Add services"}
                 </Button>
