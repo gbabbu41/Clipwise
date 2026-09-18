@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo, Fragment, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence, MotionConfig } from "framer-motion";
-import { ChevronDown, ChevronLeft, ChevronRight, X, Plus, Users, Ban, Phone, Mail, MessageSquare, Search, Check, Scissors, Clock, LayoutGrid, Columns3, CalendarDays } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, X, Plus, Users, Ban, Phone, Mail, MessageSquare, Search, Check, Scissors, Clock, LayoutGrid, Columns3, CalendarDays, LocateFixed } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { HeaderControls } from "@/components/dashboard/header-controls";
@@ -3533,33 +3533,33 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
           calendar whose real title IS the date shown here. On mobile the
           sidebar's fixed top bar still carries the bell+avatar (HeaderControls
           is max-lg:hidden), so nothing doubles up. */}
-      <div className="shrink-0 border-b border-border px-4 sm:px-6 py-2 lg:pt-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-1.5 min-w-0">
+      <div data-calendar-toolbar className="shrink-0 border-b border-border px-2 sm:px-6 py-2 lg:pt-4 flex flex-nowrap items-center justify-between gap-1 sm:gap-3">
+        <div className="flex flex-1 items-center gap-1 sm:gap-1.5 min-w-0">
           {backLabel && (
             <button onClick={goBack} aria-label={`Back to ${backLabel}`}
               className="flex items-center gap-0.5 text-sm font-medium text-[#9a9a9a] hover:text-foreground transition-colors flex-shrink-0 -ml-1">
-              <ChevronLeft size={18} /> {backLabel}
+              <ChevronLeft size={18} /><span className="hidden sm:inline">{backLabel}</span>
             </button>
           )}
-          <h2 className="text-base sm:text-lg font-bold text-foreground truncate">{titleText}</h2>
+          <h2 title={titleText} className="min-w-0 text-sm sm:text-lg font-bold text-foreground truncate">{titleText}</h2>
           {/* Previous / next period arrows — page by the current view's unit
               (a window of days in 3-Day, one day in Day, a month, a year). Same
               action as swiping. Spaced apart with roomy padding so each is an
               easy, safe tap target (no mis-taps between them). */}
-          <div className="flex items-center gap-3 flex-shrink-0 ml-2">
+          <div className="flex items-center gap-0 sm:gap-2 flex-shrink-0 sm:ml-1">
             <button onClick={() => goPeriod(-1)} aria-label="Previous"
-              className="p-2 rounded-lg text-grey hover:text-foreground hover:bg-card-raised active:bg-surface-overlay transition-colors">
+              className="p-1.5 sm:p-2 rounded-lg text-grey hover:text-foreground hover:bg-card-raised active:bg-surface-overlay transition-colors">
               <ChevronLeft size={20} />
             </button>
             <button onClick={() => goPeriod(1)} aria-label="Next"
-              className="p-2 rounded-lg text-grey hover:text-foreground hover:bg-card-raised active:bg-surface-overlay transition-colors">
+              className="p-1.5 sm:p-2 rounded-lg text-grey hover:text-foreground hover:bg-card-raised active:bg-surface-overlay transition-colors">
               <ChevronRight size={20} />
             </button>
           </div>
           {loading && <span className="text-xs text-grey-muted animate-pulse flex-shrink-0">…</span>}
         </div>
 
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0 whitespace-nowrap">
           {/* Barber picker (avatar + caret → menu). Phone day view uses it; the
               multi-day view is always single-barber, so it shows there on every
               screen size (that's how you choose whose 3/5 days you're seeing). */}
@@ -3617,7 +3617,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                 <button onClick={() => setViewPicker(o => !o)} aria-label={`Calendar view: ${current.label}`} aria-expanded={viewPicker}
                   className="flex items-center gap-0.5 p-2 rounded-lg border border-border bg-card-raised text-[#ccc] hover:bg-surface-overlay hover:text-foreground transition-colors">
                   <CurrentIcon size={18} />
-                  <ChevronDown size={13} className="text-grey" />
+                  <ChevronDown size={13} className="hidden sm:block text-grey" />
                 </button>
                 {viewPicker && (
                   <>
@@ -3650,12 +3650,12 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
             </button>
           )}
           {(view === "day" && dayLayout === "timeline" && formatDateForDb(currentDate) === shopToday || view === "multiday" && multiDays.some(day => formatDateForDb(day) === shopToday)) && (
-            <button type="button" onClick={focusNow} aria-label="Scroll to current time" className="px-2.5 py-1.5 text-xs font-medium text-[#ccc] border border-border bg-card-raised rounded-lg">Now</button>
+            <button type="button" onClick={focusNow} aria-label="Scroll to current time" title="Now — scroll to current time" className="p-2 sm:px-2.5 sm:py-1.5 text-xs font-medium text-[#ccc] border border-border bg-card-raised rounded-lg"><LocateFixed size={16} className="sm:hidden" /><span className="hidden sm:inline">Now</span></button>
           )}
           {(!onToday || view === "multiday" && formatDateForDb(currentDate) !== shopToday) && (
-            <button onClick={() => { setNavDir(0); setCurrentDate(new Date(`${shopToday}T00:00:00`)); }}
-              className="px-2.5 py-1.5 text-xs font-medium text-[#ccc] border border-border bg-card-raised rounded-lg hover:bg-surface-overlay hover:text-foreground transition-colors">
-              Today
+            <button onClick={() => { setNavDir(0); setCurrentDate(new Date(`${shopToday}T00:00:00`)); }} aria-label="Go to today" title="Today"
+              className="p-2 sm:px-2.5 sm:py-1.5 text-xs font-medium text-[#ccc] border border-border bg-card-raised rounded-lg hover:bg-surface-overlay hover:text-foreground transition-colors">
+              <CalendarDays size={16} className="sm:hidden" /><span className="hidden sm:inline">Today</span>
             </button>
           )}
           {/* Universal bell + avatar (owner standalone only) — desktop-only, so

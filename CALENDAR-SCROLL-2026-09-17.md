@@ -35,3 +35,7 @@ Regression coverage now includes the full-day range, midnight/noon/10pm/11:59pm 
 - All 19 flow suites passed, including mocked weekday-hours reads and landing-policy cases. Production build passed (202 pages, CI placeholder environment). The synthetic headless Chromium layout check passed owner/barber, Day/3-Day, phone/desktop, banner/no-banner, two-way scrolling and viewport resizing. Run it after a production build with `node scripts/tests/calendar-layout-check.cjs`.
 
 Physical iPhone PWA acceptance remains outstanding. The browser fixture validates shell geometry, not the full authenticated application or iOS touch/momentum behavior.
+
+## Toolbar width follow-up
+
+Removed the wrapping rule introduced in the viewport change. The date group can shrink, narrow-screen gaps/navigation spacing are reduced, and Today/Now use labelled icons below the small-screen breakpoint (text remains on wider screens). The toolbar's menus and actions are unchanged. The browser regression now renders the actual toolbar JSX with synthetic state, including both Today and Now and desktop profile controls, at 320, 375, 390, 430, 768, 1024 and 1280px; it checks a single row, visible date space and no clipped controls.
