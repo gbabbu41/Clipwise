@@ -58,13 +58,23 @@ export async function POST(request: NextRequest) {
   }
   if (!allowed) return NextResponse.json({ error: "Not allowed" }, { status: 403 });
 
+  // Caller membership does not authorize a barber from a different shop.
+  // Validate the assignment before conflict checks, writes or notifications.
+  const { data: assignedBarber, error: barberError } = await supabaseAdmin
+    .from("barbers").select("id").eq("id", b.barber_id).eq("shop_id", wl.shop_id).maybeSingle();
+  if (barberError) return NextResponse.json({ error: "Couldn't verify the selected barber. Please try again." }, { status: 503 });
+  if (!assignedBarber) return NextResponse.json({ error: "Select a barber from this shop." }, { status: 400 });
+
   // Resolve service → duration + price (use overrides if provided).
   const serviceId = b.service_id || wl.service_id || null;
   let duration = b.duration_minutes && b.duration_minutes > 0 ? b.duration_minutes : 0;
   let amount = b.total_amount ?? 0;
   let serviceName = "";
   if (serviceId) {
-    const { data: svc } = await supabaseAdmin.from("services").select("name, duration_minutes, price").eq("id", serviceId).maybeSingle();
+    const { data: svc, error: serviceError } = await supabaseAdmin.from("services")
+      .select("name, duration_minutes, price").eq("id", serviceId).eq("shop_id", wl.shop_id).maybeSingle();
+    if (serviceError) return NextResponse.json({ error: "Couldn't verify the selected service. Please try again." }, { status: 503 });
+    if (!svc) return NextResponse.json({ error: "Select a service from this shop." }, { status: 400 });
     serviceName = svc?.name ?? "";
     if (!duration) duration = svc?.duration_minutes ?? 30;
     if (!amount) amount = svc?.price ?? 0;

@@ -60,13 +60,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "You can only seat a walk-in to yourself." }, { status: 403 });
   }
 
+  // Owners can assign any barber in this shop, never a foreign-shop resource.
+  const { data: assignedBarber, error: barberError } = await supabaseAdmin
+    .from("barbers").select("id, name").eq("id", b.barber_id).eq("shop_id", wl.shop_id).maybeSingle();
+  if (barberError) return NextResponse.json({ error: "Couldn't verify the selected barber. Please try again." }, { status: 503 });
+  if (!assignedBarber) return NextResponse.json({ error: "Select a barber from this shop." }, { status: 400 });
+
   // Resolve service → duration + price + name.
   const serviceId = b.service_id || wl.service_id || null;
   let duration = 0;
   let amount = 0;
   let serviceName = "";
   if (serviceId) {
-    const { data: svc } = await supabaseAdmin.from("services").select("name, duration_minutes, price").eq("id", serviceId).maybeSingle();
+    const { data: svc, error: serviceError } = await supabaseAdmin.from("services")
+      .select("name, duration_minutes, price").eq("id", serviceId).eq("shop_id", wl.shop_id).maybeSingle();
+    if (serviceError) return NextResponse.json({ error: "Couldn't verify the selected service. Please try again." }, { status: 503 });
+    if (!svc) return NextResponse.json({ error: "Select a service from this shop." }, { status: 400 });
     serviceName = svc?.name ?? "";
     duration = svc?.duration_minutes ?? 30;
     amount = svc?.price ?? 0;
@@ -122,8 +131,7 @@ export async function POST(request: NextRequest) {
     .eq("id", wl.id);
 
   // Tell the customer they're up — text + email, both best-effort.
-  const { data: barberRow } = await supabaseAdmin.from("barbers").select("name").eq("id", b.barber_id).maybeSingle();
-  const barberName = barberRow?.name ?? "your barber";
+  const barberName = assignedBarber.name ?? "your barber";
   await sendSmsBestEffort(wl.client_phone ?? null, `You're up at ${shop.name}! ${barberName} can see you at ${b.time_slot}. See you soon.`, shop.name);
   if (clientEmail) {
     // Direct + awaited (not a fire-and-forget HTTP hop) so a serverless freeze

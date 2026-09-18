@@ -6,9 +6,9 @@ function reset() { sends = []; hops = []; events = []; actor = 'owner'; conflict
 const db = {
   auth: { getUser: async token => ({ data: { user: token === 'valid' ? { id: actor } : null } }) },
   from(table) {
-    let values, insert = false;
+    let values, insert = false, resourceId;
     const q = {
-      select() { return q; }, eq() { return q; }, maybeSingle() { return q; }, single() { return q; },
+      select() { return q; }, eq(k, v) { if (k === 'id') resourceId = v; return q; }, maybeSingle() { return q; }, single() { return q; },
       insert(v) { values = v; insert = true; return q; }, update(v) { values = v; return q; },
       then(resolve, reject) { return Promise.resolve().then(() => {
         if (values) {
@@ -19,7 +19,7 @@ const db = {
         const rows = {
           appointment_waitlist: { id: 'waiter', shop_id: 'shop', service_id: null, client_name: 'Saved client', client_email: email, client_phone: '', desired_date: '2030-09-18', status: 'waiting' },
           shops: { id: 'shop', owner_id: 'owner', name: 'Saved shop', slug: 'saved-shop', email: 'shop@example.invalid', timezone: 'America/Halifax' },
-          barbers: actor === 'barber' ? { id: 'staff' } : null,
+          barbers: resourceId === 'barber' ? { id: 'barber' } : actor === 'barber' ? { id: 'staff' } : null,
         };
         return { data: rows[table], error: null };
       }).then(resolve, reject); },
