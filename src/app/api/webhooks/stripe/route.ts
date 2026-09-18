@@ -223,21 +223,15 @@ export async function POST(request: NextRequest) {
               }
               // Tell the customer only when we actually refunded.
               if (mode === "auto_refunded" && existing!.client_email) {
-                await fetch(`${BASE_URL}/api/send-email`, {
-                  method: "POST", headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    type: "refund_issued",
-                    data: {
-                      clientName: existing!.client_name,
-                      clientEmail: existing!.client_email,
-                      shopName: shopRow?.name ?? "",
-                      shopEmail: shopRow?.email ?? "",
-                      shopSlug: shopRow?.slug ?? "",
-                      serviceName: dupSvc,
-                      date: existing!.date,
-                      total: `$${(existing!.total_amount ?? 0).toFixed(2)}`,
-                    },
-                  }),
+                await sendAppEmail("refund_issued", {
+                  clientName: existing!.client_name ?? "",
+                  clientEmail: existing!.client_email,
+                  shopName: shopRow?.name ?? "",
+                  shopEmail: shopRow?.email ?? "",
+                  shopSlug: shopRow?.slug ?? "",
+                  serviceName: dupSvc,
+                  date: existing!.date ?? "",
+                  total: `$${(existing!.total_amount ?? 0).toFixed(2)}`,
                 }).catch(() => null);
               }
             }
@@ -416,6 +410,7 @@ export async function POST(request: NextRequest) {
             // Resilient to phase34 not being run yet — retry without trial_ends_at.
             if (r.error && /trial_ends_at/.test(r.error.message) && /column|does not exist|schema cache/i.test(r.error.message)) {
               const { trial_ends_at: _t, ...noTrial } = subUpd;
+              void _t;
               r = await supabaseAdmin.from("shops").update(noTrial).eq("owner_id", userId);
             }
             if (r.error) throw r.error;
