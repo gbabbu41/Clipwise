@@ -4,6 +4,7 @@ import { Scissors, ArrowRight, Check } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { effectivePlan, isPaidPlan } from "@/lib/validation";
+import { useBannerSlot } from "@/components/dashboard/banner-coordinator";
 
 /**
  * Visible in-dashboard prompt for a solo Starter owner who never got set up as a
@@ -120,7 +121,9 @@ export function AddSelfBarberBanner() {
     }
   };
 
-  if (state === "hidden" || state === "checking" || checkedScope !== currentScope) return null;
+  const wants = state !== "hidden" && state !== "checking" && checkedScope === currentScope;
+  const slot = useBannerSlot("self-barber", wants);
+  if (!slot) return null;
 
   // A polished bar floating up from the bottom (above the mobile tab bar) — the
   // same treatment as the Stripe / onboarding nudges. Starter-only, so it never

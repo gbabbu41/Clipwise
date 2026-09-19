@@ -28,6 +28,7 @@ function load(rel){
  if(id==='@/components/ui/button')return {Button:p=>React.createElement('button',p)};
  if(id==='@/components/ui/card')return Object.fromEntries(['Card','CardHeader','CardTitle','CardContent'].map(k=>[k,p=>React.createElement('div',p)]));
  if(id==='@/lib/supabase')return {supabase:{from:()=>{const q={select:()=>q,eq:()=>q,in:()=>q,then:r=>Promise.resolve({count:1,data:[{id:'barber'}]}).then(r)};return q;}}};
+ if(id==='@/components/dashboard/banner-coordinator')return {useBannerSlot:(_k,w)=>w,BannerCoordinatorProvider:p=>p.children};
  if(id.startsWith('@/'))return load('src/'+id.slice(2)+'.ts');return req(id);
  };
  m._compile(ts.transpileModule(fs.readFileSync(filename,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}}).outputText,filename);

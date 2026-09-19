@@ -5,6 +5,7 @@ import { Clock, ArrowRight, X } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { isNativeApp } from "@/lib/native-app";
 import { effectivePlan } from "@/lib/validation";
+import { useBannerSlot } from "@/components/dashboard/banner-coordinator";
 
 /**
  * Countdown banner for a shop on a no-card Pro/Premium free trial. Prompts the
@@ -42,13 +43,12 @@ export function TrialBanner({ native }: { native?: boolean } = {}) {
   // ("add a card", "trial ended", link to /dashboard/billing). It must NOT exist
   // in the app at all. Prefer the server-resolved `native` (known at SSR, so it's
   // never even server-rendered in the app); fall back to the client runtime check.
-  if (native ?? isNativeApp()) return null;
-
-  if (!shop || profile?.role !== "shop_owner" || shop.stripe_subscription_id) return null;
-
+  // Compute everything BEFORE any early return so the coordinator hook below is
+  // always called in the same order (React rules of hooks).
+  const isNative = native ?? isNativeApp();
   const endMs = shop?.trial_ends_at ? new Date(shop.trial_ends_at).getTime() : NaN;
   const daysLeft = Number.isNaN(endMs) ? -1 : Math.ceil((endMs - Date.now()) / 86_400_000);
-  const plan = effectivePlan(shop.subscription_plan, shop.subscription_status);
+  const plan = effectivePlan(shop?.subscription_plan, shop?.subscription_status);
   const activeTrial = plan !== "starter" && Number.isFinite(endMs) && daysLeft > 0;
 
   // Trial is OVER (used a trial, no active countdown, not currently paying) → the
@@ -58,8 +58,10 @@ export function TrialBanner({ native }: { native?: boolean } = {}) {
     && !!shop?.trial_used
     && (plan === "starter" || (Number.isFinite(endMs) && endMs <= Date.now()));
 
-  if (!activeTrial && !trialEnded) return null;
-  if (snoozed) return null;
+  const wants = !isNative && !!shop && profile?.role === "shop_owner"
+    && !shop.stripe_subscription_id && (activeTrial || trialEnded) && !snoozed;
+  const slot = useBannerSlot("trial", wants);
+  if (!slot || !shop) return null;
 
   const snooze = () => {
     try { if (shopId) localStorage.setItem(`cw_trial_snooze_${shopId}`, String(Date.now())); } catch { /* storage unavailable */ }

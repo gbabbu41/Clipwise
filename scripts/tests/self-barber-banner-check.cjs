@@ -14,6 +14,7 @@ function setup(mode = 'success') {
     useEffect: fn => { cleanup = fn(); }, setState: v => { state.view = v; }, setError: v => { state.error = v; }, setAdding: v => { state.busy = v; },
     setUncertain: v => { state.uncertain = v; }, setCheckedScope: v => { state.checked = v; },
     refreshShop: async () => { state.refreshes++; }, setTimeout: fn => { state.timers.push(fn); return state.timers.length; }, clearTimeout: () => {}, window: { location: { reload: () => { state.reloads++; } } },
+    useBannerSlot: () => true, // coordinator stub: this test exercises addSelf, not the slot gate
     supabase: { from: table => { assert.equal(table, 'barbers'); const q = { select: () => q, eq: (k,v) => { state.filters.push([k,v]); return q; }, maybeSingle: () => new Promise((resolve,reject) => { state.reads.push({resolve,reject}); }) }; return q; } },
     fetch: async (url, options) => {
       state.requests.push({ url, options, body: JSON.parse(options.body) }); if (mode === 'held') await held; if (mode === 'offline') throw Error('offline');

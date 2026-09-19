@@ -4,6 +4,7 @@ import { AlertTriangle, ArrowRight, Clock, RefreshCw, X } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useResetOnReturn } from "@/lib/use-reset-on-return";
 import { canPromptPaymentSetup } from "@/lib/setup-prompts";
+import { useBannerSlot } from "@/components/dashboard/banner-coordinator";
 import { cn } from "@/lib/utils";
 
 /**
@@ -90,7 +91,9 @@ export function StripeWarningBanner() {
     setRechecking(false);
   };
 
-  if (!eligible || !shop || statusShopId !== shop.id || !mode || dismissedShopId === shop.id) return null;
+  const wants = !!(eligible && shop && statusShopId === shop.id && mode && dismissedShopId !== shop.id);
+  const slot = useBannerSlot("stripe", wants);
+  if (!slot || !shop) return null;
 
   const verifying = mode === "verifying";
 

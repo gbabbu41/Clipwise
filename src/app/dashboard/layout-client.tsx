@@ -8,6 +8,7 @@ import { StripeWarningBanner } from "@/components/dashboard/stripe-warning-banne
 import { AddSelfBarberBanner } from "@/components/dashboard/add-self-barber-banner";
 import { TrialBanner } from "@/components/dashboard/trial-banner";
 import { MaintenanceBanner } from "@/components/maintenance-banner";
+import { BannerCoordinatorProvider } from "@/components/dashboard/banner-coordinator";
 import { NotificationListener } from "@/components/notification-listener";
 import { ModalChrome } from "@/components/modal-chrome";
 import { ConfirmProvider } from "@/components/ui/confirm-dialog";
@@ -165,12 +166,16 @@ export default function DashboardLayoutClient({ children, native }: { children: 
           the spacer matches it; everything else uses the calm page background. */}
       <main className={`cw-main lg:ml-64 pt-[calc(3.5rem+env(safe-area-inset-top))] lg:pt-0 ${isCalendar ? "pb-[calc(4.25rem+env(safe-area-inset-bottom))]" : "pb-[calc(6rem+env(safe-area-inset-bottom))]"} lg:pb-0 ${isCalendar ? "bg-background fixed inset-0 h-[100dvh] flex flex-col overflow-hidden [&>div:not(.cw-swipe-clip)]:shrink-0" : ""}`}>
         <MaintenanceBanner />
-        <TrialBanner native={native} />
-        <StripeWarningBanner />
-        <AddSelfBarberBanner />
-        <SwipeNavigator order={OWNER_SWIPE_ORDER} contained={isCalendar}>
-          {isCalendar ? children : <div className="mx-auto w-full max-w-6xl">{children}</div>}
-        </SwipeNavigator>
+        {/* One notice bar at a time (they used to all pop on landing). The provider
+            spans the bars AND the page children (the calendar's setup nudge). */}
+        <BannerCoordinatorProvider>
+          <TrialBanner native={native} />
+          <StripeWarningBanner />
+          <AddSelfBarberBanner />
+          <SwipeNavigator order={OWNER_SWIPE_ORDER} contained={isCalendar}>
+            {isCalendar ? children : <div className="mx-auto w-full max-w-6xl">{children}</div>}
+          </SwipeNavigator>
+        </BannerCoordinatorProvider>
       </main>
       <MobileNav />
       {/* Global quick-add: opens instantly over ANY page (fired by the bottom-nav

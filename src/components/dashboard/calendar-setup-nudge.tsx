@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { SetupSheet } from "./setup-sheet";
 import { canPromptPaymentSetup } from "@/lib/setup-prompts";
+import { useBannerSlot } from "@/components/dashboard/banner-coordinator";
 
 // Squire-style setup nudge on the calendar with a smart completion flow:
 //   • LOCATION + HOURS are the essentials — they keep coming back until actually
@@ -71,18 +72,19 @@ export function CalendarSetupNudge() {
     return () => { cancelled = true; };
   }, [shop, profile]);
 
-  if (!shop || profile?.role !== "shop_owner" || !steps) return null;
-
   // A minor step counts as resolved once tapped; a major only when actually done.
   const isResolved = (s: SetupStep) => s.done || (!MAJOR.has(s.key) && skips.has(s.key));
-  const total = steps.length;
-  const doneCount = steps.filter(isResolved).length;
-  const next = steps.find(s => !isResolved(s));
-  const majorOpen = steps.some(s => MAJOR.has(s.key) && !s.done);
+  const list = steps ?? [];
+  const total = list.length;
+  const doneCount = list.filter(isResolved).length;
+  const next = list.find(s => !isResolved(s));
+  const majorOpen = list.some(s => MAJOR.has(s.key) && !s.done);
 
-  if (!next) return null;                       // everything handled
-  if (snoozed) return null;                     // dismissed this session (majors return next session)
-  if (hidden && !majorOpen) return null;        // permanently dismissed & nothing essential left
+  // Coordinator hook must run every render (before early returns) — this nudge is
+  // the lowest priority, so it waits behind the trial / Stripe / self-barber bars.
+  const wants = !!shop && profile?.role === "shop_owner" && !!steps && !!next && !snoozed && !(hidden && !majorOpen);
+  const slot = useBannerSlot("setup-nudge", wants);
+  if (!slot || !shop || !next) return null;
 
   const pct = Math.round((doneCount / total) * 100);
   const displayName = (profile?.name || shop.name || "").trim() || "Hey";
