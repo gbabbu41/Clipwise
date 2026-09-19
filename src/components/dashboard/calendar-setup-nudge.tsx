@@ -14,7 +14,7 @@ import { canPromptPaymentSetup } from "@/lib/setup-prompts";
 //     (stored per shop) and never returns.
 //   • The card is dismissible; once no essential is left it hides for good.
 interface SetupStep { key: string; prompt: string; cta: string; href: string; done: boolean }
-const MAJOR = new Set(["location", "hours"]);
+const MAJOR = new Set(["name", "location", "hours"]);
 
 export function CalendarSetupNudge() {
   const { shop, profile } = useAuth();
@@ -56,6 +56,7 @@ export function CalendarSetupNudge() {
       try { shared = !!localStorage.getItem(`clipwise_shared_${shop.id}`); } catch { /* ignore */ }
 
       const list: SetupStep[] = [
+        { key: "name", prompt: "give your shop a name", cta: "Name your shop", href: "/dashboard/settings", done: !!(shop.name && shop.name.trim()) },
         { key: "location", prompt: "tell your clients where you work", cta: "Set business location", href: "/dashboard/settings", done: !!(shop.address && shop.address.trim()) },
         { key: "hours", prompt: "set your working hours", cta: "Set your hours", href: "/dashboard/schedule", done: hasHours },
         { key: "services", prompt: "list the services you offer", cta: "Add your services", href: "/dashboard/services", done: (svcCount ?? 0) > 0 },
@@ -88,7 +89,10 @@ export function CalendarSetupNudge() {
   const R = 25, C = 2 * Math.PI * R, ARC = 0.75, frac = doneCount / total;
 
   const openNext = () => {
-    if (MAJOR.has(next.key)) { setSheet(next.key as "location" | "hours"); return; }
+    // location + hours have an in-place setup sheet; other essentials (name) just
+    // navigate — and, being MAJOR, are never marked "resolved" until actually done.
+    if (next.key === "location" || next.key === "hours") { setSheet(next.key); return; }
+    if (MAJOR.has(next.key)) { router.push(next.href); return; }
     // Minor step → resolve it forever, then go do it.
     const ns = new Set(skips); ns.add(next.key);
     setSkips(ns);

@@ -254,10 +254,24 @@ export default function OnboardingPage() {
             if (up.ok) { const { url } = await up.json() as { url: string }; setLogoPreview(url); setLogoFile(null); }
           } catch { /* logo is optional — never block onboarding on it */ }
         }
-        // Skipped naming the shop → land straight in the dashboard. The shop stays
-        // blank + off the market (no name, pending) until they finish; the in-app
-        // nudges (add yourself as a barber, hours, services) drive the rest.
+        // Skipped naming the shop → land straight in the dashboard. But the
+        // calendar can't render without a barber (the guided flow always added the
+        // owner as one), so auto-add the owner as their own barber first — same as
+        // the "add yourself" banner does — so the dashboard/calendar work on
+        // arrival. Best-effort: if it doesn't land, the AddSelfBarberBanner still
+        // prompts it. The in-app setup nudge drives naming the shop, hours + services.
         if (!shop.name.trim()) {
+          if (shopId && user?.email && createdBarberIds.length === 0) {
+            try {
+              const bres = await fetch("/api/admin/barber/invite", {
+                method: "POST",
+                headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+                body: JSON.stringify({ name: selfBarberName, email: user.email, commission_percent: 0, shop_id: shopId }),
+              });
+              const bdata = await bres.json().catch(() => null);
+              if (bres.ok && bdata?.barber?.id) setCreatedBarberIds([bdata.barber.id]);
+            } catch { /* banner will prompt if this didn't land */ }
+          }
           try { await refreshShop?.(); } catch { /* the dashboard re-syncs its shop on load */ }
           router.replace("/dashboard");
           return;

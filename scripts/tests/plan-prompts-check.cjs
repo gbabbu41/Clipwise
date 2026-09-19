@@ -65,7 +65,7 @@ const text=()=>JSON.stringify(view.toJSON());
  await act(async()=>view.root.findByProps({'aria-label':'Dismiss'}).props.onClick());assert.equal(view.toJSON(),null);
  auth={...auth,shop:{...paid,id:'b'}};await rerender(StripeWarningBanner);assert.match(text(),/Finish Stripe setup/);
  console.log('PASS Stripe banner owner-only, Starter guard, per-location dismissal, errors visible');
- storage.set('clipwise_shared_a','1');auth={...auth,shop:{...paid,address:'123 demo',phone:'123',logo:'logo',subscription_plan:'starter'}};
+ storage.set('clipwise_shared_a','1');auth={...auth,shop:{...paid,name:'Demo Shop',address:'123 demo',phone:'123',logo:'logo',subscription_plan:'starter'}};
  await render(CalendarSetupNudge);assert.equal(view.toJSON(),null);
  auth={...auth,shop:{...auth.shop,subscription_plan:'pro'}};await rerender(CalendarSetupNudge);assert.match(text(),/Set up customer payments/);
  auth={...auth,shop:{...auth.shop,stripe_account_id:'acct',stripe_connected:false}};await rerender(CalendarSetupNudge);assert.match(text(),/Set up customer payments/);
