@@ -1,9 +1,10 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, ArrowRight, Clock, RefreshCw } from "lucide-react";
+import { AlertTriangle, ArrowRight, Clock, RefreshCw, X } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useResetOnReturn } from "@/lib/use-reset-on-return";
 import { canPromptPaymentSetup } from "@/lib/setup-prompts";
+import { cn } from "@/lib/utils";
 
 /**
  * Dashboard-wide warning shown to shop owners whose plan CAN take online
@@ -91,66 +92,46 @@ export function StripeWarningBanner() {
 
   if (!eligible || !shop || statusShopId !== shop.id || !mode || dismissedShopId === shop.id) return null;
 
-  // Details submitted — Stripe is verifying. Calm, informational, NO re-onboard
-  // (re-prompting a finished owner is exactly what looped before).
-  if (mode === "verifying") {
-    return (
-      <div className="px-4 md:px-6 pt-4">
-        <div className="flex items-start gap-3 bg-sky-500/10 border border-sky-500/30 rounded-2xl p-4">
-          <Clock size={18} className="text-sky-400 flex-shrink-0 mt-0.5" />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-sky-300">Stripe is verifying your account</p>
-            <p className="text-xs text-sky-200/80 mt-0.5">
-              You&apos;ve submitted your details — no further action needed. Card payments and payouts
-              turn on automatically once Stripe approves (usually minutes, sometimes up to a day).
-            </p>
-            <button
-              onClick={recheck}
-              disabled={rechecking}
-              className="inline-flex items-center gap-1 text-xs font-semibold text-sky-300 hover:text-sky-200 mt-2 disabled:opacity-60"
-            >
-              <RefreshCw size={13} className={rechecking ? "animate-spin" : ""} /> {rechecking ? "Checking…" : "Check status"}
-            </button>
-          </div>
-          <button
-            onClick={() => setDismissedShopId(shop.id)}
-            className="text-sky-300/60 hover:text-sky-200 text-sm leading-none flex-shrink-0"
-            aria-label="Dismiss"
-          >
-            ✕
-          </button>
-        </div>
-      </div>
-    );
-  }
+  const verifying = mode === "verifying";
 
+  // A polished bar that floats up from the bottom (above the mobile tab bar),
+  // matching the calendar onboarding nudge — not a flat block wedged under the
+  // page header. Two states: "verifying" (calm, no re-onboard — that looped) and
+  // the actionable "finish setup".
   return (
-    <div className="px-4 md:px-6 pt-4">
-      <div className="flex items-start gap-3 bg-orange-500/10 border border-orange-500/30 rounded-2xl p-4">
-        <AlertTriangle size={18} className="text-orange-400 flex-shrink-0 mt-0.5" />
+    <div className="fixed left-0 right-0 z-30 px-3 bottom-[calc(4.25rem+env(safe-area-inset-bottom)+8px)] lg:bottom-4 pointer-events-none">
+      <div className="pointer-events-auto mx-auto max-w-2xl relative flex items-start gap-3.5 bg-surface border border-border rounded-2xl shadow-xl shadow-black/40 animate-fade-in px-4 py-4 pr-10 sm:gap-4 sm:px-5">
+        <span className={cn("flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center",
+          verifying ? "bg-sky-500/15 text-sky-300" : "bg-amber-500/15 text-amber-300")}>
+          {verifying ? <Clock size={20} /> : <AlertTriangle size={20} />}
+        </span>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-orange-300">
-            Your Stripe payouts aren&apos;t fully set up
+          <p className="text-[15px] font-bold text-foreground leading-snug">
+            {verifying ? "Stripe is verifying your account" : "Finish setting up payments"}
           </p>
-          <p className="text-xs text-orange-200/80 mt-0.5">
-            Finish Stripe onboarding to enable customer card payments and payouts.
-            This connects your shop&apos;s bank account; it is separate from your ClipWise subscription.
+          <p className="text-xs text-grey mt-1 leading-relaxed">
+            {verifying
+              ? "You've submitted your details — no action needed. Card payments turn on automatically once Stripe approves (usually minutes, sometimes up to a day)."
+              : "Connect your bank through Stripe to accept card payments and get paid. About two minutes — it's separate from your ClipWise subscription."}
           </p>
           <button
-            onClick={startConnect}
-            disabled={starting}
-            className="inline-flex items-center gap-1 text-xs font-semibold text-orange-300 hover:text-orange-200 mt-2 disabled:opacity-60"
+            onClick={verifying ? recheck : startConnect}
+            disabled={verifying ? rechecking : starting}
+            className={cn("inline-flex items-center gap-1.5 mt-2.5 rounded-lg px-3.5 py-2 text-xs font-bold transition-colors disabled:opacity-60",
+              verifying ? "border border-sky-500/30 bg-card-raised text-sky-300 hover:text-sky-200" : "bg-white text-black hover:bg-white/90")}
           >
-            {starting ? "Opening Stripe…" : <>Finish Stripe setup <ArrowRight size={13} /></>}
+            {verifying
+              ? <><RefreshCw size={14} className={rechecking ? "animate-spin" : ""} /> {rechecking ? "Checking…" : "Check status"}</>
+              : (starting ? "Opening Stripe…" : <>Finish Stripe setup <ArrowRight size={14} /></>)}
           </button>
-          {error && <p role="alert" className="text-xs text-orange-200 mt-2">{error}</p>}
+          {error && <p role="alert" className="text-xs text-amber-300 mt-2">{error}</p>}
         </div>
         <button
           onClick={() => setDismissedShopId(shop.id)}
-          className="text-orange-300/60 hover:text-orange-200 text-sm leading-none flex-shrink-0"
           aria-label="Dismiss"
+          className="absolute top-2.5 right-2.5 text-grey hover:text-foreground p-1 rounded-full"
         >
-          ✕
+          <X size={15} />
         </button>
       </div>
     </div>
