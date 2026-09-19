@@ -176,7 +176,10 @@ export default function OnboardingPage() {
   }, [step, resumeReady]);
 
   const canProceed = () => {
-    if (step === 0) return shop.name && shop.address && shop.city;
+    // Shop step needs only a NAME (the shop can't be created without one). Address,
+    // city, phone, logo etc. are optional here — they can be filled later in
+    // Settings, so this form is otherwise skippable.
+    if (step === 0) return !!shop.name.trim();
     // Starter is solo — the owner MUST add themselves as a barber before moving on.
     // Staff is hidden on Starter, so this step is their one chance to get set up;
     // skipping it strands them with a shop but no bookable barber. Paid plans keep
@@ -189,7 +192,7 @@ export default function OnboardingPage() {
   // Plain-language reason the current step can't continue yet — shown by the
   // (greyed) Continue button when it's tapped while blocked.
   const blockReason = (): string => {
-    if (step === 0) return "Add your shop name, address, and city to continue.";
+    if (step === 0) return "Add your shop name to continue — you can fill in the rest later in Settings.";
     if (step === 1 && planLimit === 1 && !selfAdded) return "Add yourself as a barber to continue — tap the card above.";
     if (step === 3) return "Add at least one service (with a name and price) to continue.";
     return "Please finish this step to continue.";
@@ -479,10 +482,11 @@ export default function OnboardingPage() {
         {step === 0 && (
           <div className="space-y-4 animate-fade-in">
             <h2 className="text-xl font-bold text-white">Tell us about your shop</h2>
+            <p className="text-[#8f8f8f] text-sm">Only your shop name is required to continue — everything else is optional and you can add it later in Settings.</p>
             {([
               { key: "name", label: "Shop Name *", placeholder: "Fresh Cutz Barbershop" },
-              { key: "address", label: "Street Address *", placeholder: "123 Main Street" },
-              { key: "city", label: "City *", placeholder: "Moncton" },
+              { key: "address", label: "Street Address", placeholder: "123 Main Street" },
+              { key: "city", label: "City", placeholder: "Moncton" },
               { key: "phone", label: "Phone Number", placeholder: "(506) 555-0123", note: "Optional — shown publicly on your booking page. Leave blank to keep it private." },
               { key: "postal_code", label: "Postal Code", placeholder: "E1C 1A1" },
             ] as { key: string; label: string; placeholder: string; note?: string }[]).map(({ key, label, placeholder, note }) => (
@@ -655,6 +659,7 @@ export default function OnboardingPage() {
             <p className="text-[#8f8f8f] text-sm">{planLimit === 1
               ? `These are the hours customers can book ${addedBarbers[0]?.name || "you"}. Appointments only open during these hours — you can change them anytime.`
               : "These hours apply to everyone you just added, to get you started. You can fine-tune each barber's schedule later from Staff."}</p>
+            <p className="text-xs text-[#6f6f6f]">Not ready? You can skip this and set your hours later from Schedule — your booking page just won&apos;t show open times until you do.</p>
             <div className="space-y-2">
               {DAYS.map((day, i) => (
                 <div key={day} className={cn("p-3 rounded-xl border transition-all", hours[i].open ? "border-gold/20 bg-gold/5" : "border-border bg-surface-raised")}>
@@ -729,7 +734,7 @@ export default function OnboardingPage() {
                 explain WHY (a truly-disabled button gives no feedback). */}
             <Button className={cn("flex-1", !canProceed() && !saving && "opacity-50")} loading={saving} disabled={addingBarber || (step === 1 && barberUncertain)}
               onClick={proceed}>
-              {saving ? "Saving..." : step === 3 ? "Finish Setup" : (step === 1 && planLimit > 1 && addedBarbers.length === 0 ? "Skip for now" : "Continue")}
+              {saving ? "Saving..." : step === 3 ? "Finish Setup" : ((step === 1 && planLimit > 1 && addedBarbers.length === 0) || (step === 2 && !hours.some(h => h.open)) ? "Skip for now" : "Continue")}
               {!saving && <ChevronRight size={16} />}
             </Button>
             </div>
