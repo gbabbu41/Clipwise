@@ -5,7 +5,7 @@ const handler = source.slice(source.indexOf('  const book = async'), source.inde
 const ok = () => new Response(JSON.stringify({ ok: true, appointment_id: 'saved' }));
 function setup(fetcher = async () => ok(), overrides = {}) {
   const state = { busy: false, uncertain: false, errors: [], done: [], closed: 0, calls: [] };
-  const env = { availabilityReady: true, barberId: 'barber', slot: '10:00 AM', busy: false, services: [], serviceId: 'service', accessToken: 'valid', request: { id: 'waiter' }, onBook: null,
+  const env = { availabilityReady: true, barberId: 'barber', slot: '10:00 AM', busy: false, services: [], serviceId: 'service', accessToken: 'valid', request: { id: 'waiter' }, selectedDate: '2030-09-18', onBook: null,
     bookingInFlight: { current: false }, bookingBlocked: { current: false },
     setBusy: value => { state.busy = value; }, setUncertain: value => { state.uncertain = value; }, setErr: value => state.errors.push(value), onDone: value => state.done.push(value), close: () => state.closed++,
     fetch: async (...args) => { state.calls.push(args); return fetcher(...args); }, ...overrides };
@@ -18,7 +18,7 @@ function setup(fetcher = async () => ok(), overrides = {}) {
   }
   let release; const p = setup(() => new Promise(resolve => { release = resolve; })); const pending = p.book(); await p.book(); assert.equal(p.state.calls.length, 1); assert.equal(p.state.busy, true); release(ok()); await pending;
   assert.equal(p.state.busy, false); assert.equal(p.state.closed, 1); assert.deepEqual(p.state.done, ['Booked · waitlist cleared']); await p.book(); assert.equal(p.state.calls.length, 1, 'successful closing sheet must not resubmit');
-  assert.equal(p.state.calls[0][1].headers.Authorization, 'Bearer valid'); assert.deepEqual(JSON.parse(p.state.calls[0][1].body), { waitlist_id: 'waiter', barber_id: 'barber', time_slot: '10:00 AM', service_id: 'service' });
+  assert.equal(p.state.calls[0][1].headers.Authorization, 'Bearer valid'); assert.deepEqual(JSON.parse(p.state.calls[0][1].body), { waitlist_id: 'waiter', barber_id: 'barber', time_slot: '10:00 AM', service_id: 'service', date: '2030-09-18' });
   const denied = setup(async () => new Response(JSON.stringify({ error: 'That slot was just taken' }), { status: 409 })); await denied.book(); assert.equal(denied.state.busy, false); assert.equal(denied.state.uncertain, false); assert.equal(denied.state.closed, 0); await denied.book(); assert.equal(denied.state.calls.length, 2);
   for (const result of [null, 'Select a service', undefined, Error('offline')]) {
     let calls = 0; const p = setup(undefined, { onBook: async () => { calls++; if (result instanceof Error) throw result; return result; } }); await p.book(); assert.equal(p.state.busy, false);

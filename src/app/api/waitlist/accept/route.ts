@@ -29,9 +29,17 @@ export async function POST(request: NextRequest) {
     service_id?: string | null;
     duration_minutes?: number;
     total_amount?: number;
+    date?: string;                 // optional day override ("YYYY-MM-DD")
   };
   if (!b.waitlist_id || !b.barber_id || !b.time_slot) {
     return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+  }
+  // The staff can assign the waiter to a different day than they originally
+  // requested (the "next opening" flow). Default to their requested day; a
+  // supplied override must be a real date and within a sane forward window.
+  // The server is authoritative — past + conflict checks below use this date.
+  if (b.date != null && (typeof b.date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(b.date))) {
+    return NextResponse.json({ error: "Invalid date" }, { status: 400 });
   }
 
   const { data: wl } = await supabaseAdmin
@@ -41,13 +49,24 @@ export async function POST(request: NextRequest) {
   if (!wl) return NextResponse.json({ error: "Waitlist request not found" }, { status: 404 });
   if (wl.status === "converted") return NextResponse.json({ error: "Already assigned" }, { status: 409 });
 
+  // The day to book: an explicit override (validated above) or the waiter's own
+  // requested day. Only an OVERRIDE is capped to a sane forward window — never
+  // newly reject the customer's own requested day (unchanged when no override).
+  const bookDate = b.date ?? wl.desired_date;
+  if (b.date != null) {
+    const maxAhead = new Date(); maxAhead.setDate(maxAhead.getDate() + 120);
+    if (new Date(b.date + "T00:00:00") > maxAhead) {
+      return NextResponse.json({ error: "That date is too far in the future." }, { status: 400 });
+    }
+  }
+
   // Authorize: shop owner OR an active barber of this shop.
   const { data: shop } = await supabaseAdmin
     .from("shops").select("id, owner_id, name, slug, email, timezone").eq("id", wl.shop_id).maybeSingle();
   if (!shop) return NextResponse.json({ error: "Shop not found" }, { status: 404 });
 
   // Universal past-booking block (shop-timezone aware).
-  if (isBookingInPast(wl.desired_date, b.time_slot, (shop as { timezone?: string | null }).timezone)) {
+  if (isBookingInPast(bookDate, b.time_slot, (shop as { timezone?: string | null }).timezone)) {
     return NextResponse.json({ error: "That time has already passed — please pick a future time." }, { status: 400 });
   }
   let allowed = shop.owner_id === user.id;
@@ -84,7 +103,7 @@ export async function POST(request: NextRequest) {
   const startMin = timeToMinutes(b.time_slot);
   const endMin = startMin + duration;
 
-  if (await barberHasConflict(b.barber_id, wl.desired_date, startMin, endMin)) {
+  if (await barberHasConflict(b.barber_id, bookDate, startMin, endMin)) {
     return NextResponse.json({ error: "That slot was just taken — pick another." }, { status: 409 });
   }
 
@@ -96,7 +115,7 @@ export async function POST(request: NextRequest) {
     client_name: wl.client_name,
     client_email: wl.client_email ?? null,
     client_phone: wl.client_phone ?? null,
-    date: wl.desired_date,
+    date: bookDate,
     time_slot: b.time_slot,
     status: "confirmed",
     total_amount: amount,
@@ -136,7 +155,7 @@ export async function POST(request: NextRequest) {
     await sendAppEmail("booking_confirmation", {
       clientName: wl.client_name, clientEmail: wl.client_email,
       shopId: wl.shop_id, shopName: shop.name, shopEmail: shop.email ?? "", shopSlug: shop.slug,
-      serviceName, date: wl.desired_date, time: b.time_slot,
+      serviceName, date: bookDate, time: b.time_slot,
       total: `$${Number(amount).toFixed(2)}`, paymentNote: "Pay in person at the shop",
       bookingId: inserted.data.id.slice(0, 8).toUpperCase(), appointmentId: inserted.data.id,
     }).catch(() => null);
