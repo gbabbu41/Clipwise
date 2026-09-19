@@ -1,5 +1,4 @@
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { sendSmsBestEffort } from "@/lib/twilio";
 import { prettyDateWithContext } from "@/lib/utils";
 import { insertNotifications } from "@/lib/notify-server";
 
@@ -49,23 +48,11 @@ export async function notifyNewBookingStaff(
     const title = needsApproval ? "New booking — needs approval" : "New booking";
     const message = `${appt.client_name} — ${serviceName} on ${friendly} at ${appt.time_slot}${needsApproval ? " · tap to approve" : ""}`;
 
-    // Assigned barber's linked user (for the in-app notif) + phone (for SMS).
+    // Assigned barber's linked user (for the in-app notif).
     let barberUserId: string | null = null;
-    let barberPhone: string | null = null;
     if (appt.barber_id) {
       const { data: b } = await supabaseAdmin.from("barbers").select("user_id").eq("id", appt.barber_id).maybeSingle();
       barberUserId = b?.user_id ?? null;
-      if (barberUserId) {
-        const { data: bu } = await supabaseAdmin.from("users").select("phone").eq("id", barberUserId).maybeSingle();
-        barberPhone = bu?.phone ?? null;
-      }
-    }
-
-    // Owner phone: prefer the owner's user phone, fall back to the shop phone.
-    let ownerPhone: string | null = shop.phone ?? null;
-    if (shop.owner_id) {
-      const { data: ou } = await supabaseAdmin.from("users").select("phone").eq("id", shop.owner_id).maybeSingle();
-      if (ou?.phone) ownerPhone = ou.phone;
     }
 
     // In-app notifications (service role — the anon booking page can't insert).
@@ -82,10 +69,8 @@ export async function notifyNewBookingStaff(
       })));
     }
 
-    // SMS — best-effort, never throws.
-    await sendSmsBestEffort(ownerPhone, message, shop.name);
-    if (barberPhone && barberPhone !== ownerPhone) {
-      await sendSmsBestEffort(barberPhone, message, shop.name);
-    }
+    // No staff SMS: owners/barbers get the in-app notification (+ email) above.
+    // Texts are reserved for customers (reminders), not the shop's own team —
+    // paying to text subscribers what the app already shows isn't worth the cost.
   } catch { /* best-effort — a failed alert must never break the booking */ }
 }

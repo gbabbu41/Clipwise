@@ -129,13 +129,14 @@ export async function POST(request: NextRequest) {
   const clientMsg = `Booked! ${svcName}${barberName ? ` with ${barberName}` : ""} at ${shop.name} on ${friendly} at ${b.time}. See you then!`;
   const clientTo = toE164(b.client_phone);
   const twilio = getTwilio();
+  // Confirm to the CUSTOMER only. A phone caller has no booking screen and often
+  // no email, so this text is their sole confirmation — kept for that reason (the
+  // AI phone is a paid add-on). No SMS alert to the shop line: staff see the
+  // booking in-app/calendar, and we don't spend texts on the shop's own team.
   if (clientTo && twilio && shop.twilio_phone_number) {
     twilio.messages.create({ to: clientTo, from: shop.twilio_phone_number, body: clientMsg }).then(null, () => null);
   } else {
     sendSmsBestEffort(b.client_phone, clientMsg, shop.name);
-  }
-  if (shop.phone) {
-    sendSmsBestEffort(shop.phone, `📞 New AI phone booking: ${b.client_name} — ${svcName}${barberName ? ` with ${barberName}` : ""}, ${friendly} at ${b.time}.`, shop.name);
   }
 
   return NextResponse.json({

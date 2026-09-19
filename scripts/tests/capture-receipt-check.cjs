@@ -23,8 +23,11 @@ const call = (reason = 'completed', token = 'valid') => m.exports.POST(new NextR
   for (const configured of ['https://preview.example.invalid/', 'http://localhost:3000', undefined, '']) {
     if (configured === undefined) delete process.env.NEXT_PUBLIC_APP_URL; else process.env.NEXT_PUBLIC_APP_URL = configured;
     const expected = configured ? configured.replace(/\/+$/, '') : 'https://clipwise.ca';
-    reset(); sms = []; await call('completed'); assert.equal(receipts[0][0], expected); assert.equal(receipts[0][1].bookingUrl, `${expected}/book/shop`); assert.ok(sms[0][1].endsWith(`${expected}/tip/appt`)); assert.ok(!sms[0][1].includes('attacker.invalid'));
-    reset(); sms = []; await call('no_show'); assert.equal(receipts[0][1].bookingUrl, `${expected}/book/shop`); assert.equal(receipts[0][1].noShow, true); assert.ok(!sms[0][1].includes('/tip/')); assert.equal(charges.length, 1);
+    // Tip-link and no-show SMS were removed (owner decision: texts are for
+    // customer reminders + on-demand pay links only). Receipts still use the
+    // configured base URL (never the attacker Origin), and NO SMS is sent.
+    reset(); sms = []; await call('completed'); assert.equal(receipts[0][0], expected); assert.equal(receipts[0][1].bookingUrl, `${expected}/book/shop`); assert.equal(sms.length, 0);
+    reset(); sms = []; await call('no_show'); assert.equal(receipts[0][1].bookingUrl, `${expected}/book/shop`); assert.equal(receipts[0][1].noShow, true); assert.equal(sms.length, 0); assert.equal(charges.length, 1);
   }
   console.log('PASS capture receipt: waits for one attempt, email rejection preserves successful charge, totals/Connect/ledger unchanged, already-paid and auth gates preserved');
 })().catch(error => { console.error(error); process.exitCode = 1; });

@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { stripe, stripeFeeCents, STRIPE_LIVE_MODE } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { sendPaymentReceipt, notifyChargeFailed, notifyNoShowCharged } from "@/lib/payment-notify";
-import { sendSmsBestEffort } from "@/lib/twilio";
-import { prettyDate, isCheckoutAllowed, CHECKOUT_LEAD_HOURS } from "@/lib/utils";
+import { isCheckoutAllowed, CHECKOUT_LEAD_HOURS } from "@/lib/utils";
 import { safeTz, todayInTz, nowMinutesInTz } from "@/lib/timezone";
 import { noShowFeeCents, NO_SHOW_MAX_PCT } from "@/lib/validation";
 import type { TaxConfig } from "@/lib/pricing";
@@ -342,21 +341,9 @@ export async function POST(request: NextRequest) {
       date: appt.date,
       kind: reason === "no_show" ? "no_show" : "completed",
     });
-    if (reason === "no_show") {
-      sendSmsBestEffort(
-        appt.client_phone,
-        `You missed your appointment on ${prettyDate(appt.date)}. A no-show fee of $${(amountReceived / 100).toFixed(2)} has been charged.`,
-        shop.name,
-      );
-    } else if (Number(appt.tip_amount ?? 0) <= 0) {
-      // Post-visit tip nudge — only when the customer didn't already tip at
-      // booking, so we never double-ask. Best-effort SMS with the tip link.
-      sendSmsBestEffort(
-        appt.client_phone,
-        `Thanks for visiting ${shop.name}! If you'd like to leave a tip for your barber, tap here: ${baseUrl}/tip/${appointment_id}`,
-        shop.name,
-      );
-    }
+    // No no-show-fee or tip-link SMS (owner decision: reserve texts for customer
+    // reminders + the money-collection links the shop sends on demand). The
+    // no-show charge still shows in Payments; a tip can still be left at checkout.
 
     return NextResponse.json({ ok: true, amount: amountReceived / 100 });
   } catch (err) {

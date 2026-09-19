@@ -6,7 +6,6 @@ import { timeToMinutes } from "@/lib/utils";
 import { fetchValidPromo, promoDiscount, promoBlockReason, consumePromo, type PromoRow } from "@/lib/promo";
 import { resolveServiceCharge } from "@/lib/service-pricing";
 import { authorizeShop, getBearer } from "@/lib/api-auth";
-import { sendSmsBestEffort } from "@/lib/twilio";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { isBookingInPast, isBeyondAdvanceWindow } from "@/lib/timezone";
 import { effectivePlan, planHasFeature, isPaidPlan, clampLen, FIELD_CAPS } from "@/lib/validation";
@@ -432,22 +431,10 @@ export async function POST(request: NextRequest) {
   // EMAIL above already does. The only gates are: a phone on file + a plan with
   // SMS (Starter is email-only). Sent here, not from the public page, so
   // /api/twilio/send-sms can require auth (no open SMS relay).
-  if (b.client_phone && isPaidPlan(plan)) {
-    const origin = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca";
-    const manageLink = `${origin}/my-booking/${inserted.data.id}`;
-    const shopName = (shop as { name?: string }).name ?? "the shop";
-    // Keep it short + GSM-7 only (no em dash, which forces UCS-2 and triples the
-    // segment count). Shop name is added by sendSmsBestEffort's prefix; the manage
-    // link carries the booking id, so no separate ref needed.
-    // Cancellation policy (shop's notice window; default 2h). Appended to the
-    // confirmed text so the customer knows the rule up front. GSM-7, kept short.
-    const cancelHrs = Number((shop.booking_settings as { cancellation_hours?: number } | null)?.cancellation_hours ?? 2);
-    const policy = cancelHrs > 0 ? ` Cancel/reschedule ${cancelHrs}h+ ahead.` : "";
-    const smsBody = inserted.data.status === "pending"
-      ? `Thanks! Your request for ${b.date} at ${b.time_slot} was received. We'll text you when it's confirmed. Manage: ${manageLink}`
-      : `You're booked for ${b.date} at ${b.time_slot}.${policy} Manage: ${manageLink}`;
-    await sendSmsBestEffort(b.client_phone, smsBody, shopName);
-  }
+  // No booking-confirmation SMS. A customer who booked online just did it
+  // themselves (redundant), and a staff-added booking is confirmed by email —
+  // texts are reserved for the day-before reminder. (Owner decision: reminders
+  // only, to keep SMS cost down.) The confirmation EMAIL above still goes out.
 
   return NextResponse.json({
     id: inserted.data.id,

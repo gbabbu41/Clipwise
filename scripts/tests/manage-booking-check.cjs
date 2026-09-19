@@ -104,7 +104,9 @@ async function checkUi(status, ok = true, networkFailure = false) {
   for (const status of ['confirmed', 'pending']) {
     reset(); appt.status = status;
     const res = await invoke(move); assert.equal(res.status, 200); assert.equal((await res.json()).status, status);
-    assert.equal(effects[0], 'saved'); assert.ok(effects.includes('email')); assert.ok(effects.includes('sms')); assert.ok(effects.includes('waitlist')); assert.equal(effects.includes('refund'), false);
+    // Reschedule no longer texts the customer (they moved the time themselves on
+    // this page — owner decision: reminders only). Email + waitlist still fire.
+    assert.equal(effects[0], 'saved'); assert.ok(effects.includes('email')); assert.equal(effects.includes('sms'), false); assert.ok(effects.includes('waitlist')); assert.equal(effects.includes('refund'), false);
     await checkUi(status);
   }
   for (const hold of [false, true]) { reset(); released = hold; appt.payment_status = hold ? 'held' : 'paid'; const res = await invoke({ action: 'cancel' }); assert.equal(res.status, 200); assert.equal((await res.json()).status, 'cancelled'); assert.equal(effects[0], 'saved'); assert.ok(effects.includes('refund')); assert.equal(effects.includes('ledger'), !hold); }

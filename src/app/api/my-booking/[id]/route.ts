@@ -10,8 +10,6 @@ import { refundOrReleaseHold } from "@/lib/stripe-refund";
 import { recordRefundLedger } from "@/lib/refund-ledger";
 import { notifyRefundIssued } from "@/lib/payment-notify";
 import { sendAppEmail } from "@/lib/emailer";
-import { sendSmsBestEffort } from "@/lib/twilio";
-import { effectivePlan, isPaidPlan } from "@/lib/validation";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { notifyWaitlistForSlot } from "@/lib/waitlist-notify-server";
 
@@ -324,9 +322,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         total: "", appointmentId: id, changedSummary: `New time: ${whenNice}`,
       }).catch(() => null);
     }
-    if (appt.client_phone && isPaidPlan(effectivePlan(shopRow?.subscription_plan, shopRow?.subscription_status))) {
-      await sendSmsBestEffort(appt.client_phone, `Your appointment is now ${whenNice}. Manage: ${base}/my-booking/${id}`, shopRow?.name);
-    }
+    // No reschedule-confirmation SMS: the customer just moved the time themselves
+    // on this page, so a text is redundant. The email above still confirms it, and
+    // the day-before reminder texts the new time.
     // Barber email so they see the new time even when they're out of the app.
     if (bRow?.email) {
       await sendAppEmail("barber_appointment_change", {

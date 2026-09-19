@@ -1,8 +1,7 @@
 import Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { sendSmsBestEffort } from "@/lib/twilio";
-import { effectivePlan, isPaidPlan, clampLen, FIELD_CAPS } from "@/lib/validation";
+import { clampLen, FIELD_CAPS } from "@/lib/validation";
 import { isDoubleBookError, barberHasConflict } from "@/lib/booking-conflict";
 import { scheduleBlockReason } from "@/lib/schedule-block";
 import { recordOnlinePaymentTx } from "@/lib/finalize-appointment-payment";
@@ -280,21 +279,9 @@ export async function finalizeBookingFromSession(params: {
   // false), replacing a self-fetch that could no-op on a missing base URL.
   await notifyNewBookingStaff(appt.id, { notifyOwner: false });
 
-  // Text the customer a confirmation (best-effort). AWAITED — a fire-and-forget
-  // send can be killed when the serverless function returns, so the text never
-  // goes out (and never logs). sendSmsBestEffort never throws.
-  // Kept to ONE SMS segment: short wording + GSM-7 only (NO em dash, which forces
-  // UCS-2 and splits into 3). Payment detail + booking # live in the email/link.
-  // SMS is a paid-plan feature — free (Starter) shops confirm by email only.
-  if (m.client_phone && isPaidPlan(effectivePlan(shopRow?.subscription_plan, shopRow?.subscription_status))) {
-    const cancelHrs = Number((shopRow?.booking_settings as { cancellation_hours?: number } | null)?.cancellation_hours ?? 2);
-    const policy = cancelHrs > 0 ? ` Cancel/reschedule ${cancelHrs}h+ ahead.` : "";
-    await sendSmsBestEffort(
-      m.client_phone,
-      `You're booked for ${friendly} at ${m.time_slot}.${policy} Manage: ${baseUrl}/my-booking/${appt.id}`,
-      shopRow?.name,
-    );
-  }
+  // No booking-confirmation SMS: the customer just booked this themselves, so a
+  // text is redundant (and texts are costly). They get an email confirmation
+  // below; reminder texts still go out the day before.
 
   // Ledger + confirmation emails (customer + owner + barber). Never block on these.
   let summaryBarberName = "Any Available";
