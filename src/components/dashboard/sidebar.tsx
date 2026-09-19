@@ -453,7 +453,7 @@ export function Sidebar() {
 
   const displayName = profile?.name ?? user?.email ?? "User";
   const initial = displayName.charAt(0).toUpperCase();
-  const shopName = shop?.name ?? "Your Shop";
+  const shopName = shop?.name?.trim() || "Your Shop";
 
   return (
     <>

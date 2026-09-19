@@ -831,7 +831,7 @@ export default function PaymentsPage() {
       {/* ── Header (unchanged nav) ─────────────────────────────────────────── */}
       <DashboardHeader
         title="Payments"
-        subtitle={barberName ? `${barberFirst} · take-home${selDisplayPct ? ` · ${selDisplayPct}%` : ""}` : `${shop?.name ?? "Your shop"} · ClipWise takes 0%`}
+        subtitle={barberName ? `${barberFirst} · take-home${selDisplayPct ? ` · ${selDisplayPct}%` : ""}` : `${shop?.name?.trim() || "Your shop"} · ClipWise takes 0%`}
       />
 
       {/* Barber chip — only when more than one barber (solo shops stay clean) */}

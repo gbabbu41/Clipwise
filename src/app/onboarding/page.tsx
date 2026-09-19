@@ -228,7 +228,7 @@ export default function OnboardingPage() {
             method: "POST",
             headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
             body: JSON.stringify({
-              name: shop.name.trim() || fallbackShopName, address: shop.address, city: shop.city, province: shop.province,
+              name: shop.name.trim() || undefined, address: shop.address, city: shop.city, province: shop.province,
               postal_code: shop.postal_code, phone: shop.phone, description: shop.description,
               subscription_id: planData.subscriptionId ?? undefined,
               // No-card trial: picking Pro/Premium starts a 21-day trial server-side.
@@ -253,6 +253,14 @@ export default function OnboardingPage() {
             const up = await fetch("/api/upload-logo", { method: "POST", headers: { Authorization: `Bearer ${accessToken ?? ""}` }, body: fd });
             if (up.ok) { const { url } = await up.json() as { url: string }; setLogoPreview(url); setLogoFile(null); }
           } catch { /* logo is optional — never block onboarding on it */ }
+        }
+        // Skipped naming the shop → land straight in the dashboard. The shop stays
+        // blank + off the market (no name, pending) until they finish; the in-app
+        // nudges (add yourself as a barber, hours, services) drive the rest.
+        if (!shop.name.trim()) {
+          try { await refreshShop?.(); } catch { /* the dashboard re-syncs its shop on load */ }
+          router.replace("/dashboard");
+          return;
         }
       }
 
@@ -326,10 +334,6 @@ export default function OnboardingPage() {
   // (no editable field: a different name here would confuse the two portals). We
   // show it up front so the owner knows exactly how they'll appear to customers.
   const selfBarberName = profile?.name?.trim() || user?.email?.split("@")[0] || "Me";
-  // Placeholder shop name when the owner skips naming it — their account name (or
-  // email handle), else a generic default. They rename it anytime in Settings.
-  const ownerLabel = profile?.name?.trim() || user?.email?.split("@")[0] || "";
-  const fallbackShopName = ownerLabel ? `${ownerLabel}'s Barbershop` : "My Barbershop";
 
   const inviteBarber = async (name: string, email: string, commission_percent: number) => {
     if (!resumeReady) return;
@@ -485,9 +489,9 @@ export default function OnboardingPage() {
         {step === 0 && (
           <div className="space-y-4 animate-fade-in">
             <h2 className="text-xl font-bold text-white">Tell us about your shop</h2>
-            <p className="text-[#8f8f8f] text-sm">All optional — skip and set it up later in Settings. If you don&apos;t name it now, we&apos;ll use <span className="text-white">{fallbackShopName}</span> until you change it.</p>
+            <p className="text-[#8f8f8f] text-sm">All optional. Name your shop now, or <span className="text-white">skip and go straight to your dashboard</span> — you can set everything up later from there. Your shop stays private (no booking link, not listed) until it&apos;s ready.</p>
             {([
-              { key: "name", label: "Shop Name", placeholder: fallbackShopName },
+              { key: "name", label: "Shop Name", placeholder: "Your shop name (optional)" },
               { key: "address", label: "Street Address", placeholder: "123 Main Street" },
               { key: "city", label: "City", placeholder: "Moncton" },
               { key: "phone", label: "Phone Number", placeholder: "(506) 555-0123", note: "Optional — shown publicly on your booking page. Leave blank to keep it private." },

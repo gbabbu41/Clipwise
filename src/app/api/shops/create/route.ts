@@ -93,7 +93,10 @@ export async function POST(request: NextRequest) {
     subscription_id?: string;
     trial_plan?: string;   // pro/premium → start a no-card 21-day trial
   };
-  if (typeof body.name !== "string" || !body.name.trim()) return NextResponse.json({ error: "Shop name is required" }, { status: 400 });
+  // Name is now OPTIONAL — an owner can skip naming their shop during onboarding
+  // and land in the dashboard; it stays "" (blank) until they set it in Settings.
+  // (The shop isn't public/bookable until it's approved + set up anyway.)
+  if (body.name != null && typeof body.name !== "string") return NextResponse.json({ error: "Invalid shop details" }, { status: 400 });
   for (const field of ["address", "city", "province", "postal_code", "phone", "email", "description", "logo", "subscription_id", "trial_plan"] as const) {
     if (body[field] != null && typeof body[field] !== "string") {
       return NextResponse.json({ error: "Invalid shop details" }, { status: 400 });
@@ -161,7 +164,7 @@ export async function POST(request: NextRequest) {
   // above, so a crafted body can't inject status/plan/subscription_*.
   const baseRow = {
     owner_id: user.id,
-    name: body.name.trim(),
+    name: (body.name ?? "").trim(),
     address: body.address ?? null,
     city: body.city ?? null,
     province,
@@ -187,7 +190,7 @@ export async function POST(request: NextRequest) {
   };
 
   // Unique slug — retry once with a fresh suffix on collision.
-  const base = slugify(body.name);
+  const base = slugify(body.name ?? "");
   for (let attempt = 0; attempt < 3; attempt++) {
     const slug = `${base}-${Math.random().toString(36).slice(2, 6)}`;
     const ins = await supabaseAdmin
@@ -198,7 +201,7 @@ export async function POST(request: NextRequest) {
       await sendNewShopEmails({
         ownerEmail: user.email ?? body.email ?? "",
         ownerName: (prof?.name ?? "").trim(),
-        shopName: baseRow.name,
+        shopName: baseRow.name || "your new shop",
         slug,
         plan,
         subscriptionStatus,
