@@ -46,27 +46,41 @@ export async function GET(request: NextRequest) {
 
   if (!shop.stripe_account_id) {
     await syncConnectNudge(user.id, false, shop.id);
-    return NextResponse.json({ connected: false, status: "pending", chargesEnabled: false, payoutsEnabled: false });
+    // No account yet → they genuinely need to start setup.
+    return NextResponse.json({ connected: false, status: "pending", needsAction: true, detailsSubmitted: false, chargesEnabled: false, payoutsEnabled: false });
   }
 
   try {
     const account = await stripe.accounts.retrieve(shop.stripe_account_id);
     const active = account.charges_enabled && account.payouts_enabled;
     const status = active ? "active" : "pending";
+    const detailsSubmitted = !!account.details_submitted;
+    // Distinguish "the owner must DO something" from "Stripe is just reviewing":
+    //   • needsAction  → they never finished the form, OR Stripe is blocking on
+    //     info it still needs (currently_due / past_due). Re-prompt onboarding.
+    //   • !needsAction & !active → details are in and nothing is due; Stripe is
+    //     verifying. Show an "under review" status — do NOT re-prompt (that was
+    //     the loop: an owner who'd finished kept seeing "Finish setup").
+    const req = account.requirements;
+    const currentlyDue = req?.currently_due ?? [];
+    const pastDue = req?.past_due ?? [];
+    const needsAction = !active && (!detailsSubmitted || currentlyDue.length > 0 || pastDue.length > 0);
 
-    // Keep the DB in sync
+    // Keep the DB in sync (unchanged shape: active | pending).
     await supabaseAdmin.from("shops")
       .update({ stripe_connected: !!active, stripe_connect_status: status })
       .eq("id", shop.id);
 
-    await syncConnectNudge(user.id, !!active, shop.id);
+    // Only nudge when they actually need to act — not while Stripe is verifying.
+    await syncConnectNudge(user.id, !!active || !needsAction, shop.id);
 
     return NextResponse.json({
       connected: !!active,
       status,
+      needsAction,
       chargesEnabled: account.charges_enabled,
       payoutsEnabled: account.payouts_enabled,
-      detailsSubmitted: account.details_submitted,
+      detailsSubmitted,
     });
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : "Stripe error" }, { status: 500 });

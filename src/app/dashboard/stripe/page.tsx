@@ -18,7 +18,7 @@ import { effectivePlan, planHasFeature } from "@/lib/validation";
 // Stripe — they pay, own it, get the tax invoice). See CAPACITOR.md.
 const READER_STORE = "https://stripe.com/terminal/wisepad3";
 
-type ConnectStatus = { connected: boolean; status: string; checkError?: boolean };
+type ConnectStatus = { connected: boolean; status: string; needsAction?: boolean; checkError?: boolean };
 
 /**
  * Card Reader & payouts — WEB ONLY (Apple IAP: hardware purchase + the
@@ -124,6 +124,16 @@ export default function CardReaderPage() {
           ) : connected ? (
             <div className="flex items-center gap-2 text-emerald-400 text-sm font-medium">
               <Check size={16} /> Your Stripe account is connected and ready to take cards.
+            </div>
+          ) : connect && connect.needsAction === false ? (
+            // Details submitted — Stripe is verifying. Don't re-prompt onboarding
+            // (that looped for owners who'd already finished the form).
+            <div className="space-y-3">
+              <div className="flex items-start gap-2 text-sky-300 text-sm">
+                <Clock size={16} className="flex-shrink-0 mt-0.5" />
+                <p>Stripe is verifying your account — no further action needed. Card payments turn on automatically once approved (usually minutes, sometimes up to a day).</p>
+              </div>
+              <Button variant="outline" loading={loading} onClick={load}>Check status</Button>
             </div>
           ) : (
             <div className="space-y-3">

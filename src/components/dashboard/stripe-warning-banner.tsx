@@ -1,6 +1,6 @@
 "use client";
-import { useEffect, useState } from "react";
-import { AlertTriangle, ArrowRight } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { AlertTriangle, ArrowRight, Clock, RefreshCw } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useResetOnReturn } from "@/lib/use-reset-on-return";
 import { canPromptPaymentSetup } from "@/lib/setup-prompts";
@@ -18,9 +18,13 @@ import { canPromptPaymentSetup } from "@/lib/setup-prompts";
  */
 export function StripeWarningBanner() {
   const { shop, profile, accessToken } = useAuth();
-  const [setupShopId, setSetupShopId] = useState<string | null>(null);
+  // mode: "action" = they must finish/provide info (re-onboard); "verifying" =
+  // details submitted, Stripe is reviewing (no re-prompt — that was the loop).
+  const [mode, setMode] = useState<"action" | "verifying" | null>(null);
+  const [statusShopId, setStatusShopId] = useState<string | null>(null);
   const [dismissedShopId, setDismissedShopId] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
+  const [rechecking, setRechecking] = useState(false);
   const [error, setError] = useState("");
   const eligible = profile?.role === "shop_owner" && canPromptPaymentSetup(shop);
   // Returning from Stripe via Back restores this page from bfcache with `starting`
@@ -48,29 +52,77 @@ export function StripeWarningBanner() {
     setStarting(false);
   };
 
-  useEffect(() => {
-    setSetupShopId(null);
-    setError("");
+  const checkStatus = useCallback(async () => {
     if (!shop || !accessToken || !eligible) return;
-
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch(`/api/stripe/connect/status?shop_id=${shop.id}`, {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
-        if (!res.ok) throw new Error("Payment status unavailable");
-        const data = await res.json();
-        if (!cancelled) setSetupShopId(data.connected === false ? shop.id : null);
-      } catch {
-        // Network/Stripe hiccup — fall back to the stored flag.
-        if (!cancelled) setSetupShopId(shop.stripe_connected === false ? shop.id : null);
-      }
-    })();
-    return () => { cancelled = true; };
+    try {
+      const res = await fetch(`/api/stripe/connect/status?shop_id=${shop.id}`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (!res.ok) throw new Error("Payment status unavailable");
+      const data = await res.json();
+      setStatusShopId(shop.id);
+      // Connected → no banner. Not connected: only prompt onboarding when Stripe
+      // actually needs something (needsAction); otherwise it's under review.
+      setMode(data.connected ? null : (data.needsAction === false ? "verifying" : "action"));
+    } catch {
+      // Network/Stripe hiccup — fall back to the stored flag (can't tell
+      // "verifying" apart without the API, so assume actionable).
+      setStatusShopId(shop.id);
+      setMode(shop.stripe_connected === false ? "action" : null);
+    }
   }, [shop, accessToken, eligible]);
 
-  if (!eligible || !shop || setupShopId !== shop.id || dismissedShopId === shop.id) return null;
+  useEffect(() => {
+    setMode(null);
+    setStatusShopId(null);
+    setError("");
+    if (!shop || !accessToken || !eligible) return;
+    let cancelled = false;
+    (async () => { if (!cancelled) await checkStatus(); })();
+    return () => { cancelled = true; };
+  }, [shop, accessToken, eligible, checkStatus]);
+
+  const recheck = async () => {
+    if (rechecking) return;
+    setRechecking(true);
+    await checkStatus();
+    setRechecking(false);
+  };
+
+  if (!eligible || !shop || statusShopId !== shop.id || !mode || dismissedShopId === shop.id) return null;
+
+  // Details submitted — Stripe is verifying. Calm, informational, NO re-onboard
+  // (re-prompting a finished owner is exactly what looped before).
+  if (mode === "verifying") {
+    return (
+      <div className="px-4 md:px-6 pt-4">
+        <div className="flex items-start gap-3 bg-sky-500/10 border border-sky-500/30 rounded-2xl p-4">
+          <Clock size={18} className="text-sky-400 flex-shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-sky-300">Stripe is verifying your account</p>
+            <p className="text-xs text-sky-200/80 mt-0.5">
+              You&apos;ve submitted your details — no further action needed. Card payments and payouts
+              turn on automatically once Stripe approves (usually minutes, sometimes up to a day).
+            </p>
+            <button
+              onClick={recheck}
+              disabled={rechecking}
+              className="inline-flex items-center gap-1 text-xs font-semibold text-sky-300 hover:text-sky-200 mt-2 disabled:opacity-60"
+            >
+              <RefreshCw size={13} className={rechecking ? "animate-spin" : ""} /> {rechecking ? "Checking…" : "Check status"}
+            </button>
+          </div>
+          <button
+            onClick={() => setDismissedShopId(shop.id)}
+            className="text-sky-300/60 hover:text-sky-200 text-sm leading-none flex-shrink-0"
+            aria-label="Dismiss"
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="px-4 md:px-6 pt-4">
