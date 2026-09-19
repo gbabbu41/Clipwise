@@ -176,10 +176,9 @@ export default function OnboardingPage() {
   }, [step, resumeReady]);
 
   const canProceed = () => {
-    // Shop step needs only a NAME (the shop can't be created without one). Address,
-    // city, phone, logo etc. are optional here — they can be filled later in
-    // Settings, so this form is otherwise skippable.
-    if (step === 0) return !!shop.name.trim();
+    // Shop step is fully skippable — a blank name falls back to the owner's name
+    // on create (renameable in Settings); every other field is optional too.
+    if (step === 0) return true;
     // Starter is solo — the owner MUST add themselves as a barber before moving on.
     // Staff is hidden on Starter, so this step is their one chance to get set up;
     // skipping it strands them with a shop but no bookable barber. Paid plans keep
@@ -229,7 +228,7 @@ export default function OnboardingPage() {
             method: "POST",
             headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
             body: JSON.stringify({
-              name: shop.name, address: shop.address, city: shop.city, province: shop.province,
+              name: shop.name.trim() || fallbackShopName, address: shop.address, city: shop.city, province: shop.province,
               postal_code: shop.postal_code, phone: shop.phone, description: shop.description,
               subscription_id: planData.subscriptionId ?? undefined,
               // No-card trial: picking Pro/Premium starts a 21-day trial server-side.
@@ -327,6 +326,10 @@ export default function OnboardingPage() {
   // (no editable field: a different name here would confuse the two portals). We
   // show it up front so the owner knows exactly how they'll appear to customers.
   const selfBarberName = profile?.name?.trim() || user?.email?.split("@")[0] || "Me";
+  // Placeholder shop name when the owner skips naming it — their account name (or
+  // email handle), else a generic default. They rename it anytime in Settings.
+  const ownerLabel = profile?.name?.trim() || user?.email?.split("@")[0] || "";
+  const fallbackShopName = ownerLabel ? `${ownerLabel}'s Barbershop` : "My Barbershop";
 
   const inviteBarber = async (name: string, email: string, commission_percent: number) => {
     if (!resumeReady) return;
@@ -482,9 +485,9 @@ export default function OnboardingPage() {
         {step === 0 && (
           <div className="space-y-4 animate-fade-in">
             <h2 className="text-xl font-bold text-white">Tell us about your shop</h2>
-            <p className="text-[#8f8f8f] text-sm">Only your shop name is required to continue — everything else is optional and you can add it later in Settings.</p>
+            <p className="text-[#8f8f8f] text-sm">All optional — skip and set it up later in Settings. If you don&apos;t name it now, we&apos;ll use <span className="text-white">{fallbackShopName}</span> until you change it.</p>
             {([
-              { key: "name", label: "Shop Name *", placeholder: "Fresh Cutz Barbershop" },
+              { key: "name", label: "Shop Name", placeholder: fallbackShopName },
               { key: "address", label: "Street Address", placeholder: "123 Main Street" },
               { key: "city", label: "City", placeholder: "Moncton" },
               { key: "phone", label: "Phone Number", placeholder: "(506) 555-0123", note: "Optional — shown publicly on your booking page. Leave blank to keep it private." },
@@ -734,7 +737,7 @@ export default function OnboardingPage() {
                 explain WHY (a truly-disabled button gives no feedback). */}
             <Button className={cn("flex-1", !canProceed() && !saving && "opacity-50")} loading={saving} disabled={addingBarber || (step === 1 && barberUncertain)}
               onClick={proceed}>
-              {saving ? "Saving..." : step === 3 ? "Finish Setup" : ((step === 1 && planLimit > 1 && addedBarbers.length === 0) || (step === 2 && !hours.some(h => h.open)) ? "Skip for now" : "Continue")}
+              {saving ? "Saving..." : step === 3 ? "Finish Setup" : ((step === 0 && !shop.name.trim()) || (step === 1 && planLimit > 1 && addedBarbers.length === 0) || (step === 2 && !hours.some(h => h.open)) ? "Skip for now" : "Continue")}
               {!saving && <ChevronRight size={16} />}
             </Button>
             </div>
