@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Clock, ArrowRight } from "lucide-react";
+import { Clock, ArrowRight, X } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { isNativeApp } from "@/lib/native-app";
 import { effectivePlan } from "@/lib/validation";
@@ -73,20 +73,20 @@ export function TrialBanner({ native }: { native?: boolean } = {}) {
       : null;
     return (
       <div className="px-4 md:px-6 pt-4">
-        <div className="flex items-start gap-3 border rounded-2xl p-4 bg-amber-500/10 border-amber-500/30 text-amber-300">
-          <Clock size={18} className="flex-shrink-0 mt-0.5" />
+        <div className="relative flex items-start gap-3.5 bg-surface border border-border rounded-2xl shadow-lg shadow-black/30 px-4 py-4 pr-10 sm:gap-4 sm:px-5">
+          <span className="flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center bg-amber-500/15 text-amber-300"><Clock size={20} /></span>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold">
-              Your free trial has ended{endedOn ? ` (${endedOn})` : ""} — you&rsquo;re on the free Starter plan
+            <p className="text-[15px] font-bold text-foreground leading-snug">
+              Your free trial has ended{endedOn ? ` (${endedOn})` : ""}
             </p>
-            <p className="text-xs opacity-80 mt-0.5">
-              You can keep using Starter for free, or review a paid plan to restore its included features. Your account &amp; bookings are safe.
+            <p className="text-xs text-grey mt-1 leading-relaxed">
+              You&rsquo;re on the free Starter plan. Keep using it for free, or review a paid plan to restore its features — your account &amp; bookings are safe.
             </p>
-            <Link href="/dashboard/billing" className="inline-flex items-center gap-1 text-xs font-semibold mt-2 hover:underline">
-              Review plans <ArrowRight size={13} />
+            <Link href="/dashboard/billing" className="inline-flex items-center gap-1.5 mt-2.5 rounded-lg px-3.5 py-2 text-xs font-bold bg-white text-black hover:bg-white/90 transition-colors">
+              Review plans <ArrowRight size={14} />
             </Link>
           </div>
-          <button onClick={snooze} className="text-sm leading-none opacity-60 hover:opacity-100 flex-shrink-0" aria-label="Dismiss for now">✕</button>
+          <button onClick={snooze} aria-label="Dismiss for now" className="absolute top-2.5 right-2.5 text-grey hover:text-foreground p-1 rounded-full"><X size={15} /></button>
         </div>
       </div>
     );
@@ -95,28 +95,24 @@ export function TrialBanner({ native }: { native?: boolean } = {}) {
   const urgent = daysLeft <= 3;
   const label = daysLeft === 1 ? "1 day" : `${daysLeft} days`;
 
-  const tone = urgent
-    ? "bg-red-500/10 border-red-500/30 text-red-300"
-    : "bg-sky-500/10 border-sky-500/30 text-sky-300";
-
   return (
     <div className="px-4 md:px-6 pt-4">
-      <div className={`flex items-start gap-3 border rounded-2xl p-4 ${tone}`}>
-        <Clock size={18} className="flex-shrink-0 mt-0.5" />
+      <div className={`relative flex items-start gap-3.5 bg-surface border rounded-2xl shadow-lg shadow-black/30 px-4 py-4 pr-10 sm:gap-4 sm:px-5 ${urgent ? "border-red-500/40" : "border-border"}`}>
+        <span className={`flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center ${urgent ? "bg-red-500/15 text-red-300" : "bg-sky-500/15 text-sky-300"}`}><Clock size={20} /></span>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold">
+          <p className="text-[15px] font-bold text-foreground leading-snug">
             {urgent ? `Your free trial ends in ${label}` : `You're on a free trial — ${label} left`}
           </p>
-          <p className="text-xs opacity-80 mt-0.5">
-            Review your plan and subscription price before continuing with paid features. You won&apos;t be charged automatically on this no-card trial. Without a subscription, you return to free Starter; your account &amp; bookings stay safe.
+          <p className="text-xs text-grey mt-1 leading-relaxed">
+            Review your plan before continuing with paid features. You won&apos;t be charged automatically on this no-card trial; without a subscription you return to free Starter (your account &amp; bookings stay safe).
           </p>
-          <Link href="/dashboard/billing" className="inline-flex items-center gap-1 text-xs font-semibold mt-2 hover:underline">
-            Review subscription <ArrowRight size={13} />
+          <Link href="/dashboard/billing" className="inline-flex items-center gap-1.5 mt-2.5 rounded-lg px-3.5 py-2 text-xs font-bold bg-white text-black hover:bg-white/90 transition-colors">
+            Review subscription <ArrowRight size={14} />
           </Link>
         </div>
         {/* Always dismissible now (even at ≤3 days) — snoozes ~12h so it never
             nags every load. The Billing page keeps the permanent reminder. */}
-        <button onClick={snooze} className="text-sm leading-none opacity-60 hover:opacity-100 flex-shrink-0" aria-label="Dismiss for now">✕</button>
+        <button onClick={snooze} aria-label="Dismiss for now" className="absolute top-2.5 right-2.5 text-grey hover:text-foreground p-1 rounded-full"><X size={15} /></button>
       </div>
     </div>
   );

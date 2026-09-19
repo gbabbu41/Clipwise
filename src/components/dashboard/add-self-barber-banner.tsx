@@ -122,45 +122,56 @@ export function AddSelfBarberBanner() {
 
   if (state === "hidden" || state === "checking" || checkedScope !== currentScope) return null;
 
+  // A polished bar floating up from the bottom (above the mobile tab bar) — the
+  // same treatment as the Stripe / onboarding nudges. Starter-only, so it never
+  // co-exists with the (paid-plan) Stripe bottom bar.
+  const barWrap = "fixed left-0 right-0 z-30 px-3 bottom-[calc(4.25rem+env(safe-area-inset-bottom)+8px)] lg:bottom-4 pointer-events-none";
+  const barCard = "pointer-events-auto mx-auto max-w-2xl bg-surface border border-border rounded-2xl shadow-xl shadow-black/40 animate-fade-in px-4 py-4 sm:px-5";
+
   if (state === "error") {
     return (
-      <div role="alert" className="mx-4 md:mx-6 mt-4 border border-amber-500/30 rounded-2xl p-4">
-        <p className="text-sm text-amber-200">{error}</p>
-        <button onClick={() => setCheckAttempt(value => value + 1)} className="text-sm font-semibold text-amber-300 mt-2">Retry setup check</button>
+      <div className={barWrap}>
+        <div role="alert" className={`${barCard} flex items-start gap-3.5 sm:gap-4`}>
+          <span className="flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center bg-amber-500/15 text-amber-300"><Scissors size={20} /></span>
+          <div className="flex-1 min-w-0">
+            <p className="text-[15px] font-bold text-foreground leading-snug">Couldn&apos;t check your setup</p>
+            <p className="text-xs text-grey mt-1">{error || "Please try again."}</p>
+            <button onClick={() => setCheckAttempt(value => value + 1)} className="inline-flex items-center gap-1.5 mt-2.5 rounded-lg px-3.5 py-2 text-xs font-bold bg-white text-black hover:bg-white/90 transition-colors">Retry setup check</button>
+          </div>
+        </div>
       </div>
     );
   }
 
   if (state === "ok") {
     return (
-      <div className="px-4 md:px-6 pt-4">
-        <div className="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-4">
-          <Check size={18} className="text-emerald-400 flex-shrink-0" />
-          <p className="text-sm font-semibold text-emerald-300">You&apos;re set up as a barber — updating your dashboard…</p>
+      <div className={barWrap}>
+        <div className={`${barCard} flex items-center gap-3.5 sm:gap-4`}>
+          <span className="flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center bg-emerald-500/15 text-emerald-300"><Check size={20} /></span>
+          <p className="text-[15px] font-bold text-foreground">You&apos;re set up as a barber — updating your dashboard…</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="px-4 md:px-6 pt-4">
-      <div className="flex items-start gap-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4">
-        <Scissors size={18} className="text-amber-400 flex-shrink-0 mt-0.5" />
+    <div className={barWrap}>
+      <div className={`${barCard} flex items-start gap-3.5 sm:gap-4`}>
+        <span className="flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center bg-amber-500/15 text-amber-300"><Scissors size={20} /></span>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-amber-300">You&apos;re not set up as a barber yet</p>
-          <p className="text-xs text-amber-200/80 mt-0.5">
-            The free plan covers one chair. Add yourself so customers can book you and you
-            show up on the calendar — you&apos;ll appear as{" "}
-            <span className="font-semibold text-amber-100">{selfBarberName}</span> on your booking
-            page. Takes one tap, no invite needed.
+          <p className="text-[15px] font-bold text-foreground leading-snug">Add yourself as a barber</p>
+          <p className="text-xs text-grey mt-1 leading-relaxed">
+            The free plan covers one chair. Add yourself so customers can book you and you show up on
+            the calendar — you&apos;ll appear as <span className="font-semibold text-foreground">{selfBarberName}</span> on
+            your booking page. One tap, no invite needed.
           </p>
-          {(error || uncertain) && <p role="alert" className="text-xs text-red-400 mt-1.5">{uncertain ? "Couldn't confirm whether you were added. Refresh and check the original shop's barber setup before trying again." : error}</p>}
+          {(error || uncertain) && <p role="alert" className="text-xs text-amber-300 mt-2">{uncertain ? "Couldn't confirm whether you were added. Refresh and check your barber setup before trying again." : error}</p>}
           <button
             onClick={addSelf}
             disabled={adding || uncertain}
-            className="inline-flex items-center gap-1 text-xs font-semibold text-amber-300 hover:text-amber-200 mt-2 disabled:opacity-60"
+            className="inline-flex items-center gap-1.5 mt-2.5 rounded-lg px-3.5 py-2 text-xs font-bold bg-white text-black hover:bg-white/90 transition-colors disabled:opacity-60"
           >
-            {adding ? "Adding you…" : <>Add yourself as a barber <ArrowRight size={13} /></>}
+            {adding ? "Adding you…" : <>Add yourself as a barber <ArrowRight size={14} /></>}
           </button>
         </div>
       </div>
