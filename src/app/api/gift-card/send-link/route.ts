@@ -34,7 +34,10 @@ export async function POST(request: NextRequest) {
   }
 
   const sendTo = b.send_to.trim();
-  const origin = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca";
+  // Canonical app URL, never the caller-supplied Origin header — the resulting
+  // link lands in a purchase redirect / customer email, so it must not be
+  // attacker-influenceable (matches the payment-link / invite / reset routes).
+  const origin = (process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca").replace(/\/+$/, "");
   try {
     const url = await createGiftCheckoutSession({
       shop, origin,

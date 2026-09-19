@@ -50,6 +50,7 @@ export default function LoyaltyPage() {
   const pointsInFlight = useRef(false);
   const [saving, setSaving] = useState(false);
   const promoSaveInFlight = useRef(false);
+  const settingsSaveInFlight = useRef(false);
   const [savingSettings, setSavingSettings] = useState(false);
   const [reminders, setReminders] = useState({
     appointment_24h: true, rebooking_30d: true, birthday: false, winback_60d: false,
@@ -93,23 +94,30 @@ export default function LoyaltyPage() {
   }, [shop]);
 
   const saveSettings = async () => {
-    if (!shop) return;
+    if (!shop || settingsSaveInFlight.current) return; // in-flight guard: a double-tap can't fire two overlapping saves
+    settingsSaveInFlight.current = true;
     setSavingSettings(true);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const current = ((shop as any).booking_settings ?? {}) as Record<string, unknown>;
-    const next = {
-      ...current,
-      loyalty: {
-        enabled: settings.enabled,
-        points_per_visit: settings.points_per_visit,
-        points_per_dollar: settings.points_per_dollar,
-        redemption_rate: settings.redemption,
-      },
-    };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await supabase.from("shops").update({ booking_settings: next as any }).eq("id", shop.id);
-    setSavingSettings(false);
-    showToast(error ? "Failed to save settings" : "Settings saved!");
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const current = ((shop as any).booking_settings ?? {}) as Record<string, unknown>;
+      const next = {
+        ...current,
+        loyalty: {
+          enabled: settings.enabled,
+          points_per_visit: settings.points_per_visit,
+          points_per_dollar: settings.points_per_dollar,
+          redemption_rate: settings.redemption,
+        },
+      };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await supabase.from("shops").update({ booking_settings: next as any }).eq("id", shop.id);
+      showToast(error ? "Failed to save settings" : "Settings saved!");
+    } catch {
+      showToast("Failed to save settings");
+    } finally {
+      settingsSaveInFlight.current = false;
+      setSavingSettings(false);
+    }
   };
 
   const savePoints = async (mode: "add" | "redeem") => {

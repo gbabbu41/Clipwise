@@ -62,7 +62,9 @@ export async function POST(request: NextRequest) {
   }
   if (cgtx.error) console.warn("[gift] cash sale revenue row failed:", cgtx.error.message);
 
-  const baseUrl = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca";
+  // Canonical app URL, never the caller-supplied Origin — this link is emailed to
+  // the customer, so it must not be attacker-influenceable.
+  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca").replace(/\/+$/, "");
   await sendGiftCardEmails({
     shop: { name: shop.name, slug: shop.slug, email: shop.email },
     baseUrl,

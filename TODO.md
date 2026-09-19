@@ -75,8 +75,11 @@ Do these **in order** the day you flip ClipWise live. Mostly key swaps, no code 
     - Verify after: `grep -rn "BARRIER_ENABLED\|NO_SHOW_TIME_GATE" src/` all read `= true`; a
       real `next build`; and by hand, marking a FUTURE appointment no-show is blocked in the UI
       AND rejected by the API. (Owner decided 2026-09-06: leave off until launch, save the steps.)
-- ✅ **SQL migrations: nothing to run** — a full `information_schema` audit on 2026-08-12
-      confirmed prod is fully migrated (see §2). Premium is already $79 with multi-location.
+- ✅ **SQL migrations: baseline fully applied (2026-08-12 audit)** — track migrations added
+      AFTER that date individually (see §2), NOT as "nothing to run." Verified 2026-09-19 the
+      three added since are ALL applied on prod: `20260917035250_public_marketing_leads`,
+      `20260917151400_atomic_barber_schedule`, `20260917152523_atomic_time_off_exclude_date`.
+      Premium is already $79 with multi-location.
 
 ### 🔒 Security — 3 items DEFERRED by owner (2026-08-30) → do BEFORE real shops onboard
 A security audit (2026-08-30) closed the dangerous **write-side takeover** holes already

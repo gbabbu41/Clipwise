@@ -71,6 +71,7 @@ export default function ClientsPage() {
   const [savingBirthday, setSavingBirthday] = useState(false);
   const [sendingBirthday, setSendingBirthday] = useState(false);
   const birthdaySendInFlight = useRef(false);
+  const addPointsInFlight = useRef(false);
   // Inline add/edit of the profile's phone/email tiles.
   const [editField, setEditField] = useState<null | "phone" | "email">(null);
   const [fieldDraft, setFieldDraft] = useState("");
@@ -394,27 +395,47 @@ export default function ClientsPage() {
   };
 
   const addPoints = async () => {
-    if (!addPointsClient || !shop) return;
+    if (!addPointsClient || !shop || addPointsInFlight.current) return;
+    if (!accessToken) { showToast("Please sign in again to change points"); return; }
     const pts = Math.round(Number(pointsToAdd));
     if (!Number.isFinite(pts) || pts === 0) { showToast("Enter a valid number of points"); return; }
+    addPointsInFlight.current = true;
     setSaving(true);
-    // Materialize synthetic clients so the points actually persist to a real row.
-    const realId = await ensureRealClient(addPointsClient);
-    if (!realId) { setSaving(false); showToast("Couldn't add points — please try again."); return; }
-    // Read the current balance from the DB (not stale local state / NaN) then add.
-    // Bail on a read error — otherwise a failed read reads as 0 and the update
-    // would OVERWRITE the client's real balance with just the delta (data loss).
-    const { data: row, error: readErr } = await supabase.from("clients").select("loyalty_points").eq("id", realId).maybeSingle();
-    if (readErr) { setSaving(false); showToast("Couldn't add points — please try again."); return; }
-    const current = Number(row?.loyalty_points ?? 0);
-    const newTotal = Math.max(0, current + pts);
-    const { error } = await supabase.from("clients").update({ loyalty_points: newTotal }).eq("id", realId);
-    setSaving(false);
-    if (error) { showToast("Couldn't add points — please try again."); return; }
-    setSelectedClient(c => c && (c.id === addPointsClient.id || c.id === realId) ? { ...c, id: realId, loyalty_points: newTotal } : c);
-    showToast(`${pts > 0 ? "+" : ""}${pts} points · now ${newTotal}`);
-    setAddPointsClient(null);
-    loadClients({ background: true }); // list is already on screen — don't flash the skeleton
+    try {
+      // Materialize synthetic clients so the points actually persist to a real row.
+      const realId = await ensureRealClient(addPointsClient);
+      if (!realId) { showToast("Couldn't add points — please try again."); return; }
+      // Route through the ONE hardened loyalty door (/api/loyalty/points) — the
+      // same server path the Loyalty page uses. It re-checks ownership + the paid
+      // plan, does the balance math server-side, writes the audit row, and returns
+      // the confirmed new total — so a manual adjustment here can't diverge, skip
+      // the plan gate, clobber a concurrent change, or silently fail (the old code
+      // did a client-side read-modify-write with only an error check).
+      const res = await fetch("/api/loyalty/points", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ client_id: realId, points: pts, shop_id: shop.id }),
+      });
+      const data = await res.json().catch(() => ({} as { ok?: boolean; loyalty_points?: number; error?: string }));
+      if (!res.ok || data.ok !== true || !Number.isFinite(data.loyalty_points)) {
+        showToast(
+          res.status === 403 ? "Loyalty is a paid-plan feature."
+            : data.error === "Not enough points to redeem" ? "Not enough points to redeem."
+              : "Couldn't add points — please try again.",
+        );
+        return;
+      }
+      const newTotal = data.loyalty_points as number;
+      setSelectedClient(c => c && (c.id === addPointsClient.id || c.id === realId) ? { ...c, id: realId, loyalty_points: newTotal } : c);
+      showToast(`${pts > 0 ? "+" : ""}${pts} points · now ${newTotal}`);
+      setAddPointsClient(null);
+      loadClients({ background: true }); // list is already on screen — don't flash the skeleton
+    } catch {
+      showToast("Couldn't confirm the points change — reload before trying again.");
+    } finally {
+      addPointsInFlight.current = false;
+      setSaving(false);
+    }
   };
 
   const addClient = async () => {
