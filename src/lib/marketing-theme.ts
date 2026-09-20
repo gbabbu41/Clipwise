@@ -52,7 +52,8 @@ html{scroll-behavior:smooth}
   padding:0 10px 0 20px;border-radius:999px;background:rgba(16,16,18,.55);
   backdrop-filter:blur(22px) saturate(180%);border:1px solid rgba(255,255,255,.09);
   box-shadow:0 10px 40px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.10)}
-.mkt .navbar .brand{font-weight:800;letter-spacing:-.045em;font-size:16px;color:var(--t1)}
+.mkt .navbar .brand{display:flex;align-items:center;font-weight:800;letter-spacing:-.045em;font-size:16px;color:var(--t1)}
+.mkt .navbar .brand-mark{height:24px;width:auto;display:block}
 .mkt .navbar ul{display:flex;gap:24px;list-style:none;margin:0 auto;padding:0;font-size:13.5px;font-weight:500;color:var(--t2)}
 .mkt .navbar ul a:hover{color:#fff}
 .mkt .navbar .right{display:flex;align-items:center;gap:14px}
