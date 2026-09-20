@@ -67,7 +67,9 @@ export function Calendar({ value, onChange, minDate, maxDate, isDateDisabled, re
   };
 
   return (
-    <div className={cn("bg-card border border-border rounded-2xl p-4 w-full max-w-xs", className)}>
+    // data-no-swipe: keep page swipe-navigation from firing when the user swipes
+    // over the calendar (they were accidentally navigating tabs instead).
+    <div data-no-swipe className={cn("bg-card border border-border rounded-2xl p-4 w-full max-w-xs", className)}>
       {/* Header */}
       <div className="flex items-center justify-between px-1 mb-2">
         <button

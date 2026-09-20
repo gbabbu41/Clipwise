@@ -403,8 +403,11 @@ export default function POSPage() {
 
   // ── Customer picker helpers ─────────────────────────────────────────────
   const filteredClients = useMemo(() => {
-    if (!clientSearch.trim()) return clientsList.slice(0, 8);
-    return clientsList.filter(c => clientMatchesQuery(c, clientSearch)).slice(0, 20);
+    // Show the WHOLE list when browsing (the sheet scrolls) — capping at 8 made it
+    // look like scrolling was broken once a shop had more than 8 clients. Search
+    // still caps at 50 matches, which is plenty for a query.
+    if (!clientSearch.trim()) return clientsList;
+    return clientsList.filter(c => clientMatchesQuery(c, clientSearch)).slice(0, 50);
   }, [clientsList, clientSearch]);
 
   const selectClient = (c: ClientLite) => {

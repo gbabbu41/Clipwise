@@ -1093,10 +1093,24 @@ export default function PaymentsPage() {
                   )}
                   <div className="flex justify-between"><span className="text-grey">Method</span><span className="text-foreground">{i.method === "cash" ? "Cash" : "Card"}</span></div>
                   <div className="flex justify-between"><span className="text-grey">Status</span><span className="text-foreground">{i.statusLabel}</span></div>
-                  <div className="flex justify-between"><span className="text-grey">{i.earn ? "Earned" : i.settled && !feeKnown(i) ? "Gross collected" : "Amount"}</span><span className="text-foreground font-semibold">{formatCurrency(statementAmount(i))}</span></div>
-                  {!i.earn && i.settled && !feeKnown(i) && <div className="flex justify-between"><span className="text-grey">Stripe fee / net collected</span><span>Unavailable</span></div>}
-                  {!i.earn && i.settled && i.method !== "cash" && feeOf(i) > 0 && (
-                    <div className="flex justify-between"><span className="text-grey">Stripe fee</span><span className="text-grey">{formatCurrency(feeOf(i))}</span></div>
+                  {/* Money breakdown. For a card payment with a known fee, spell out
+                      gross → fee → net so "after fee" is never ambiguous (the old
+                      single "Amount" row actually showed the net, which read unclear). */}
+                  {i.earn ? (
+                    <div className="flex justify-between"><span className="text-grey">Earned</span><span className="text-foreground font-semibold">{formatCurrency(i.amount)}</span></div>
+                  ) : i.settled && i.method !== "cash" && feeKnown(i) && feeOf(i) > 0 ? (
+                    <>
+                      <div className="flex justify-between"><span className="text-grey">Gross (paid)</span><span className="text-foreground">{formatCurrency(counted(i))}</span></div>
+                      <div className="flex justify-between"><span className="text-grey">Stripe fee</span><span className="text-grey">−{formatCurrency(feeOf(i))}</span></div>
+                      <div className="flex justify-between"><span className="text-grey">Net (you keep)</span><span className="text-foreground font-bold">{formatCurrency(netOf(i))}</span></div>
+                    </>
+                  ) : i.settled && i.method !== "cash" && !feeKnown(i) ? (
+                    <>
+                      <div className="flex justify-between"><span className="text-grey">Gross collected</span><span className="text-foreground font-semibold">{formatCurrency(counted(i))}</span></div>
+                      <div className="flex justify-between"><span className="text-grey">Stripe fee / net collected</span><span>Unavailable</span></div>
+                    </>
+                  ) : (
+                    <div className="flex justify-between"><span className="text-grey">Amount</span><span className="text-foreground font-semibold">{formatCurrency(statementAmount(i))}</span></div>
                   )}
                   {dt && (
                     <div className="flex justify-between gap-3">
