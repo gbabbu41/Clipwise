@@ -59,6 +59,9 @@ export function HomeHero() {
     <section className="home-hero" aria-labelledby="home-title" ref={heroRef}>
       {/* Trusted static CSS: raw style text must match during hydration. */}
       <style dangerouslySetInnerHTML={{ __html: HERO_CSS }} />
+      {/* Decorative brand watermark, faded into the top of the hero. Purely
+          visual (aria-hidden) — the real wordmark/nav link carries the name. */}
+      <img className="hh-watermark" src="/new/logo-watermark.png" alt="" aria-hidden="true" />
       <div className="wrap hh-grid">
         <div className="hh-copy">
           <p className="eyebrow">Barbershop software · Built in Canada</p>
@@ -124,7 +127,9 @@ export function HomeHero() {
 
 // Homepage-only selectors: shared marketing pages and app portals are untouched.
 const HERO_CSS = `
-.mkt .home-hero{--hh-accent:#6487b8;padding:72px 0 64px;background:#000}
+.mkt .home-hero{--hh-accent:#6487b8;position:relative;overflow:hidden;padding:72px 0 64px;background:#000}
+.mkt .hh-watermark{position:absolute;top:-8%;left:50%;transform:translateX(-50%);width:min(1600px,180%);max-width:none;opacity:.05;pointer-events:none;z-index:0;user-select:none}
+.mkt .home-hero .hh-grid{position:relative;z-index:1}
 /* Match the approved demo: normal-flow header, never fixed or sticky. */
 .mkt:has(.home-hero) .navbar{position:relative;top:auto;left:auto;transform:none;margin:0 auto;height:auto;min-height:70px;padding:26px 10px 0 20px;justify-content:space-between;gap:24px;background:#000;backdrop-filter:none;-webkit-backdrop-filter:none;border:0;border-radius:0;box-shadow:none}
 .mkt:has(.home-hero) .navbar .brand{font-size:19px}
