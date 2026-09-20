@@ -137,12 +137,12 @@ const HERO_CSS = `
 .mkt .home-hero .hh-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;pointer-events:none;filter:grayscale(100%);opacity:0/* DISABLED: animation:hh-photo-in 8s ease-out 2.4s forwards */}
 .mkt .home-hero .hh-photo-veil{position:absolute;inset:0;z-index:0;pointer-events:none;background:linear-gradient(180deg,rgba(0,0,0,.55),rgba(0,0,0,.72));opacity:0/* DISABLED: animation:hh-photo-in 8s ease-out 2.4s forwards */}
 .mkt .home-hero .hh-grid{position:relative;z-index:1}
-@keyframes hh-fade-in{to{opacity:.015}}
+@keyframes hh-fade-in{to{opacity:.008}}
 @keyframes hh-drift{to{background-position:935px 935px}}
 @keyframes hh-pattern-out{to{opacity:0}}
 @keyframes hh-photo-in{to{opacity:1}}
 @media(prefers-reduced-motion:reduce){
-  .mkt .home-hero::before{opacity:.015;animation:none}
+  .mkt .home-hero::before{opacity:.008;animation:none}
 }
 /* Match the approved demo: normal-flow header, never fixed or sticky. */
 .mkt:has(.home-hero) .navbar{position:relative;top:auto;left:auto;transform:none;margin:0 auto;height:auto;min-height:70px;padding:26px 10px 0 20px;justify-content:space-between;gap:24px;background:#000;backdrop-filter:none;-webkit-backdrop-filter:none;border:0;border-radius:0;box-shadow:none}
