@@ -300,8 +300,11 @@ export default function POSPage() {
           <button type="button" aria-label="Dismiss from checkout" title="Dismiss from checkout"
             onClick={(e) => { e.stopPropagation(); dismissAppt(a.id); }}
             className="group absolute -top-2 -right-2 w-11 h-11 flex items-center justify-center z-10">
-            <span className="w-7 h-7 rounded-full bg-black/45 text-grey-muted group-hover:text-foreground group-hover:bg-black/70 flex items-center justify-center transition-colors">
-              <X size={15} />
+            {/* Theme-aware: uses surface tokens (not hardcoded black) so it's a
+                clean bordered chip on both the light Checkout page and dark mode,
+                not a grey blob. Shadow lifts it off the card corner. */}
+            <span className="w-7 h-7 rounded-full bg-card-raised border border-border text-grey shadow-sm group-hover:bg-surface-overlay group-hover:text-foreground flex items-center justify-center transition-colors">
+              <X size={14} />
             </span>
           </button>
         )}
