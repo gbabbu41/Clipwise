@@ -133,15 +133,16 @@ const HERO_CSS = `
    .wrap max-width via the left:50%/translateX(-50%)/width:100vw trick) —
    bounded to exactly this section's own height, so it never bleeds into the
    sections below it. */
-.mkt .home-hero::before{content:"";position:absolute;top:0;bottom:0;left:50%;width:100vw;transform:translateX(-50%);z-index:0;pointer-events:none;opacity:.015;background-image:url(/new/logo-watermark-text.png);background-repeat:repeat;background-size:935px auto/* DISABLED: animation:hh-pattern-out 8s ease-out 2.4s forwards */}
+.mkt .home-hero::before{content:"";position:absolute;top:0;bottom:0;left:50%;width:100vw;transform:translateX(-50%);z-index:0;pointer-events:none;opacity:0;background-image:url(/new/logo-watermark-text.png);background-repeat:repeat;background-size:935px auto;animation:hh-fade-in 2s ease-out forwards,hh-drift 90s linear infinite}
 .mkt .home-hero .hh-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;pointer-events:none;filter:grayscale(100%);opacity:0/* DISABLED: animation:hh-photo-in 8s ease-out 2.4s forwards */}
 .mkt .home-hero .hh-photo-veil{position:absolute;inset:0;z-index:0;pointer-events:none;background:linear-gradient(180deg,rgba(0,0,0,.55),rgba(0,0,0,.72));opacity:0/* DISABLED: animation:hh-photo-in 8s ease-out 2.4s forwards */}
 .mkt .home-hero .hh-grid{position:relative;z-index:1}
+@keyframes hh-fade-in{to{opacity:.015}}
+@keyframes hh-drift{to{background-position:935px 935px}}
 @keyframes hh-pattern-out{to{opacity:0}}
 @keyframes hh-photo-in{to{opacity:1}}
 @media(prefers-reduced-motion:reduce){
-  .mkt .home-hero::before{opacity:0;animation:none}
-  .mkt .home-hero .hh-photo,.mkt .home-hero .hh-photo-veil{opacity:1;animation:none}
+  .mkt .home-hero::before{opacity:.015;animation:none}
 }
 /* Match the approved demo: normal-flow header, never fixed or sticky. */
 .mkt:has(.home-hero) .navbar{position:relative;top:auto;left:auto;transform:none;margin:0 auto;height:auto;min-height:70px;padding:26px 10px 0 20px;justify-content:space-between;gap:24px;background:#000;backdrop-filter:none;-webkit-backdrop-filter:none;border:0;border-radius:0;box-shadow:none}
@@ -168,7 +169,7 @@ const HERO_CSS = `
 .mkt .hh-benefits{display:grid;grid-template-columns:1fr 1fr;gap:18px;border-top:1px solid #29292f;margin-top:24px;padding-top:22px}
 .mkt .hh-benefits p{margin:0;font-size:12px;line-height:1.7;color:#a5a5ae}
 .mkt .hh-benefits b{display:block;font-weight:600;font-size:14px;color:#f5f4f7}
-.mkt .hh-preview{min-width:0;margin:0;padding:24px 20px 20px;border:0;border-radius:0;background:transparent;box-shadow:none}
+.mkt .hh-preview{min-width:0;margin:0;padding:24px 20px 20px;border:1px solid rgba(255,255,255,.10);border-radius:20px;background:rgba(255,255,255,.04);backdrop-filter:blur(20px) saturate(160%);-webkit-backdrop-filter:blur(20px) saturate(160%);box-shadow:0 20px 50px rgba(0,0,0,.35)}
 .mkt .hh-preview-heading{display:flex;justify-content:space-between;gap:12px;font-size:9px;font-weight:600;letter-spacing:.14em;color:#b8b8c0;margin-bottom:22px}
 .mkt .hh-preview-heading{text-transform:uppercase;min-height:15px}
 .mkt .hh-preview-heading>span:last-child{color:#f5f4f7;letter-spacing:-.03em}

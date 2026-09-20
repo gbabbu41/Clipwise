@@ -21,7 +21,7 @@ const CSS = `
 .mkt .public-intro{padding:76px 0 48px;max-width:760px}.mkt .public-intro h1{font-size:clamp(36px,5.6vw,64px);line-height:1.08;letter-spacing:-.045em;margin:18px 0 22px;text-wrap:balance}
 .mkt .public-intro .cta{margin-top:28px}.mkt .public-section{padding:64px 0;border-top:1px solid var(--line)}
 .mkt .public-section .head{margin-bottom:32px}.mkt .public-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:36px}
-.mkt .public-feature{display:flex;flex-direction:column;gap:14px;min-width:0}.mkt .public-feature .number{font-size:12px;color:#6487b8;letter-spacing:.12em}.mkt .public-feature p{color:var(--t2);font-size:15px;margin:0;line-height:1.7}
+.mkt .public-feature{display:flex;flex-direction:column;gap:14px;min-width:0;padding:18px;margin:-18px;border-radius:16px;border:1px solid transparent;background:transparent;transition:background .25s,border-color .25s}.mkt .public-feature:hover{background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.10);backdrop-filter:blur(16px) saturate(160%);-webkit-backdrop-filter:blur(16px) saturate(160%)}.mkt .public-feature .number{font-size:12px;color:#6487b8;letter-spacing:.12em}.mkt .public-feature p{color:var(--t2);font-size:15px;margin:0;line-height:1.7}
 .mkt .public-link{font-size:14px;font-weight:600;display:inline-flex;align-items:center;gap:8px;min-height:44px;width:fit-content;margin-top:auto}.mkt .public-link:hover{color:#6487b8}
 .mkt .public-split{display:grid;grid-template-columns:1.1fr .9fr;align-items:center;gap:64px}.mkt .public-split .copy{max-width:520px}
 .mkt .public-phone{width:min(280px,78vw);margin:0 auto;padding:8px;border:1px solid #303037;background:#101013;border-radius:32px}.mkt .public-phone img{width:100%;height:auto;border-radius:25px}
