@@ -38,14 +38,26 @@ export function BannerCoordinatorProvider({ children }: { children: React.ReactN
  */
 export function useBannerSlot(key: BannerKey, wants: boolean): boolean {
   const ctx = useContext(BannerCtx);
+  // Depend ONLY on the stable register/unregister callbacks (not the whole ctx
+  // value). The ctx value changes every time `active` changes, and this effect
+  // mutates `active` — so depending on ctx would re-fire the effect on its own
+  // writes and spin into a render loop. register/unregister are useCallback([]),
+  // so this effect runs only when key/wants actually change.
+  const register = ctx?.register;
+  const unregister = ctx?.unregister;
   useEffect(() => {
-    if (!ctx) return;
-    if (wants) ctx.register(key); else ctx.unregister(key);
-    return () => ctx.unregister(key);
-  }, [ctx, key, wants]);
+    if (!register || !unregister) return;
+    if (wants) register(key); else unregister(key);
+    return () => unregister(key);
+  }, [register, unregister, key, wants]);
   if (!ctx) return wants;
   if (!wants) return false;
+  // Wait until THIS bar has registered (its effect ran) before showing. On the
+  // very first render the registry is still empty, so without this every bar would
+  // read "nothing higher is active" and all flash on screen for one frame before
+  // collapsing to one — the exact pile-up we're preventing. One quiet frame first,
+  // then only the top bar appears.
+  if (!ctx.active.includes(key)) return false;
   const myIdx = PRIORITY.indexOf(key);
-  // Hidden while any higher-priority bar is also asking to show.
   return !ctx.active.some(k => PRIORITY.indexOf(k) < myIdx);
 }
