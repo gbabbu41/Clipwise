@@ -8,9 +8,7 @@ import { MobileMenu } from "./mobile-menu";
 export function MarketingNav() {
   return (
     <nav className="navbar">
-      <Link href="/" className="brand" aria-label="ClipWise">
-        <img src="/new/logo-watermark.png" alt="ClipWise" className="brand-mark" />
-      </Link>
+      <Link href="/" className="brand">CLIPWISE</Link>
       <ul>
         <li><Link href="/features">Product</Link></li>
         <li><Link href="/online-booking">Booking</Link></li>
