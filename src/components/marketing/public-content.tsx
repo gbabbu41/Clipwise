@@ -1,8 +1,14 @@
 import Link from "next/link";
+import type { CSSProperties } from "react";
 import { PLAN_MARKETING } from "@/lib/plan-marketing";
 
-export function PublicClose() {
-  return <section className="public-close"><div className="wrap"><div><h2>Your next chapter starts here.</h2><p>Start free. Set up your shop at your pace.</p></div><Link href="/signup" className="pill w">Get started free ↗</Link></div></section>;
+// `ctaStyle` is an opt-in override for the "Get started" pill — every caller
+// that omits it (product pages, why-clipwise, pricing) keeps the shared
+// default white button untouched. Only the homepage passes one, to try a
+// different accent on just that page without recoloring this button
+// everywhere else it's reused.
+export function PublicClose({ ctaStyle }: { ctaStyle?: CSSProperties } = {}) {
+  return <section className="public-close"><div className="wrap"><div><h2>Your next chapter starts here.</h2><p>Start free. Set up your shop at your pace.</p></div><Link href="/signup" className="pill w" style={ctaStyle}>Get started free ↗</Link></div></section>;
 }
 
 export function PricingCards() {
