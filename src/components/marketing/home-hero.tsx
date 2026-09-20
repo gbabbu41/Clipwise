@@ -133,7 +133,7 @@ const HERO_CSS = `
    .wrap max-width via the left:50%/translateX(-50%)/width:100vw trick) —
    bounded to exactly this section's own height, so it never bleeds into the
    sections below it. */
-.mkt .home-hero::before{content:"";position:absolute;top:0;bottom:0;left:50%;width:100vw;transform:translateX(-50%);z-index:0;pointer-events:none;opacity:.03;background-image:url(/new/logo-watermark-text.png);background-repeat:repeat;background-size:1100px auto/* DISABLED: animation:hh-pattern-out 8s ease-out 2.4s forwards */}
+.mkt .home-hero::before{content:"";position:absolute;top:0;bottom:0;left:50%;width:100vw;transform:translateX(-50%);z-index:0;pointer-events:none;opacity:.015;background-image:url(/new/logo-watermark-text.png);background-repeat:repeat;background-size:935px auto/* DISABLED: animation:hh-pattern-out 8s ease-out 2.4s forwards */}
 .mkt .home-hero .hh-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;pointer-events:none;filter:grayscale(100%);opacity:0/* DISABLED: animation:hh-photo-in 8s ease-out 2.4s forwards */}
 .mkt .home-hero .hh-photo-veil{position:absolute;inset:0;z-index:0;pointer-events:none;background:linear-gradient(180deg,rgba(0,0,0,.55),rgba(0,0,0,.72));opacity:0/* DISABLED: animation:hh-photo-in 8s ease-out 2.4s forwards */}
 .mkt .home-hero .hh-grid{position:relative;z-index:1}
