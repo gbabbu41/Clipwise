@@ -2358,9 +2358,11 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
       const l = last.toLocaleDateString("en-CA", { month: "short", day: "numeric" });
       return `${f} – ${l}`;
     }
+    // Day view: weekday + day only — the month lives in the grey back-link
+    // ("‹ Sep") beside it, so spelling it here too ("Sun, Sep 20") repeats it.
     return isMobile
-      ? currentDate.toLocaleDateString("en-CA", { weekday: "short", month: "short", day: "numeric" })
-      : currentDate.toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+      ? currentDate.toLocaleDateString("en-CA", { weekday: "short", day: "numeric" })
+      : currentDate.toLocaleDateString("en-CA", { weekday: "long", day: "numeric", year: "numeric" });
   }, [view, currentDate, isMobile]);
 
   // Parent level the back arrow walks up to (null at the top = Year). Month name
