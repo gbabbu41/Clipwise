@@ -1,11 +1,6 @@
 // Homepage-only refinement. Keep shared marketing pages and app portals unchanged.
 const HOME_PAGE_CSS = `
-.mkt:has(.home-content) .home-content{--s1:#000;--t2:#b8b8c2;--t3:#a2a2ad;--t4:#92929f;--line:#222227;--line2:#303037;--cta-accent:#73608F;--cta-accent-ink:#F4F1E8}
-/* Closing "Get started" button — the ONE place this color is set. Change
-   --cta-accent (and --cta-accent-ink for the text) above to try another
-   color; delete this rule (or set --cta-accent back to #fff / #000 ink) to
-   revert to the plain white button used everywhere else PublicClose renders. */
-.mkt .home-content .public-close .pill.w{background:var(--cta-accent);color:var(--cta-accent-ink)}
+.mkt:has(.home-content) .home-content{--s1:#000;--t2:#b8b8c2;--t3:#a2a2ad;--t4:#92929f;--line:#222227;--line2:#303037}
 .mkt .home-content section[id]{scroll-margin-top:28px}
 .mkt .home-content section.blk{padding-block:clamp(64px,8vw,104px)}
 .mkt .home-content h2 em{color:#dedee3}
