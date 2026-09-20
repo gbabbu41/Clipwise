@@ -810,7 +810,10 @@ export default function POSPage() {
           </Card>
           <div className="flex gap-3">
             {lastReceiptId && (
-              <a href={`/receipt/${lastReceiptId}`} target="_blank" rel="noopener noreferrer" className="flex-1">
+              // Same-tab (NOT target=_blank): in a standalone PWA a _blank link
+              // opens a chrome-less window with no back button — a dead end. In-tab
+              // means the receipt's Back returns here to Checkout.
+              <a href={`/receipt/${lastReceiptId}`} className="flex-1">
                 <Button variant="outline" className="w-full" size="lg"><Receipt size={16} /> View Receipt</Button>
               </a>
             )}

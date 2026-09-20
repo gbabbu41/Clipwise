@@ -1,8 +1,8 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { Check, Scissors, Share2, Printer } from "lucide-react";
+import { useParams, useRouter } from "next/navigation";
+import { Check, Scissors, Share2, Printer, ArrowLeft } from "lucide-react";
 import { MKT_CSS } from "@/lib/marketing-theme";
 import { formatCurrency } from "@/lib/utils";
 import type { Transaction } from "@/lib/database.types";
@@ -14,7 +14,15 @@ interface ReceiptRow extends Transaction {
 
 export default function ReceiptPage() {
   const params = useParams();
+  const router = useRouter();
   const id = params?.id as string;
+  // Get out of the receipt — critical in a standalone PWA, where this can open
+  // as a chrome-less window with no browser back button (a dead end). Prefer
+  // in-app history (returns the owner to Checkout); else home.
+  const goBack = () => {
+    if (typeof window !== "undefined" && window.history.length > 1) router.back();
+    else router.push("/");
+  };
 
   const [loading, setLoading] = useState(true);
   const [tx, setTx] = useState<ReceiptRow | null>(null);
@@ -79,7 +87,10 @@ export default function ReceiptPage() {
           <Scissors size={38} style={{ color: "var(--t3)", margin: "0 auto 12px" }} />
           <h1 style={{ fontSize: 20, fontWeight: 700 }}>{loadError ? "Couldn’t load this receipt" : "Receipt not found"}</h1>
           <p className="lead" style={{ textAlign: "center", marginTop: 6 }}>{loadError ? "Check your connection and try again." : "This receipt link is invalid or has expired."}</p>
-          {loadError && <button onClick={() => load()} className="pill w" style={{ marginTop: 18 }}>Try again</button>}
+          <div style={{ display: "flex", gap: 10, justifyContent: "center", marginTop: 18 }}>
+            {loadError && <button onClick={() => load()} className="pill w">Try again</button>}
+            <button onClick={goBack} className="pill g">Back</button>
+          </div>
         </div>
       </Wrap>
     );
@@ -104,6 +115,9 @@ export default function ReceiptPage() {
     <Wrap>
       <div className="authwrap" style={{ justifyContent: "flex-start", paddingTop: "clamp(32px,6vw,56px)" }}>
         <div style={{ width: "100%", maxWidth: 380 }}>
+          <button type="button" onClick={goBack} className="print:hidden" style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--t3)", fontSize: 14, marginBottom: 14, background: "none", border: "none", cursor: "pointer" }}>
+            <ArrowLeft size={16} /> Back
+          </button>
           <div className="authbrand" style={{ marginBottom: 20 }}><Link href="/" className="wm">CLIPWISE</Link></div>
 
           {/* Receipt card */}
