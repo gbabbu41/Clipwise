@@ -1,6 +1,10 @@
 // Homepage-only refinement. Keep shared marketing pages and app portals unchanged.
 const HOME_PAGE_CSS = `
-.mkt:has(.home-content) .home-content{--s1:#000;--t2:#b8b8c2;--t3:#a2a2ad;--t4:#92929f;--line:#222227;--line2:#303037}
+.mkt:has(.home-content) .home-content{--s1:#000;--t2:#b8b8c2;--t3:#a2a2ad;--t4:#92929f;--line:#222227;--line2:#303037;position:relative;z-index:0}
+/* Text-only wordmark, tiled evenly behind the whole homepage (not just the
+   hero) — negative z-index keeps it strictly behind every section's real
+   content; sections with their own photo background naturally paint over it. */
+.mkt .home-content::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;opacity:.05;background-image:url(/new/logo-watermark-text.png);background-repeat:repeat;background-size:320px auto}
 .mkt .home-content section[id]{scroll-margin-top:28px}
 .mkt .home-content section.blk{padding-block:clamp(64px,8vw,104px)}
 .mkt .home-content h2 em{color:#dedee3}
