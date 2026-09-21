@@ -9,7 +9,7 @@ import { HeaderControls } from "@/components/dashboard/header-controls";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import {
   cn, formatCurrency, formatDateForDb, friendlyDate, timeAgo, paymentTag,
-  occupiedSlots, dbTimeToDisplay, timeToMinutes, generate24hSlots,
+  occupiedSlots, dbTimeToDisplay, timeToMinutes, generate24hSlots, formatFriendlyTime,
   isCheckoutAllowed, CHECKOUT_LEAD_HOURS,
 } from "@/lib/utils";
 import { freesSlot, apptDuration } from "@/lib/availability";
@@ -1010,7 +1010,16 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
                 : appt.payment_method === "cash"
                   ? { text: "Pay at shop", cls: "bg-white/5 text-[#bbb]" }
                   : { text: "Booked", cls: "bg-[#00e5a0]/10 text-[#00e5a0]" };
-  const metaLine = [serviceName, barber?.name ?? "Any", appt.time_slot, amtPaid > 0 ? formatCurrency(amtPaid) : null].filter(Boolean).join(" · ");
+  // Time range + duration ("9:30 – 10:00 PM · 30 min"), then the price. The price
+  // is total_amount = service + tax (NO tip); a tip, if any, is shown separately so
+  // it's unambiguous that the main figure is pre-tip.
+  const endMin = appt.time_slot ? timeToMinutes(appt.time_slot) + duration : null;
+  const endTime = endMin != null ? formatFriendlyTime(`${Math.floor((endMin % 1440) / 60)}:${String(endMin % 60).padStart(2, "0")}`) : "";
+  const timeRange = appt.time_slot ? (endTime ? `${appt.time_slot} – ${endTime}` : appt.time_slot) : "";
+  const priceLabel = amt > 0
+    ? (tipAmt > 0 ? `${formatCurrency(amt)} + ${formatCurrency(tipAmt)} tip` : formatCurrency(amt))
+    : null;
+  const metaLine = [serviceName, barber?.name ?? "Any", timeRange, duration ? `${duration} min` : null, priceLabel].filter(Boolean).join(" · ");
 
   return (
     <>
@@ -1041,7 +1050,7 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
               <h3 className="text-base font-bold text-foreground truncate">{appt.client_name}</h3>
               <button onClick={close} className="text-grey hover:text-foreground flex-shrink-0 -mr-1"><X size={18} /></button>
             </div>
-            <p className="text-xs text-grey mt-1 truncate">{metaLine}</p>
+            <p className="text-xs text-grey mt-1 leading-relaxed pr-6">{metaLine}</p>
             <span className={cn("inline-flex items-center mt-2.5 text-[11px] font-semibold px-2.5 py-1 rounded-full", badge.cls)}>{badge.text}</span>
           </div>
 
