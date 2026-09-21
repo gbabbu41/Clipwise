@@ -132,10 +132,21 @@ export async function POST(req: NextRequest) {
         }
       }
       if (!recipient) return NextResponse.json({ error: "Client not found in this shop." }, { status: 404 });
+      // Birthday is a MARKETING email → carry a promos-only unsubscribe link. Needs
+      // the client row's id; a booking-/POS-only contact with no clients row simply
+      // gets no link (nothing to unsubscribe yet).
+      let unsubscribeUrl = "";
+      if (type === "birthday_wish") {
+        const { data: cRow } = await supabaseAdmin.from("clients")
+          .select("id").eq("shop_id", auth.shop.id).ilike("email", pattern).limit(1);
+        const cid = cRow?.[0]?.id;
+        if (cid) unsubscribeUrl = `${(process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca").replace(/\/+$/, "")}/api/unsubscribe?c=${cid}`;
+      }
       emailData = {
         clientName: recipient.name, clientEmail: recipient.email,
         shopName: String(auth.shop.name ?? ""), shopEmail: String(auth.shop.email ?? ""),
         shopSlug: String(auth.shop.slug ?? ""),
+        ...(unsubscribeUrl ? { unsubscribeUrl } : {}),
         ...(type === "direct_message" ? { content: data.content } : {}),
       };
     }

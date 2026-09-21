@@ -459,6 +459,14 @@ function appointmentUpdated(data: Record<string, string>) {
   `);
 }
 
+// Every MARKETING email carries this. The unsubscribe withdraws PROMOS ONLY —
+// booking confirmations, reminders and receipts keep coming (CASL/CAN-SPAM
+// require a working opt-out on commercial mail, but never on transactional mail).
+function unsubFooter(url?: string) {
+  if (!url) return "";
+  return `<p style="font-size:12px;color:#9CA3AF;margin-top:18px;line-height:1.5">You're getting this offer as a customer. <a href="${url}" style="color:#9CA3AF;text-decoration:underline">Unsubscribe</a> from marketing emails — you'll still receive your booking confirmations and reminders.</p>`;
+}
+
 function rebookingReminder(data: Record<string, string>) {
   return wrap(`
     ${shopHeader(data.shopName)}
@@ -471,6 +479,7 @@ function rebookingReminder(data: Record<string, string>) {
     ${data.promoNote ? `<p style="font-size:13px;color:#111827;margin-top:12px">${data.promoNote}</p>` : ""}
     <hr class="divider">
     <p style="color:#6B7280">— ${data.shopName} via ClipWise</p>
+    ${unsubFooter(data.unsubscribeUrl)}
   `);
 }
 
@@ -485,6 +494,7 @@ function noShowFollowUp(data: Record<string, string>) {
     <a href="${data.bookingUrl}" class="btn">Book Again →</a>
     <hr class="divider">
     <p style="color:#6B7280">— ${data.shopName} via ClipWise</p>
+    ${unsubFooter(data.unsubscribeUrl)}
   `);
 }
 
@@ -547,6 +557,7 @@ function birthdayWish(data: Record<string, string>) {
     <a href="${BASE_URL}/book/${data.shopSlug}" class="btn">Book Your Birthday Cut →</a>
     <hr class="divider">
     <p style="color:#6B7280">— ${data.shopName} via ClipWise</p>
+    ${unsubFooter(data.unsubscribeUrl)}
   `);
 }
 

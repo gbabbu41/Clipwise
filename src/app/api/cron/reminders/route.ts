@@ -229,6 +229,7 @@ async function run() {
         await sendEmail(n.type, {
           clientEmail: c.email, clientName: c.name ?? "there", shopName: shop.name,
           shopEmail: shop.email, bookingUrl,
+          unsubscribeUrl: `${BASE_URL}/api/unsubscribe?c=${c.id}`, // marketing → must carry opt-out
         });
         emails++; sends++;
       }
@@ -242,7 +243,8 @@ async function run() {
         if (sends >= MAX_SENDS) break;
         await sendEmail("birthday_wish", {
           clientEmail: c.email, clientName: c.name ?? "there", shopName: shop.name,
-          shopEmail: shop.email, bookingUrl,
+          shopEmail: shop.email, bookingUrl, shopSlug: shop.slug ?? "", // template builds its own book link from the slug
+          unsubscribeUrl: `${BASE_URL}/api/unsubscribe?c=${c.id}`, // marketing → must carry opt-out
         });
         emails++; sends++;
       }
