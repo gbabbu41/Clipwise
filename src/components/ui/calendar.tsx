@@ -66,26 +66,40 @@ export function Calendar({ value, onChange, minDate, maxDate, isDateDisabled, re
     return false;
   };
 
-  // Swipe left/right to change month (same as the ‹ › arrows). A tap on a day is
-  // too small to trigger it (needs a real horizontal drag).
+  // Swipe left/right to change month (same as the ‹ › arrows), with the grid
+  // following the finger and gliding to settle so it feels smooth — not a snap.
   const swipeStart = useRef<{ x: number; y: number } | null>(null);
+  const axis = useRef<"" | "x" | "y">("");
+  const [dragX, setDragX] = useState(0);
+  const [dragging, setDragging] = useState(false);
   const onTouchStart = (e: ReactTouchEvent) => {
-    const t = e.touches[0]; swipeStart.current = { x: t.clientX, y: t.clientY };
+    const t = e.touches[0]; swipeStart.current = { x: t.clientX, y: t.clientY }; axis.current = "";
+  };
+  const onTouchMove = (e: ReactTouchEvent) => {
+    const s = swipeStart.current; if (!s) return;
+    const t = e.touches[0];
+    const dx = t.clientX - s.x, dy = t.clientY - s.y;
+    if (axis.current === "") {
+      if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+      axis.current = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
+      if (axis.current === "x") setDragging(true);
+    }
+    if (axis.current === "x") setDragX(Math.max(-80, Math.min(80, dx))); // follow the finger (capped)
   };
   const onTouchEnd = (e: ReactTouchEvent) => {
     const s = swipeStart.current; swipeStart.current = null;
-    if (!s) return;
-    const t = e.changedTouches[0];
-    const dx = t.clientX - s.x, dy = t.clientY - s.y;
-    if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.5) {
-      setViewMonth(m => addMonths(m, dx < 0 ? 1 : -1)); // left → next month, right → previous
-    }
+    const wasX = axis.current === "x"; axis.current = "";
+    setDragging(false);
+    setDragX(0); // glide back to centre (transition kicks in now)
+    if (!s || !wasX) return;
+    const dx = e.changedTouches[0].clientX - s.x;
+    if (Math.abs(dx) > 45) setViewMonth(m => addMonths(m, dx < 0 ? 1 : -1)); // left → next, right → previous
   };
 
   return (
     // data-no-swipe: keep PAGE swipe-navigation from firing over the calendar; the
     // onTouch handlers below turn a horizontal swipe into month navigation instead.
-    <div data-no-swipe onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} className={cn("bg-card border border-border rounded-2xl p-4 w-full max-w-xs select-none", className)}>
+    <div data-no-swipe onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd} className={cn("bg-card border border-border rounded-2xl p-4 w-full max-w-xs select-none overflow-hidden", className)}>
       {/* Header */}
       <div className="flex items-center justify-between px-1 mb-2">
         <button
@@ -114,8 +128,12 @@ export function Calendar({ value, onChange, minDate, maxDate, isDateDisabled, re
         ))}
       </div>
 
-      {/* Day grid */}
-      <div className="grid grid-cols-7 gap-1">
+      {/* Day grid — follows the finger during a horizontal swipe, then glides to
+          centre (weekday header stays put since it's the same every month). */}
+      <div
+        className="grid grid-cols-7 gap-1"
+        style={{ transform: `translate3d(${dragX}px,0,0)`, transition: dragging ? "none" : "transform 0.25s ease-out", opacity: 1 - Math.min(Math.abs(dragX) / 260, 0.25), willChange: "transform" }}
+      >
         {days.map((d, i) => {
           const inMonth = d.getMonth() === viewMonth.getMonth();
           const isToday = isSameDay(d, today);
