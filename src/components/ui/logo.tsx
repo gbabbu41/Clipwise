@@ -8,21 +8,20 @@ interface LogoProps {
 }
 
 export function Logo({ className, size = "md" }: LogoProps) {
+  // The new brand mark (same image the marketing nav uses) — replaces the old
+  // gradient "ClipWise" wordmark everywhere <Logo> is shown (onboarding, auth,
+  // booking, admin…). Height scales with size; cw-logo-fade keeps the mount fade.
   return (
-    <span
+    <img
+      src="/new/logo-watermark.png"
+      alt="ClipWise"
       className={cn(
-        // ClipWise v2: extra-bold, slight negative tracking, all-caps. cw-grad
-        // paints the brand gradient (blue accent tail) app-wide; text-white is
-        // the fallback where background-clip:text isn't supported. cw-logo-fade
-        // plays a single 0.6s fade-in when the component mounts.
-        "font-extrabold tracking-tight leading-none text-white uppercase cw-grad cw-logo-fade",
-        size === "sm" && "text-[19px]",
-        size === "md" && "text-3xl",
-        size === "lg" && "text-4xl",
+        "w-auto cw-logo-fade",
+        size === "sm" && "h-5",
+        size === "md" && "h-7",
+        size === "lg" && "h-9",
         className,
       )}
-    >
-      ClipWise
-    </span>
+    />
   );
 }
