@@ -35,12 +35,17 @@ export const metadata: Metadata = {
     statusBarStyle: "black-translucent",
     title: "ClipWise",
   },
+  // ?v=3 busts the browser's (very sticky) favicon/icon cache after the mark was
+  // updated — without a new URL, browsers keep showing the old icon indefinitely.
+  // Bump this whenever the icon art changes.
   icons: {
-    apple: "/apple-touch-icon.png",
+    apple: "/apple-touch-icon.png?v=3",
     icon: [
-      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+      { url: "/favicon.ico?v=3", sizes: "any" },
+      { url: "/icon-192.png?v=3", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png?v=3", sizes: "512x512", type: "image/png" },
     ],
+    shortcut: "/favicon.ico?v=3",
   },
 };
 
