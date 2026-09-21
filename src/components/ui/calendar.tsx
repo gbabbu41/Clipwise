@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, type TouchEvent as ReactTouchEvent } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -66,10 +66,26 @@ export function Calendar({ value, onChange, minDate, maxDate, isDateDisabled, re
     return false;
   };
 
+  // Swipe left/right to change month (same as the ‹ › arrows). A tap on a day is
+  // too small to trigger it (needs a real horizontal drag).
+  const swipeStart = useRef<{ x: number; y: number } | null>(null);
+  const onTouchStart = (e: ReactTouchEvent) => {
+    const t = e.touches[0]; swipeStart.current = { x: t.clientX, y: t.clientY };
+  };
+  const onTouchEnd = (e: ReactTouchEvent) => {
+    const s = swipeStart.current; swipeStart.current = null;
+    if (!s) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - s.x, dy = t.clientY - s.y;
+    if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      setViewMonth(m => addMonths(m, dx < 0 ? 1 : -1)); // left → next month, right → previous
+    }
+  };
+
   return (
-    // data-no-swipe: keep page swipe-navigation from firing when the user swipes
-    // over the calendar (they were accidentally navigating tabs instead).
-    <div data-no-swipe className={cn("bg-card border border-border rounded-2xl p-4 w-full max-w-xs", className)}>
+    // data-no-swipe: keep PAGE swipe-navigation from firing over the calendar; the
+    // onTouch handlers below turn a horizontal swipe into month navigation instead.
+    <div data-no-swipe onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} className={cn("bg-card border border-border rounded-2xl p-4 w-full max-w-xs select-none", className)}>
       {/* Header */}
       <div className="flex items-center justify-between px-1 mb-2">
         <button
