@@ -543,6 +543,25 @@ unaffected (their realtime events carry `shop_id`).
    or a fee pending too long; one-time backfill of existing `0`/pending rows (widen beyond the
    45-day window in `lib/backfill-fees.ts`, run until none remain).
 
+**✅ Status — core SHIPPED 2026-09-22 (steps 1–3):**
+- **Read side (the real fix), `payments/page.tsx` + `lib/revenue.ts`:** a card line's fee is
+  treated as EXACT only when it's a positive recorded fee or a live Stripe fee; a stored `0`
+  (or null) on a card charge = "not captured yet" → falls back to `estimateStripeFee()` (2.9% +
+  30¢, rounded UP). **Net/Stripe-fee are never "Unavailable" anymore** — an estimated period shows
+  the number with a leading `≈` (and "(est.)" on the fee line); the banner reads "a few fees are
+  still settling… firms up automatically". This subsumes step 2's intent **without** changing the
+  ledger writers (they still store 0; the read side reinterprets it), so zero write-path risk.
+- **Webhook top-up (part of step 1), `webhooks/stripe/route.ts` `payment_intent.succeeded`:**
+  best-effort `stripeFeeCents()` read that fills the real fee on the matching tx row when it's
+  0/null (never overwrites a real fee, never blocks). New charges converge from `≈` to exact.
+- **No migration required** for this increment. No change to the charge/booking/Connect core.
+- **Deferred (still TODO for the next agent):** step 2 proper (writers store `NULL`=pending, not
+  0), step 4 (refund keeps the fee as a cost — currently a refunded line just drops from totals,
+  slightly understating the fee cost), step 5 (watchdog + widen `backfill-fees.ts` beyond 45 days
+  so old `≈` rows converge to exact). Note: `lib/revenue.ts` `collectedTotals` (Dashboard) was
+  left as-is, so Dashboard net still nets-to-gross on an unresolved fee while Payments estimates —
+  align them by moving the estimate into `lineNetFee`/`collectedTotals` when step 4/5 land.
+
 **Guardrails:** do NOT touch the booking engine or the Stripe charge/Connect core — only the fee
 *record* and how it's *read*. Real `SKIP_ENV_VALIDATION=1 npx next build` before ship. Hand the
 owner any migration SQL.

@@ -555,6 +555,22 @@ export async function POST(request: NextRequest) {
           .update({ payment_status: "paid", paid_at: new Date().toISOString() })
           .eq("payment_intent_id", pi.id)
           .in("payment_status", ["unpaid", "held", "saved", "failed"]);
+        // Best-effort fee top-up: by now the charge usually has its
+        // balance_transaction, so store the REAL processing fee on the ledger row —
+        // Net then reads exact instead of the display estimate. Only fills a
+        // 0/null fee (never overwrites a real one) and never blocks the webhook.
+        // The daily backfill is the safety net for fees still not ready here.
+        // See KNOWLEDGE-BOOK §3.8.
+        try {
+          const feeCents = await stripeFeeCents(pi.id, (event.account as string | undefined) ?? null);
+          if (feeCents > 0) {
+            await supabaseAdmin.from("transactions")
+              .update({ stripe_fee: feeCents / 100 })
+              .eq("payment_intent_id", pi.id)
+              .or("stripe_fee.is.null,stripe_fee.eq.0")
+              .then(null, () => null);
+          }
+        } catch { /* fee not settled yet — daily backfill will fill it */ }
         break;
       }
 

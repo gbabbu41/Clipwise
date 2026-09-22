@@ -8,7 +8,7 @@ import { DashboardHeader } from "@/components/dashboard/page-header";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { supabase } from "@/lib/supabase";
 import { formatCurrency, cn, timeToMinutes, timeAgo } from "@/lib/utils";
-import { countablePosTxs, isNoShowTx, isPaid, lineNetFee, transactionCollectedAmount } from "@/lib/revenue";
+import { countablePosTxs, estimateStripeFee, isNoShowTx, isPaid, lineNetFee, transactionCollectedAmount } from "@/lib/revenue";
 import { computeBarberEarnings, barberRowCut } from "@/lib/barber-earnings";
 import { readAllRows } from "@/lib/read-all-rows";
 import { earningsBuckets } from "@/lib/earnings-chart";
@@ -464,19 +464,27 @@ export default function PaymentsPage() {
   // Is the live Stripe fee fetch available for this line's intent?
   const liveFee = (i: FeedItem) =>
     !!i.pi && !!stripeNet?.byPi?.[i.pi] && Number.isFinite(stripeNet.byPi[i.pi].fee) && Number.isFinite(stripeNet.byPi[i.pi].net);
-  const hasLedgerFee = (i: FeedItem) => i.ledgerFee != null && Number.isFinite(i.ledgerFee);
-  // Net/fee prefer the exact LIVE Stripe values (unchanged for lines that already
-  // resolved), and fall back to the fee RECORDED in the ledger — so Net is shown
-  // whenever the fee was ever captured, even if the live fetch lagged or the line
-  // has no payment-intent id.
-  const netOf = (i: FeedItem) => liveFee(i)
-    ? lineNetFee(i.pi, counted(i), stripeNet!.byPi).net
-    : Math.max(0, counted(i) - (hasLedgerFee(i) ? (i.ledgerFee as number) : 0));
+  // A card charge's REAL Stripe fee is never $0 — a stored 0 means "not captured
+  // yet" (the fee posts a beat after the charge; see KNOWLEDGE-BOOK §3.8), so
+  // treat 0/null as UNKNOWN. Only a POSITIVE recorded fee counts as exact.
+  const hasLedgerFee = (i: FeedItem) => i.ledgerFee != null && Number.isFinite(i.ledgerFee) && (i.ledgerFee as number) > 0;
+  // Is this line's fee settled EXACTLY (live Stripe, a real recorded fee, cash, or
+  // a $0-value line)? If not, we fall back to an estimate below — never "unknown".
+  const feeExact = (i: FeedItem) => i.earn || i.method === "cash" || counted(i) === 0 || liveFee(i) || hasLedgerFee(i);
+  // Fee: exact when we have it (live → recorded), else a slightly-HIGH estimate so
+  // Net is ALWAYS a number (never "Unavailable") and only ticks UP when the real
+  // fee lands. Cash / $0 / barber-earnings lines carry no fee.
   const feeOf = (i: FeedItem) => liveFee(i)
     ? lineNetFee(i.pi, counted(i), stripeNet!.byPi).fee
-    : (hasLedgerFee(i) ? (i.ledgerFee as number) : 0);
-  const feeKnown = (i: FeedItem) => i.earn || i.method === "cash" || counted(i) === 0 || liveFee(i) || hasLedgerFee(i);
-  const statementAmount = (i: FeedItem) => i.earn ? i.amount : feeKnown(i) ? netOf(i) : counted(i);
+    : hasLedgerFee(i)
+      ? (i.ledgerFee as number)
+      : (i.earn || i.method === "cash" || counted(i) === 0)
+        ? 0
+        : estimateStripeFee(counted(i));
+  const netOf = (i: FeedItem) => liveFee(i)
+    ? lineNetFee(i.pi, counted(i), stripeNet!.byPi).net
+    : Math.max(0, counted(i) - feeOf(i));
+  const statementAmount = (i: FeedItem) => i.earn ? i.amount : netOf(i);
 
   // Barber name — used to scope the appointment-based bits still shown in barber
   // mode (the Outstanding / On-file tiles). The earnings cards + statement below
@@ -564,16 +572,17 @@ export default function PaymentsPage() {
     const within = (i: FeedItem) => i.ts >= from && i.ts <= to;
     const cardIn = cardSettled.filter(within);
     const cashIn = cashSettled.filter(within);
-    const feesKnown = cardIn.every(feeKnown);
+    // `feesKnown` now means "all fees EXACT" (no estimate). Net is always computable
+    // (exact or estimated), so it drives the "≈" marker — not whether Net shows.
+    const feesKnown = cardIn.every(feeExact);
     const net = cardIn.reduce((s, i) => s + netOf(i), 0);
     const cash = cashIn.reduce((s, i) => s + counted(i), 0);
     const gross = cardIn.reduce((s, i) => s + counted(i), 0);
     const fees = cardIn.reduce((s, i) => s + feeOf(i), 0);
     const tax = [...cardIn, ...cashIn].reduce((s, i) => s + (i.tax ?? 0), 0);
     const count = cardIn.length + cashIn.length;
-    // Chart complete net figures only. Cash-only periods need no Stripe fee data.
     const data = earningsBuckets([...cardIn, ...cashIn].map(i => ({ ...i, created_at: new Date(i.ts).toISOString() })), from, to, monthly, netOf).map(d => ({ label: d.label, net: d.val }));
-    return { net, cash, gross, fees, feesKnown, tax, count, data: feesKnown ? data : [], avg: count ? (gross + cash) / count : 0 };
+    return { net, cash, gross, fees, feesKnown, tax, count, data, avg: count ? (gross + cash) / count : 0 };
   };
   // The extra window picked from the dropdown (overrides the shown card). null = pure swipe.
   const nowTs = Date.now();
@@ -792,8 +801,8 @@ export default function PaymentsPage() {
     return Array.from(m.keys()).sort((a, b) => b - a).map(k => {
       const items = m.get(k)!;
       const settled = items.filter(x => x.settled && !x.refunded);
-      const feesKnown = settled.every(feeKnown);
-      const total = settled.reduce((s, x) => s + (feesKnown ? statementAmount(x) : x.earn ? x.amount : counted(x)), 0);
+      const feesKnown = settled.every(feeExact);
+      const total = settled.reduce((s, x) => s + statementAmount(x), 0);
       return { key: k, label: dayLabel(k), total, items, feesKnown };
     });
   })();
@@ -812,8 +821,8 @@ export default function PaymentsPage() {
       <div className="cwp-ledger">
         <div className="cwp-lrow"><span className="cwp-lk">Gross taken in</span><span className="cwp-lv">{formatCurrency(p.gross)}</span></div>
         {p.tax > 0 && <div className="cwp-lrow"><span className="cwp-lk">Sales tax</span><span className="cwp-lv">{formatCurrency(p.tax)}</span></div>}
-        {(!p.feesKnown || p.fees > 0) && <div className="cwp-lrow"><span className="cwp-lk">Stripe fees</span><span className="cwp-lv">{p.feesKnown ? `−${formatCurrency(p.fees)}` : "Unavailable"}</span></div>}
-        <div className="cwp-lrow cwp-ltotal"><span className="cwp-lk">Net collected</span><span className="cwp-lv">{p.feesKnown ? formatCurrency(p.headline) : "Unavailable"}</span></div>
+        {p.fees > 0 && <div className="cwp-lrow"><span className="cwp-lk">Stripe fees{p.feesKnown ? "" : " (est.)"}</span><span className="cwp-lv">−{formatCurrency(p.fees)}</span></div>}
+        <div className="cwp-lrow cwp-ltotal"><span className="cwp-lk">Net collected</span><span className="cwp-lv">{p.feesKnown ? "" : "≈ "}{formatCurrency(p.headline)}</span></div>
       </div>
     )
   );
@@ -872,7 +881,7 @@ export default function PaymentsPage() {
               {p.range && <span className="cwp-prange">{p.range}</span>}
             </div>
             <div className="cwp-caplbl">{cardCapLabel}</div>
-            <div className="cwp-amt">{p.feesKnown ? formatCurrency(p.headline) : "Unavailable"}</div>
+            <div className="cwp-amt">{p.feesKnown ? "" : "≈ "}{formatCurrency(p.headline)}</div>
             <div className={cn("cwp-sub", p.count === 0 && "cwp-flat")}>
               {p.count > 0
                 ? <>{p.count} cut{p.count !== 1 ? "s" : ""} · {formatCurrency(p.avg)} avg{p.cash > 0 ? ` · incl. ${formatCurrency(p.cash)} cash` : ""}</>
@@ -890,7 +899,7 @@ export default function PaymentsPage() {
               <button className="cwp-editrange" onClick={() => setShowCustomModal(true)}>Edit ›</button>
             </div>
             <div className="cwp-caplbl">{cardCapLabel}</div>
-            <div className="cwp-amt">{customCard.feesKnown ? formatCurrency(customCard.headline) : "Unavailable"}</div>
+            <div className="cwp-amt">{customCard.feesKnown ? "" : "≈ "}{formatCurrency(customCard.headline)}</div>
             <div className={cn("cwp-sub", customCard.count === 0 && "cwp-flat")}>
               {customCard.count > 0
                 ? <>{customLabel} · {customCard.count} cut{customCard.count !== 1 ? "s" : ""}{customCard.cash > 0 ? ` · incl. ${formatCurrency(customCard.cash)} cash` : ""}</>
@@ -939,11 +948,11 @@ export default function PaymentsPage() {
           fee AND no live fee) — not merely because the live fetch errored, since
           the ledger fee now fills Net in that case. */}
       {!barberMode && (feesStatus === "loading" || periodCards.some(p => !p.feesKnown)) && (
-        <div className={cn("cwp-feesnote", feesStatus === "error" && "cwp-feesnote--warn")}>
+        <div className="cwp-feesnote">
           {feesStatus === "loading"
-            ? "Loading Stripe fees. Gross and cash totals remain available."
-            : "Some Stripe fees are unavailable. Affected net totals are hidden; gross and cash totals remain available."}
-          <button className="ml-2 underline" onClick={() => void syncStripe()}>Retry fees</button>
+            ? "Loading exact Stripe fees…"
+            : "A few fees are still settling — Net shown with an estimate (≈); it firms up automatically."}
+          <button className="ml-2 underline" onClick={() => void syncStripe()}>Refresh fees</button>
         </div>
       )}
 
@@ -1019,7 +1028,7 @@ export default function PaymentsPage() {
             <div key={g.key} className="cwp-daygroup">
               <div className="cwp-day">
                 <span className="cwp-dlabel">{g.label}</span>
-                {g.total > 0 && <span className="cwp-dtot">+{formatCurrency(g.total)}{!g.feesKnown ? " gross" : ""}</span>}
+                {g.total > 0 && <span className="cwp-dtot">+{g.feesKnown ? "" : "≈"}{formatCurrency(g.total)}</span>}
               </div>
               {g.items.map(i => {
                 const refunded = i.refunded;
@@ -1039,7 +1048,7 @@ export default function PaymentsPage() {
                       )}
                     </div>
                     <div className="cwp-rright">
-                      <div className={cn("cwp-a", unpaid ? "cwp-adue" : "cwp-apos")}>{formatCurrency(statementAmount(i))}{i.settled && !feeKnown(i) ? " gross" : ""}</div>
+                      <div className={cn("cwp-a", unpaid ? "cwp-adue" : "cwp-apos")}>{i.settled && !feeExact(i) ? "≈" : ""}{formatCurrency(statementAmount(i))}</div>
                       <div className="cwp-m">
                         {refunded ? <span className="cwp-tag cwp-tref">Refunded</span>
                           : unpaid ? <span className="cwp-tag cwp-tdue">Unpaid</span>
@@ -1098,16 +1107,11 @@ export default function PaymentsPage() {
                       single "Amount" row actually showed the net, which read unclear). */}
                   {i.earn ? (
                     <div className="flex justify-between"><span className="text-grey">Earned</span><span className="text-foreground font-semibold">{formatCurrency(i.amount)}</span></div>
-                  ) : i.settled && i.method !== "cash" && feeKnown(i) && feeOf(i) > 0 ? (
+                  ) : i.settled && i.method !== "cash" && feeOf(i) > 0 ? (
                     <>
                       <div className="flex justify-between"><span className="text-grey">Gross (paid)</span><span className="text-foreground">{formatCurrency(counted(i))}</span></div>
-                      <div className="flex justify-between"><span className="text-grey">Stripe fee</span><span className="text-grey">−{formatCurrency(feeOf(i))}</span></div>
-                      <div className="flex justify-between"><span className="text-grey">Net (you keep)</span><span className="text-foreground font-bold">{formatCurrency(netOf(i))}</span></div>
-                    </>
-                  ) : i.settled && i.method !== "cash" && !feeKnown(i) ? (
-                    <>
-                      <div className="flex justify-between"><span className="text-grey">Gross collected</span><span className="text-foreground font-semibold">{formatCurrency(counted(i))}</span></div>
-                      <div className="flex justify-between"><span className="text-grey">Stripe fee / net collected</span><span>Unavailable</span></div>
+                      <div className="flex justify-between"><span className="text-grey">Stripe fee{feeExact(i) ? "" : " (est.)"}</span><span className="text-grey">−{formatCurrency(feeOf(i))}</span></div>
+                      <div className="flex justify-between"><span className="text-grey">Net (you keep)</span><span className="text-foreground font-bold">{feeExact(i) ? "" : "≈ "}{formatCurrency(netOf(i))}</span></div>
                     </>
                   ) : (
                     <div className="flex justify-between"><span className="text-grey">Amount</span><span className="text-foreground font-semibold">{formatCurrency(statementAmount(i))}</span></div>

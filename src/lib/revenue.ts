@@ -91,6 +91,21 @@ export function lineNetFee(pi: string | null | undefined, gross: number, byPi?: 
   return b ? { net: b.net, fee: b.fee } : { net: gross, fee: 0 };
 }
 
+// Stripe's standard card rate (CAD): 2.9% + $0.30. Used ONLY as a fallback to
+// keep Net computable while the REAL fee is still settling — or for an old charge
+// whose fee was never recorded (the fee is Stripe's, posted a beat after the
+// charge; see KNOWLEDGE-BOOK §3.8). Rounded UP to the cent so the estimate is
+// never below the real fee → Net only ever ticks UP when the exact fee lands,
+// never down. A confirmed fee (live Stripe or a recorded ledger fee > 0) always
+// wins; a card charge's real fee is never $0, so a stored 0 means "not captured
+// yet" and is treated as unknown → estimated.
+export const STRIPE_FEE_PCT = 0.029;
+export const STRIPE_FEE_FLAT = 0.30;
+export function estimateStripeFee(grossDollars: number): number {
+  if (!(grossDollars > 0)) return 0;
+  return Math.ceil((grossDollars * STRIPE_FEE_PCT + STRIPE_FEE_FLAT) * 100) / 100;
+}
+
 export type CollectedTotals = {
   gross: number;   // everything collected, incl. tax + tips, before Stripe fees
   fees: number;    // total Stripe processing fees (card only)
