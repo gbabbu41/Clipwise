@@ -158,7 +158,7 @@ export default function BarberOverviewPage() {
             name={barber?.name ?? "Account"}
             photo={barber?.photo}
             roleLabel={isOwner ? "Owner · Barber" : "Barber"}
-            items={barberMenuItems(barber?.permissions?.view_earnings === true, shop?.slug && barber?.id ? shareMyLink : undefined)}
+            items={barberMenuItems(true, shop?.slug && barber?.id ? shareMyLink : undefined)}
             className="hidden lg:block"
             triggerClassName="w-[38px] h-[38px] rounded-full bg-white text-black font-extrabold text-[11px] inline-flex items-center justify-center hover:opacity-90 transition-opacity overflow-hidden"
           />

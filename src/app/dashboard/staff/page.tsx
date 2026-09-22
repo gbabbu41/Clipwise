@@ -994,7 +994,9 @@ export default function StaffPage() {
                   { key: "edit_schedule",       label: "Edit own schedule",     description: "Change working hours from their Availability page." },
                   { key: "request_time_off",    label: "Request time off",      description: "Submit time-off requests for your approval." },
                   { key: "block_hours",         label: "Block hours mid-day",   description: "Mark a window unavailable on the fly." },
-                  { key: "view_earnings",       label: "View earnings",         description: "See their commission totals and payouts." },
+                  // "View earnings" is intentionally NOT a toggle — a barber can
+                  // ALWAYS see their own earnings (owner request 2026-09-22). All
+                  // the earnings gates below treat it as permanently on.
                   { key: "view_clients",        label: "View clients",          description: "Access their client list with appointment history." },
                   { key: "manage_appointments", label: "Manage appointments",   description: "Approve, complete, reject, and take payment on appointments assigned to them. Refunds stay owner-only." },
                 ] as { key: keyof BarberPermissions; label: string; description: string }[]).map(({ key, label, description }) => (

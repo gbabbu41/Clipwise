@@ -49,8 +49,9 @@ export default function BarberPaymentsPage() {
   const { accessToken, profile } = useAuth();
   const { shop, barber } = useBarber();
   const canManage = profile?.role === "shop_owner" || barber?.permissions?.manage_appointments === true;
-  // The owner can hide this page per-barber (view_earnings). Undefined = allowed.
-  const notPermitted = profile?.role !== "shop_owner" && barber?.permissions?.view_earnings === false;
+  // A barber can ALWAYS see their own earnings — the owner toggle was removed
+  // (owner request 2026-09-22), so this page is never blocked.
+  const notPermitted = false;
 
   const [txs, setTxs] = useState<Tx[]>([]);
   const [pct, setPct] = useState(0);

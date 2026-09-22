@@ -24,15 +24,10 @@ const BARBER_SWIPE_ORDER = [
   "/barber-dashboard/earnings",
 ];
 
-// Swipe wrapper that drops tabs the owner has turned off for this barber, so a
-// swipe never lands on a permission-blocked page (Payments hides when
-// view_earnings is off — matching the bottom nav). Rendered under BarberProvider.
+// Swipe wrapper. Earnings is always available to a barber, so the full tab order
+// stands (no permission-based filtering). Rendered under BarberProvider.
 function BarberSwipe({ isCalendar, children }: { isCalendar: boolean; children: React.ReactNode }) {
-  const { barber } = useBarber();
-  const perms = barber?.permissions;
-  const order = BARBER_SWIPE_ORDER.filter(h =>
-    h !== "/barber-dashboard/earnings" || perms?.view_earnings !== false,
-  );
+  const order = BARBER_SWIPE_ORDER;
   return (
     <SwipeNavigator order={order} contained={isCalendar}>
       {isCalendar ? children : <div className="mx-auto w-full max-w-6xl">{children}</div>}

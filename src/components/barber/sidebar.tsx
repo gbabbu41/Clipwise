@@ -49,7 +49,7 @@ const navItems: NavItem[] = [
   { href: "/barber-dashboard/schedule", label: "Schedule", icon: Clock },
   { href: "/barber-dashboard/time-off", label: "Time Off", icon: CalendarOff, permKey: "request_time_off" },
   { href: "/barber-dashboard/clients", label: "My Clients", icon: Users, permKey: "view_clients" },
-  { href: "/barber-dashboard/earnings", label: "Payments", icon: DollarSign, permKey: "view_earnings" },
+  { href: "/barber-dashboard/earnings", label: "Payments", icon: DollarSign },
   { href: "/barber-dashboard/notifications", label: "Notifications", icon: Bell, badge: true },
   { href: "/barber-dashboard/profile", label: "Profile", icon: User },
 ];
@@ -253,7 +253,8 @@ export function BarberSidebar() {
           photo={barber?.photo}
           roleLabel={profile?.role === "shop_owner" ? "Owner · Barber" : "Barber"}
           items={barberMenuItems(
-            barber?.permissions?.view_earnings === true,
+            true, // a barber can always see their own earnings
+
             shop?.slug && barber?.id
               ? () => void shareLink(`${window.location.origin}/book/${shop.slug}?barber=${barber.id}`, `Book with ${barber.name ?? "me"}`)
               : undefined,
@@ -465,11 +466,7 @@ export function BarberSidebar() {
 
 export function BarberMobileNav() {
   const pathname = usePathname();
-  const { profile } = useAuth();
   const { barber } = useBarber();
-  // The owner (also a barber on their own chair) gets every permission by
-  // default — never gated behind a permissions row meant for staff.
-  const isOwner = profile?.role === "shop_owner";
   const perms = barber?.permissions ?? DEFAULT_BARBER_PERMISSIONS;
   const toggleDrawer = () => window.dispatchEvent(new Event("cw-toggle-sidebar"));
   // Center + → open the global add-appointment modal instantly over the current
@@ -497,7 +494,7 @@ export function BarberMobileNav() {
       <button type="button" onClick={newAppointment} className="cw-fab" aria-label="New appointment">
         <Plus size={26} strokeWidth={2.6} />
       </button>
-      {(isOwner || perms.view_earnings !== false) && navLink("/barber-dashboard/earnings", "Payments", DollarSign)}
+      {navLink("/barber-dashboard/earnings", "Payments", DollarSign)}
       {/* 'More' opens the sidebar drawer (Schedule, Profile, Time Off, etc.). */}
       <button type="button" onClick={toggleDrawer} className="cw-ni" aria-label="Toggle menu">
         <div className="cw-ni-icon"><Menu size={20} /></div>

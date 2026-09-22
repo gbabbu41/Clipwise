@@ -34,14 +34,9 @@ export async function GET(request: NextRequest) {
     isOwner = shopRow?.owner_id === user.id;
   }
 
-  // Enforce the owner's "view earnings" permission toggle server-side — the nav
-  // only hides the tab, so without this a barber could hit this route (or swipe
-  // to /earnings) and read their pay data after the owner turned it off. The
-  // owner themselves is never restricted. Undefined = allowed (matches the nav).
-  const perms = barber.permissions as { view_earnings?: boolean } | null;
-  if (!isOwner && perms?.view_earnings === false) {
-    return NextResponse.json({ error: "Not permitted" }, { status: 403 });
-  }
+  // A barber can ALWAYS see their OWN earnings — no owner toggle gates this
+  // anymore (owner request 2026-09-22). The route still returns only the
+  // authenticated barber's own pay data, so this is not a data-exposure change.
 
   const commissionPercent = barber.commission_percent;
 
