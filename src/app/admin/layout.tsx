@@ -73,7 +73,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div className="p-6 border-b border-border">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 bg-gold rounded-xl flex items-center justify-center">
-              <Shield size={18} className="text-white" />
+              <Shield size={18} className="text-black" />
             </div>
             <div>
               <p className="text-white font-bold text-sm">ClipWise Admin</p>
