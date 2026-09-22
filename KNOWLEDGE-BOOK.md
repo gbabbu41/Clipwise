@@ -474,6 +474,79 @@ on customer money passes the connected-account context (wrong account → silent
 can be 0 (unsynced) → that line nets to gross. Anti-replay: payment-link-finalize + tip-finalize
 require session metadata to name the exact appointment/shop.
 
+### 3.8 Fee integrity — the "Unavailable" incident + the hardening plan (approved 2026-09-22)
+
+**Symptom seen:** Payments → all-time card **"Net collected: Unavailable"** (and "Stripe fees:
+Unavailable"), gross/cash still shown, banner "Some Stripe fees are unavailable… Retry fees".
+
+**Why the page hides Net (by design, keep this):** `computeScope` (payments/page.tsx) sets
+`feesKnown = cardIn.every(feeKnown)`; if **any** settled card line's fee is unknown, the whole
+period's Net + Stripe-fee lines render "Unavailable" (`renderLedger`, the earnings card, the
+custom card) rather than show a wrong number. `feeKnown(i) = earn || cash || counted===0 ||
+liveFee(i) || hasLedgerFee(i)`. `liveFee` = the PI is in `stripeNet.byPi` (live `payments-summary`
+fetch); `hasLedgerFee` = a linked tx carries a finite `stripe_fee`.
+
+**Root cause (verified on prod, shop FADE MECHANIC `76f7e261…`, owner desidripdrop@gmail.com):**
+Two ledger gaps made `feeKnown` false / wrong for card lines, and the live `byPi` fetch was **not**
+resolving them at runtime, so the ledger was the only fallback and it was incomplete:
+1. **24 old June (Jun 12–21) card appointments had NO `transactions` row at all** → `feeByAppt`
+   empty → `ledgerFee=null` → `feeKnown` false unless live resolves. They were from an early
+   booking flow; their PIs weren't recoverable via the connected account's balance transactions.
+   All were the owner's own **test** bookings (client_email gbabbu41@gmail.com, names like "test
+   to complete"). **Fix applied:** deleted those 24 rows after confirming **no** refs in
+   `transactions`/`call_logs`/`promo_redemptions`. Net then computed from the ledger.
+2. **~16 card txns stored `stripe_fee = 0`** (a fee-capture race — the `balance_transaction`
+   wasn't settled when the ledger row was written). `0` is finite, so `hasLedgerFee` returns
+   **true** and the line is treated as "known, fee $0" → **Net silently overstated** (not
+   "Unavailable", worse — quietly wrong). `lib/backfill-fees.ts` only looks back **45 days** and
+   only touches existing rows, so anything older aged out unfilled.
+
+**Realtime gotcha (why the fix looked like it "didn't work"):** deleting rows straight in the DB
+does **not** reach the open page — Postgres logical-replication DELETE payloads carry only the PK,
+not `shop_id`, so the page's `filter: shop_id=eq.X` drops the event. Foreground/focus only re-runs
+`syncStripe` (Stripe), never `loadData` (appts/txs). A stale in-memory list persists until a true
+remount → **log out / back in** (or hard reload) to refetch. Normal create/update flows are
+unaffected (their realtime events carry `shop_id`).
+
+**Approved go-forward design (owner sign-off 2026-09-22) — "ledger is the source of truth":**
+- **Pull each fee from Stripe ONCE, store it, read locally forever.** A Stripe fee never changes
+  once posted, so re-fetching is pure waste and the source of the fragility. The **amount** is
+  ours (we set it → known instantly); only the **fee** must be fetched (Stripe posts it on the
+  `balance_transaction` a beat *after* the charge succeeds).
+- **Honest fee states — never a fake `0`:** `NULL` = *pending* (not posted yet), a number =
+  confirmed. A card charge stores `0` **only** if Stripe truly says 0. (This one distinction kills
+  the silent-overstatement bug.)
+- **Net/Gross/fees compute from the stored ledger, NOT the live call.** Keep the live
+  `payments-summary` call for the **payout balance only** (available/pending/inTransit — that
+  genuinely changes over time). "Collected/Net" must never depend on it → never "Unavailable".
+- **Display while a fresh charge's fee is pending:** brief per-line *loading* with a **timeout**;
+  on timeout fall back to a **marked estimate** (Stripe rate ≈2.9% + 30¢, rounded slightly HIGH so
+  Net only ever ticks *up* when the real fee lands), which **auto-upgrades** to the exact fee via
+  the webhook. A single pending line must **never** freeze the whole total — show the total from
+  what's known with a footnote ("N fees settling"). Loading always exits into a number.
+- **Refunds:** reverse the **amount** (drops from collected) but **keep the fee as a cost** —
+  Stripe does **not** return the processing fee on a refund (full *or* partial), so a refunded
+  card sale nets to ≈ −(fee), not $0. Capture the refund's real effect once via the refund webhook;
+  never credit the fee back.
+
+**Build plan (staged; core = 1–3 fixes the problem, 4–5 = finish/safety):**
+1. **Webhook fee capture + guaranteed row.** On the balance-transaction becoming available
+   (webhook), write the real `stripe_fee` to the tx row. Guarantee the tx row is created at charge
+   time so no paid card charge can exist without one. Touches: `api/webhooks/stripe/route.ts`,
+   `finalize-appointment-payment.ts`, `capture-appointment`, `pos-finalize`, `terminal/capture`.
+2. **Honest fee states (NULL=pending, never fake 0).** Small migration (a `fee_status`/
+   `fee_estimated` flag, or rely on NULL) — **manual SQL handed to the owner to run**.
+3. **Net from the ledger; never "Unavailable".** `payments/page.tsx` + `lib/revenue.ts` read the
+   stored fee; live call used only for payout. Add loading→timeout→marked-estimate→auto-upgrade.
+4. **Refund handling** — reverse amount, keep fee as cost, capture via refund webhook.
+5. **Watchdog + one-time backfill.** Daily check that alerts on any paid card charge missing a row
+   or a fee pending too long; one-time backfill of existing `0`/pending rows (widen beyond the
+   45-day window in `lib/backfill-fees.ts`, run until none remain).
+
+**Guardrails:** do NOT touch the booking engine or the Stripe charge/Connect core — only the fee
+*record* and how it's *read*. Real `SKIP_ENV_VALIDATION=1 npx next build` before ship. Hand the
+owner any migration SQL.
+
 ---
 
 ## 4. Auth, roles, RLS & security
