@@ -462,7 +462,7 @@ export default function OnboardingPage() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <div className="border-b border-border px-4 py-4 flex items-center justify-between">
+      <div className="border-b border-border px-4 pb-4 pt-[calc(env(safe-area-inset-top)+1rem)] flex items-center justify-between">
         <Logo size="sm" />
         <p className="text-xs text-[#8f8f8f]">Step {Math.min(step + 1, STEPS.length)} of {STEPS.length}</p>
       </div>

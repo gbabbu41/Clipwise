@@ -39,7 +39,7 @@ export default function StripeConnectPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 py-12">
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 pb-12 pt-[calc(env(safe-area-inset-top)+3rem)]">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <Logo size="md" className="justify-center mb-6" />

@@ -175,7 +175,7 @@ function PlanPageInner() {
   }
 
   return (
-    <div className="min-h-screen bg-background px-4 py-12">
+    <div className="min-h-screen bg-background px-4 pb-12 pt-[calc(env(safe-area-inset-top)+3rem)]">
       <div className="max-w-5xl mx-auto">
         <div className="text-center mb-10">
           <Logo size="md" className="justify-center mb-6" />
