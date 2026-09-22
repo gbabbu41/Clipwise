@@ -253,7 +253,7 @@ export function BarberSidebar() {
           photo={barber?.photo}
           roleLabel={profile?.role === "shop_owner" ? "Owner · Barber" : "Barber"}
           items={barberMenuItems(
-            profile?.role === "shop_owner" || barber?.permissions?.view_earnings === true,
+            barber?.permissions?.view_earnings === true,
             shop?.slug && barber?.id
               ? () => void shareLink(`${window.location.origin}/book/${shop.slug}?barber=${barber.id}`, `Book with ${barber.name ?? "me"}`)
               : undefined,
@@ -403,9 +403,6 @@ export function BarberSidebar() {
       <nav className="flex-1 min-h-0 overflow-y-auto px-3 py-4 space-y-0.5">
         {navItems.filter(item => {
           if (!item.permKey) return true;
-          // The owner (also a barber on their own chair) gets every permission by
-          // default — never gated behind a permissions row meant for staff.
-          if (profile?.role === "shop_owner") return true;
           const perms = barber?.permissions ?? DEFAULT_BARBER_PERMISSIONS;
           return perms[item.permKey] !== false;
         }).map((item) => {

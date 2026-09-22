@@ -158,7 +158,7 @@ export default function BarberOverviewPage() {
             name={barber?.name ?? "Account"}
             photo={barber?.photo}
             roleLabel={isOwner ? "Owner · Barber" : "Barber"}
-            items={barberMenuItems(isOwner || barber?.permissions?.view_earnings === true, shop?.slug && barber?.id ? shareMyLink : undefined)}
+            items={barberMenuItems(barber?.permissions?.view_earnings === true, shop?.slug && barber?.id ? shareMyLink : undefined)}
             className="hidden lg:block"
             triggerClassName="w-[38px] h-[38px] rounded-full bg-white text-black font-extrabold text-[11px] inline-flex items-center justify-center hover:opacity-90 transition-opacity overflow-hidden"
           />
@@ -182,7 +182,6 @@ export default function BarberOverviewPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
         {(() => {
           type Tone = "muted" | "up" | "down";
-          const canViewEarnings = isOwner || barber?.permissions?.view_earnings === true;
           const stats: { label: string; value: string; sub: string; tone: Tone }[] = [
             {
               label: "Today's Appts",
@@ -196,12 +195,12 @@ export default function BarberOverviewPage() {
               sub: completed.length > 0 ? "↑ Today" : "today",
               tone: completed.length > 0 ? "up" : "muted",
             },
-            ...(canViewEarnings ? [{
+            {
               label: "Today's Earnings",
               value: `$${todayEarnings.toFixed(0)}`,
               sub: todayEarnings > 0 ? "↑ From completed" : "From completed",
-              tone: (todayEarnings > 0 ? "up" : "muted") as Tone,
-            }] : []),
+              tone: todayEarnings > 0 ? "up" : "muted",
+            },
             {
               label: "Rating",
               value: barber?.rating ? barber.rating.toFixed(1) : "—",
