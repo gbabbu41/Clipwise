@@ -12,9 +12,15 @@ assert.equal(calendarLandingHour(false, 22.5, [0, 6]), 0);
 assert.equal(calendarLandingHour(false, 22.5, [NaN, -1, 25]), 7);
 // Morning starts are near the top, not centred several hours earlier.
 assert.equal(calendarFocusTop(7 * 62 + 400 / 2 - 8, 400, 1488), 426);
+// Default top is 7 AM (no empty pre-dawn hours); bottom stays midnight.
 const dayWindow = fullDayCalendarWindow();
-assert.equal(dayWindow.winStart, 0); assert.equal(dayWindow.winEnd, 24);
-assert.deepEqual(dayWindow.hours, Array.from({ length: 24 }, (_, hour) => hour));
+assert.equal(dayWindow.winStart, 7); assert.equal(dayWindow.winEnd, 24);
+assert.deepEqual(dayWindow.hours, Array.from({ length: 17 }, (_, i) => i + 7));
+// Extends earlier ONLY for an early appointment/shift (floored); never later than 7.
+assert.equal(fullDayCalendarWindow(6).winStart, 6);
+assert.equal(fullDayCalendarWindow(5.5).winStart, 5);
+assert.equal(fullDayCalendarWindow(9).winStart, 7);
+assert.equal(fullDayCalendarWindow(0).winStart, 0);
 for (const hour of [0, 7, 12, 21.99, 22, 23.99, 24]) {
   assert.equal(calendarFocusTop(hour * 62, 400, 24 * 62), Math.max(0, Math.min(1088, hour * 62 - 200)));
 }
@@ -77,7 +83,7 @@ assert.equal((source.match(/data-calendar-time-grid data-start-hour/g) || []).le
 assert.equal((source.match(/data-focus-key=\{focusKey\}/g) || []).length, 2);
 assert(!source.includes('lastProgScrollRef')); assert(!source.includes('[50, 400]'));
 assert(source.includes('onAnimationComplete')); assert(source.includes('el.dataset.focusKey !== focusKey'));
-assert.equal((source.match(/const \{ winStart, winEnd, hours \} = fullDayCalendarWindow\(\)/g) || []).length, 2);
+assert.equal((source.match(/const \{ winStart, winEnd, hours \} = fullDayCalendarWindow\(/g) || []).length, 2);
 assert(!source.includes('Math.max(winEnd, 22)'));
 assert(source.includes('const multiDayCount = 3;'));
 assert(source.includes('data-landing-align={anyToday ? "center" : "start"}'));

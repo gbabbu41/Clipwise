@@ -1851,6 +1851,19 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     return calendarLandingHour(dates.includes(shopToday), shopHour, starts);
   };
 
+  // Earliest hour the grid should open to: 7 AM by default, earlier only when the
+  // day has an appointment or a scheduled shift before 7 — so the timeline never
+  // opens onto (or scrolls up into) empty pre-dawn hours when nothing is there.
+  // Mirrors landingFor's inputs (appointments + working hours). Undefined = no
+  // early event → the window's own 7 AM cap applies.
+  const gridStartHour = (dates: string[], barberIds: string[]): number | undefined => {
+    const starts = appointments.filter(a => dates.includes(a.date) && !!a.barber_id && barberIds.includes(a.barber_id) && !freesSlot(a)).map(a => parseTime(a.time_slot));
+    const weekdays = dates.map(date => new Date(`${date}T00:00:00`).getDay());
+    weeklyHours.filter(s => barberIds.includes(s.barber_id) && weekdays.includes(s.day_of_week)).forEach(s => starts.push(hourOfDb(s.start_time)));
+    const valid = starts.filter(h => Number.isFinite(h) && h >= 0 && h < 24);
+    return valid.length ? Math.min(...valid) : undefined;
+  };
+
   // Measure the day-columns area so we can page however many barber columns fit.
   useEffect(() => {
     const el = colWrapRef.current;
@@ -2731,9 +2744,9 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
       );
     }
 
-    // Always midnight to midnight. Working hours remain availability indicators,
-    // not changing scroll boundaries that move as schedules/bookings load.
-    const { winStart, winEnd, hours } = fullDayCalendarWindow();
+    // Top capped at 7 AM (extends earlier only for an early appointment/shift);
+    // bottom stays at midnight. So the grid never opens onto empty pre-dawn hours.
+    const { winStart, winEnd, hours } = fullDayCalendarWindow(gridStartHour([dateStr], cols.map(b => b.id)));
 
     // Stretch the hour rows so the grid always fills the visible scroll area —
     // on a tall desktop a short day would otherwise end mid-screen and leave a
@@ -2998,8 +3011,9 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     const setStrs = new Set(dayStrs);
     const visAppts = appointments.filter(a => setStrs.has(a.date) && a.barber_id === barber.id && !freesSlot(a));
 
-    // Same fixed 24-hour rail as Day view, regardless of selected staff/date.
-    const { winStart, winEnd, hours } = fullDayCalendarWindow();
+    // Same 7 AM-capped rail as Day view (extends earlier only for an early
+    // appointment/shift across the shown days); bottom stays at midnight.
+    const { winStart, winEnd, hours } = fullDayCalendarWindow(gridStartHour(dayStrs, [barber.id]));
     const gridWin = { start: `${String(winStart).padStart(2, "0")}:00:00`, end: `${String(winEnd).padStart(2, "0")}:00:00` };
 
     const gridCols = `48px repeat(${multiDayCount}, minmax(0, 1fr))`;

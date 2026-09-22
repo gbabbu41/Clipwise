@@ -1,8 +1,18 @@
 /** One initial positioning only. Never run a scroll animation or chase the clock. */
-export function fullDayCalendarWindow(): { winStart: number; winEnd: number; hours: number[] } {
-  // 00:00 inclusive to the next midnight exclusive: 24 complete hour rows.
-  // Keep geometry independent of working hours, bookings and realtime reloads.
-  return { winStart: 0, winEnd: 24, hours: Array.from({ length: 24 }, (_, hour) => hour) };
+export function fullDayCalendarWindow(earliestEventHour?: number): { winStart: number; winEnd: number; hours: number[] } {
+  // Bottom stays at midnight; the TOP is capped at 7 AM so the timeline never
+  // opens onto empty pre-dawn hours (and can't be scrolled above 7) when nothing
+  // is there. It extends earlier ONLY when the day has an appointment or a
+  // scheduled shift before 7 — pass that hour in. Geometry still depends only on
+  // the day's own events, so it's stable across realtime reloads unless a real
+  // early event exists.
+  const winStart = earliestEventHour != null && Number.isFinite(earliestEventHour)
+    ? Math.max(0, Math.min(7, Math.floor(earliestEventHour)))
+    : 7;
+  const winEnd = 24;
+  const hours: number[] = [];
+  for (let hour = winStart; hour < winEnd; hour++) hours.push(hour);
+  return { winStart, winEnd, hours };
 }
 
 export function calendarFocusTop(target: number, viewport: number, content: number): number {
