@@ -224,7 +224,9 @@ export default function BarberOverviewPage() {
             },
             {
               label: "Today's Earnings",
-              value: `$${todayEarnings.toFixed(0)}`,
+              // Show cents (formatCurrency), same as the earnings page — rounding to
+              // whole dollars made this read up to 50¢ off from the earnings screen.
+              value: formatCurrency(todayEarnings),
               sub: todayEarnings > 0 ? "↑ From completed" : "From completed",
               tone: todayEarnings > 0 ? "up" : "muted",
             },
