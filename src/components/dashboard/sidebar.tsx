@@ -566,7 +566,7 @@ export function Sidebar() {
                         // Inline actions only when we have a linked appointment (phase16).
                         const inlineAppt = c.actionable && n.entity_type === "appointment" && !!n.entity_id;
                         const acting = notifActing === n.id;
-                        const cls = cn("block rounded-xl border border-border border-l-[3px] mb-2 px-3 py-3 transition-colors",
+                        const cls = cn("block rounded-xl border border-border mb-2 px-3 py-3 transition-colors",
                           n.is_read ? "bg-card" : "bg-white/[0.04]");
                         const body = (
                           <div className="flex gap-3">
@@ -574,10 +574,7 @@ export function Sidebar() {
                               <c.Icon size={16} />
                             </span>
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between gap-2">
-                                <p className={cn("text-sm truncate", n.is_read ? "font-semibold text-[#dcdcdc]" : "font-bold text-foreground")}>{cleanNotifTitle(n.title)}</p>
-                                <span className={cn("flex-shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full", c.badgeCls)}>{c.badge}</span>
-                              </div>
+                              <p className={cn("text-sm truncate", n.is_read ? "font-semibold text-[#dcdcdc]" : "font-bold text-foreground")}>{cleanNotifTitle(n.title)}</p>
                               <p className="text-xs text-grey line-clamp-2 mt-0.5">{n.message}</p>
                               {inlineAppt ? (
                                 <>
@@ -610,10 +607,9 @@ export function Sidebar() {
                           </div>
                         );
                         return inlineAppt ? (
-                          <div key={n.id} style={{ borderLeftColor: c.accent }} className={cls}>{body}</div>
+                          <div key={n.id} className={cls}>{body}</div>
                         ) : (
                           <Link key={n.id} href={notifHref(n)} onClick={() => setNotifOpen(false)}
-                            style={{ borderLeftColor: c.accent }}
                             className={cn(cls, "active:bg-white/[0.06]", n.is_read ? "hover:bg-card-raised" : "hover:bg-white/[0.07]")}>
                             {body}
                           </Link>

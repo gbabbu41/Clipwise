@@ -594,7 +594,7 @@ export async function POST(request: NextRequest) {
             insertNotifications({
               user_id: shop.owner_id,
               shop_id: appt.shop_id,
-              title: "Payment Failed",
+              title: "Payment failed",
               message: `A payment from ${appt.client_name ?? "a client"} failed.`,
               type: "system",
             });

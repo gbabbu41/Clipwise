@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
     await insertNotifications({
       user_id: shop.owner_id,
       shop_id: shopId,
-      title: "New Block Request",
+      title: "New block request",
       message: `${barber.name} requested to block ${niceDate} ${timeRange}${body.reason ? ` — "${body.reason}"` : ""}.`,
       type: "system",
     });

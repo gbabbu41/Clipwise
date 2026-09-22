@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
     await insertNotifications({
       user_id: barber.user_id,
       shop_id: req.shop_id,
-      title: "Time-Off Modified",
+      title: "Time off modified",
       message: `Your ${TYPE_LABELS[req.type]} no longer covers ${niceDate}. The shop owner removed that day from your approved request.`,
       type: "system",
     });

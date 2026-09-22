@@ -114,7 +114,7 @@ export async function POST(req: NextRequest) {
       if (newQty <= inv.low_stock_threshold && inv.quantity > inv.low_stock_threshold && shop.owner_id) {
         insertNotifications({
           user_id: shop.owner_id, shop_id: shop.id, type: "inventory",
-          title: "Low Stock Alert",
+          title: "Low stock alert",
           message: `${inv.name} is running low — only ${newQty} units remaining.`,
         });
       }

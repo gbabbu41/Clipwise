@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
     await insertNotifications({
       user_id: shop.owner_id,
       shop_id: body.shop_id,
-      title: "New Time-Off Request",
+      title: "New time off request",
       message: `${barber.name}: ${summary}${body.reason ? ` — "${body.reason}"` : ""}`,
       type: "system",
     });

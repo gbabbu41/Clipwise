@@ -182,8 +182,7 @@ export default function NotificationsPage() {
     const c = classify(notif);
     return (
       <div key={notif.id} onClick={() => !notif.is_read && markRead(notif.id)}
-        style={{ borderLeftColor: c.accent }}
-        className={cn("relative flex items-start gap-3 p-3.5 rounded-2xl border border-l-[3px] transition-colors cursor-pointer active:bg-white/[0.06]",
+        className={cn("relative flex items-start gap-3 p-3.5 rounded-2xl border transition-colors cursor-pointer active:bg-white/[0.06]",
           notif.is_read ? "bg-card border-border" : "bg-card-raised border-border")}>
         <div className={cn("w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0", c.chip)}>
           <c.Icon size={16} />
@@ -192,7 +191,6 @@ export default function NotificationsPage() {
           <div className="flex items-center gap-2">
             {!notif.is_read && <span className="w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0" />}
             <p className={cn("text-sm leading-tight truncate flex-1", notif.is_read ? "font-semibold text-grey" : "font-bold text-foreground")}>{cleanNotifTitle(notif.title)}</p>
-            <span className={cn("flex-shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full", c.badgeCls)}>{c.badge}</span>
           </div>
           <p className="text-[13px] text-grey mt-1 leading-relaxed line-clamp-2">{humanizeMessage(notif.message)}</p>
           <div className="flex items-center justify-between mt-1.5">

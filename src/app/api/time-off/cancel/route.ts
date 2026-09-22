@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
     await insertNotifications({
       user_id: barber.user_id,
       shop_id: shop?.id ?? null,
-      title: "Time-Off Cancelled",
+      title: "Time off cancelled",
       message: `Your ${TYPE_LABELS[req.type]} for ${dateRange} was cancelled by the shop owner.`,
       type: "system",
     });

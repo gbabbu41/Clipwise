@@ -216,7 +216,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     }
     if (shopRow?.owner_id && shopRow.owner_id !== barberUserId) {
       insertNotifications({
-        user_id: shopRow.owner_id, shop_id: appt.shop_id, title: "Appointment Cancelled",
+        user_id: shopRow.owner_id, shop_id: appt.shop_id, title: "Appointment cancelled",
         message: `${appt.client_name} cancelled their appointment (was ${appt.date} at ${appt.time_slot})`,
         type: "cancellation",
       });
@@ -339,7 +339,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     const targets = Array.from(new Set([shopRow?.owner_id, bRow?.user_id].filter(Boolean))) as string[];
     for (const uid of targets) {
       insertNotifications({
-        user_id: uid, shop_id: appt.shop_id, title: "Appointment Rescheduled", message: msg, type: "booking",
+        user_id: uid, shop_id: appt.shop_id, title: "Appointment rescheduled", message: msg, type: "booking",
       });
     }
     return NextResponse.json({ ok: true, date: updated.date, time_slot: updated.time_slot, status: updated.status });

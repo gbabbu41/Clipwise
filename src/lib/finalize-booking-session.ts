@@ -259,9 +259,7 @@ export async function finalizeBookingFromSession(params: {
     // Show what the customer actually paid (service + tax + tip), so the alert
     // matches the Stripe charge rather than under-reporting by the tip.
     const amountStr = `$${(Number(m.total_amount ?? 0) + Number(m.tip_amount ?? 0)).toFixed(0)}`;
-    const bookingTitle = isSave ? `New Booking · card on file · ${amountStr}`
-      : isHold ? `New Booking · card held · ${amountStr}`
-      : `New Paid Booking · ${amountStr}`;
+    const bookingTitle = `New booking · ${amountStr}`;
     const bookingVerb = isPayInPerson ? "(pay at shop · card on file)" : isSave ? "(card saved)" : isHold ? "(card on hold)" : "& paid";
     insertNotifications({
       user_id: shopRow.owner_id,

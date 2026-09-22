@@ -142,7 +142,7 @@ export async function POST(req: Request) {
         insertNotifications({
           user_id: shop.owner_id,
           shop_id,
-          title: "Low Stock Alert",
+          title: "Low stock alert",
           message: `${inv.name} is running low — only ${newQty} units remaining.`,
           type: "inventory",
         });
