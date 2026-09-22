@@ -13,6 +13,7 @@ import { ProfileMenu, barberMenuItems } from "@/components/profile-menu";
 import { UnreadBadge } from "@/components/notification-badge";
 import { useShopUnreadCount } from "@/hooks/use-unread-count";
 import { shareLink } from "@/lib/share";
+import { barberRowCut } from "@/lib/barber-earnings";
 import type { AppointmentWithDetails } from "@/lib/database.types";
 import Link from "next/link";
 
@@ -101,7 +102,33 @@ export default function BarberOverviewPage() {
 
   const upcoming = appointments.filter(a => a.status !== "completed" && a.status !== "cancelled" && a.status !== "no-show");
   const completed = appointments.filter(a => a.status === "completed");
-  const todayEarnings = completed.reduce((s, a) => s + (a.total_amount ?? 0), 0);
+
+  // Today's earnings — pulled from the SAME source as the Payments/earnings page
+  // (this barber's transactions ledger via /api/barber/earnings) and run through
+  // the SHARED take-home formula (commission + tips, owner keeps 100%). The old
+  // tile summed appointment `total_amount` (the whole ticket), which showed the
+  // gross instead of the barber's cut. Now the two screens always agree.
+  const [earnTxs, setEarnTxs] = useState<{ amount: number; tip: number | null; commission_amount: number | null; created_at: string }[]>([]);
+  const [earnPct, setEarnPct] = useState(0);
+  const [earnIsOwner, setEarnIsOwner] = useState(false);
+  useEffect(() => {
+    if (!accessToken || !shop?.id) return;
+    let active = true;
+    fetch(`/api/barber/earnings?period=week&shop_id=${shop.id}`, { headers: { Authorization: `Bearer ${accessToken}` } })
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => {
+        if (!active || !d?.summary) return;
+        setEarnTxs(Array.isArray(d.transactions) ? d.transactions : []);
+        setEarnPct(d.summary.commissionPercent ?? 0);
+        setEarnIsOwner(d.summary.isOwner ?? false);
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [accessToken, shop?.id]);
+  const startOfToday = (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); })();
+  const todayEarnings = earnTxs
+    .filter(t => new Date(t.created_at).getTime() >= startOfToday)
+    .reduce((s, t) => s + barberRowCut(t, earnPct, earnIsOwner), 0);
 
   // Shared appointment actions (approve / complete / charge / cash / send-link /
   // reject) — the exact same logic the owner dashboard + calendar run.
