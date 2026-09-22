@@ -22,7 +22,14 @@ const Page = load('src/app/dashboard/payments/page.tsx').default;
 const tx = { id: 'tx', client_name: 'QA client', service_name: 'Service', amount: 100, tax: 15, tip: 0, source: 'pos', payment_method: 'card', payment_intent_id: 'pi_test', created_at: new Date().toISOString(), barber_id: 'barber', commission_amount: 50 };
 function render(overrides = {}) { cursor = 0; states = { loading: false, loadedShop: 'shop', feesStatus: 'ready', txs: [tx], ...overrides }; return renderToStaticMarkup(React.createElement(Page)); }
 let html = render({ stripeNet: { connected: true, byPi: {}, available: 0, pending: 0 } });
-assert(html.includes('Unavailable')); assert(html.includes('$115.00')); assert(html.includes('gross')); assert(!html.includes('Net may read a little high'));
+// No live fee AND no recorded fee → the card fee is ESTIMATED (2.9% + 30¢, rounded
+// up), never "Unavailable". Gross stays $115.00; Net is the ≈-marked estimate
+// (115 − 3.64 = 111.36) with an "(est.)" fee line. See KNOWLEDGE-BOOK §3.8.
+assert(!html.includes('Unavailable'));
+assert(html.includes('$115.00'));   // gross taken in
+assert(html.includes('$111.36'));   // net after the estimated fee
+assert(html.includes('≈'));         // estimate marker
+assert(html.includes('(est.)'));    // estimated-fee label
 html = render({ stripeNet: { connected: true, byPi: { pi_test: { gross: 115, fee: 3, net: 112 } }, available: 0, pending: 0 } });
 assert(html.includes('$112.00')); assert(!html.includes('Unavailable'));
 html = render({ txs: [{ ...tx, payment_method: 'cash', payment_intent_id: null }] });
