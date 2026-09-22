@@ -231,6 +231,10 @@ export default function POSPage() {
     const byDate = new Map<string, AppointmentWithDetails[]>();
     for (const a of appts) {
       if (!needsPayment(a)) continue;
+      // Checkout is for collecting on today's + overdue visits. A FUTURE-dated
+      // booking (even one owing / with a held card) shouldn't clutter the till
+      // until its day — it reappears under "Today" then.
+      if (a.date && a.date > today) continue;
       const arr = byDate.get(a.date) ?? [];
       arr.push(a); byDate.set(a.date, arr);
     }
@@ -247,12 +251,12 @@ export default function POSPage() {
       items: (byDate.get(date) ?? []).sort(byTime),
     }));
     const needsCount = Array.from(byDate.values()).reduce((n, arr) => n + arr.length, 0);
-    // Paid section: settled bookings from today onward — today's paid AND prepaid
-    // upcoming (the pay-now case). Sorted by date then time so today sits first.
+    // Paid section: TODAY's settled visits only. A prepaid FUTURE booking is not
+    // shown in the till until its day (future-dated rows are kept off Checkout).
     const isSettled = (a: AppointmentWithDetails) => a.payment_status === "paid" || a.payment_status === "captured";
     const paid = appts
-      .filter(a => a.date >= today && isSettled(a) && !needsPayment(a))
-      .sort((a, b) => a.date === b.date ? byTime(a, b) : a.date.localeCompare(b.date));
+      .filter(a => a.date === today && isSettled(a) && !needsPayment(a))
+      .sort(byTime);
     return { needs, needsCount, paid };
   }, [appts, needsPayment]);
 
