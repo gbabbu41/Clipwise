@@ -142,7 +142,7 @@ export function SetupSheet({ step, onClose }: { step: "location" | "hours"; onCl
               {DAYS.map((d, i) => (
                 <div key={d} className="flex items-center gap-3">
                   <button type="button" onClick={() => setHours(h => h.map((x, idx) => idx === i ? { ...x, open: !x.open } : x))}
-                    className={cn("w-11 h-6 rounded-full relative transition-colors flex-shrink-0", hours[i].open ? "bg-gold" : "bg-surface-raised border border-border")}>
+                    className={cn("w-11 h-6 rounded-full relative transition-colors flex-shrink-0", hours[i].open ? "bg-emerald-500" : "bg-surface-raised border border-border")}>
                     <span className={cn("absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all", hours[i].open ? "left-[22px]" : "left-0.5")} />
                   </button>
                   <span className="text-sm text-white w-20 flex-shrink-0">{d}</span>

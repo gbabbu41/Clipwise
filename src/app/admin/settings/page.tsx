@@ -27,7 +27,7 @@ function Toast({ msg, ok, onClose }: { msg: string; ok: boolean; onClose: () => 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
   return (
     <button type="button" onClick={() => onChange(!checked)}
-      className={cn("relative w-11 h-6 rounded-full transition-colors flex-shrink-0", checked ? "bg-gold" : "bg-surface-raised border border-border")}>
+      className={cn("relative w-11 h-6 rounded-full transition-colors flex-shrink-0", checked ? "bg-emerald-500" : "bg-surface-raised border border-border")}>
       <span className={cn("absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform", checked ? "translate-x-5" : "translate-x-0.5")} />
     </button>
   );
