@@ -34,7 +34,10 @@ export type NewAppointmentDetail = {
 // Time options in the SAME display format the booking API expects ("9:00 AM").
 const TIME_OPTIONS: string[] = (() => {
   const out: string[] = [];
-  for (let m = 6 * 60; m <= 22 * 60; m += 15) out.push(minutesToLabel(m));
+  // Full day (midnight → 11:45 PM). Staff can write a client in at ANY time —
+  // times outside the barber's posted hours stay pickable (tagged "off hours"),
+  // only past/double-booked are disabled. Matches the calendar's inline add modal.
+  for (let m = 0; m <= 23 * 60 + 45; m += 15) out.push(minutesToLabel(m));
   return out;
 })();
 function minutesToLabel(m: number): string {
@@ -59,8 +62,8 @@ type BarberAvail = {
 function nextDefaultTime(): string {
   const now = new Date();
   let m = Math.ceil((now.getHours() * 60 + now.getMinutes() + 1) / 15) * 15;
-  if (m < 6 * 60) m = 6 * 60;
-  if (m > 22 * 60) m = 22 * 60;
+  if (m < 0) m = 0;
+  if (m > 23 * 60 + 45) m = 23 * 60 + 45; // last slot of the day
   return minutesToLabel(m);
 }
 
