@@ -12,24 +12,21 @@ interface ShopListing {
   slug: string;
   city: string;
   province: string;
-  email: string;
-  owner_id: string;
-  users?: { name: string; email: string };
 }
 
 export default function JoinShopPage() {
-  const { profile } = useAuth();
+  const { profile, accessToken, user } = useAuth();
   const [shops, setShops] = useState<ShopListing[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [requestedIds, setRequestedIds] = useState<Set<string>>(new Set());
   const [sendingId, setSendingId] = useState<string | null>(null);
   const [toast, setToast] = useState("");
-  const [barberForm, setBarberForm] = useState({ name: profile?.name ?? "", email: profile?.email ?? "", phone: "", bio: "" });
+  const [barberForm, setBarberForm] = useState({ name: profile?.name ?? "", phone: "", bio: "" });
 
   useEffect(() => {
     if (profile) {
-      setBarberForm(f => ({ ...f, name: profile.name ?? "", email: profile.email ?? "" }));
+      setBarberForm(f => ({ ...f, name: profile.name ?? "" }));
     }
   }, [profile]);
 
@@ -37,7 +34,7 @@ export default function JoinShopPage() {
     (async () => {
       const { data } = await supabase
         .from("shops")
-        .select("id, name, slug, city, province, email, owner_id, users(name, email)")
+        .select("id, name, slug, city, province")
         .eq("status", "approved")
         .eq("is_active", true)
         .order("name");
@@ -56,26 +53,27 @@ export default function JoinShopPage() {
 
   const requestJoin = async (shop: ShopListing) => {
     if (!barberForm.name.trim()) { showToast("Please enter your name above."); return; }
+    if (!accessToken) { showToast("Sign in and verify your email before requesting to join."); return; }
     setSendingId(shop.id);
-
-    // Get shop owner email
-    const ownerEmail = (shop.users as unknown as { email: string } | null)?.email ?? shop.email;
-
-    await fetch("/api/send-email", {
+    const response = await fetch("/api/send-email", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
       body: JSON.stringify({
         type: "new_barber_request",
         data: {
+          shopId: shop.id,
           barberName: barberForm.name,
-          barberEmail: barberForm.email,
           barberPhone: barberForm.phone,
           bio: barberForm.bio,
-          shopName: shop.name,
-          ownerEmail,
         },
       }),
     }).catch(() => null);
+
+    if (!response?.ok) {
+      setSendingId(null);
+      showToast("Could not send your request. Please check your account and try again.");
+      return;
+    }
 
     setRequestedIds(prev => new Set(prev).add(shop.id));
     setSendingId(null);
@@ -84,7 +82,6 @@ export default function JoinShopPage() {
 
   const infoFields = [
     { key: "name" as const, label: "Your name", placeholder: "John Doe" },
-    { key: "email" as const, label: "Your email", placeholder: "john@example.com" },
     { key: "phone" as const, label: "Phone (optional)", placeholder: "+1 (506) 555-0123" },
   ];
 
@@ -128,6 +125,11 @@ export default function JoinShopPage() {
                   <input className="tinput" value={barberForm[key]} onChange={e => setBarberForm(f => ({ ...f, [key]: e.target.value }))} placeholder={placeholder} />
                 </div>
               ))}
+              <div>
+                <label style={{ fontSize: 12.5, color: "var(--t3)", display: "block", marginBottom: 6 }}>Verified account email</label>
+                <input className="tinput" value={user?.email ?? "Sign in to send a request"} readOnly aria-label="Verified account email" />
+                {!accessToken && <Link href="/login" style={{ color: "var(--t2)", fontSize: 12.5, display: "inline-block", marginTop: 6 }}>Sign in to send a join request →</Link>}
+              </div>
               <div style={{ gridColumn: "1 / -1" }}>
                 <label style={{ fontSize: 12.5, color: "var(--t3)", display: "block", marginBottom: 6 }}>Short bio (optional)</label>
                 <textarea className="tinput" rows={2} value={barberForm.bio} onChange={e => setBarberForm(f => ({ ...f, bio: e.target.value }))} placeholder="Tell the shop owner about your experience…" style={{ resize: "none" }} />

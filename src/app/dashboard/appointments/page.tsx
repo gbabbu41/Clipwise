@@ -372,25 +372,10 @@ export default function AppointmentsPage() {
       if (appt.client_email) {
         fetch("/api/send-email", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
           body: JSON.stringify({
             type: "booking_confirmation",
-            data: {
-              clientName: appt.client_name,
-              clientEmail: appt.client_email,
-              shopId: shop.id,
-              shopName: shop.name,
-              shopEmail: shop.email ?? "",
-              shopSlug: shop.slug,
-              barberName: (appt.barbers as { name: string } | null)?.name ?? "Your barber",
-              serviceName: (appt.services as { name: string } | null)?.name ?? "Your service",
-              date: appt.date,
-              time: appt.time_slot,
-              total: `$${Number(appt.total_amount ?? 0).toFixed(2)}`,
-              paymentNote: "Pay in person at the shop",
-              bookingId: id.slice(0, 8).toUpperCase(),
-              appointmentId: id,
-            },
+            data: { appointmentId: id },
           }),
         }).catch(() => null);
       }
@@ -415,13 +400,7 @@ export default function AppointmentsPage() {
         headers: { "Content-Type": "application/json", ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
         body: JSON.stringify({
           type: "no_show_followup",
-          data: {
-            clientName: appt.client_name,
-            clientEmail: appt.client_email,
-            shopName: shop.name,
-            shopEmail: shop.email ?? "",
-            bookingUrl: `${window.location.origin}/book/${shop.slug}`,
-          },
+          data: { appointmentId: id },
         }),
       }).catch(() => null);
     }
@@ -504,20 +483,10 @@ export default function AppointmentsPage() {
         if (appt.client_email) {
           fetch("/api/send-email", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
             body: JSON.stringify({
               type: "appointment_rejected",
-              data: {
-                clientName: appt.client_name,
-                clientEmail: appt.client_email,
-                shopName: shop.name,
-                shopEmail: shop.email ?? "",
-                shopSlug: shop.slug,
-                serviceName: (appt.services as { name: string } | null)?.name ?? "Your service",
-                date: appt.date,
-                time: appt.time_slot,
-                reason: reason || "",
-              },
+              data: { appointmentId: appt.id, reason: reason || "" },
             }),
           }).catch(() => null);
         }
@@ -546,20 +515,10 @@ export default function AppointmentsPage() {
     if (appt.client_email) {
       fetch("/api/send-email", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
         body: JSON.stringify({
           type: "appointment_rejected",
-          data: {
-            clientName: appt.client_name,
-            clientEmail: appt.client_email,
-            shopName: shop.name,
-            shopEmail: shop.email ?? "",
-            shopSlug: shop.slug,
-            serviceName: (appt.services as { name: string } | null)?.name ?? "Your service",
-            date: appt.date,
-            time: appt.time_slot,
-            reason: reason || "",
-          },
+          data: { appointmentId: appt.id, reason: reason || "" },
         }),
       }).catch(() => null);
     }

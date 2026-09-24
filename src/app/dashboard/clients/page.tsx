@@ -528,11 +528,8 @@ export default function ClientsPage() {
                   body: JSON.stringify({
                     type: "rebooking_reminder",
                     data: {
-                      clientName: c.name,
+                      shopId: shop.id,
                       clientEmail: c.email,
-                      shopName: shop.name,
-                      shopEmail: shop.email ?? "",
-                      bookingUrl: `${window.location.origin}/book/${shop.slug}`,
                     },
                   }),
                 });
@@ -913,11 +910,8 @@ export default function ClientsPage() {
                         body: JSON.stringify({
                           type: "rebooking_reminder",
                           data: {
-                            clientName: selectedClient.name,
+                            shopId: shop.id,
                             clientEmail: selectedClient.email,
-                            shopName: shop.name,
-                            shopEmail: shop.email ?? "",
-                            bookingUrl: `${window.location.origin}/book/${shop.slug}`,
                           },
                         }),
                       });

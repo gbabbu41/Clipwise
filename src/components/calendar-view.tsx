@@ -610,7 +610,7 @@ export function makeApptActions(opts: {
       if (error) { toast(`Failed: ${error.message}`); return; }
       patch(appt.id, voided ? { status: "cancelled", payment_status: "voided" } : { status: "cancelled" });
       clearBookingNotif(appt.id);
-      sendRejectionEmail(appt, shop, "");
+      sendRejectionEmail(appt, shop, "", accessToken);
       notifyFreedSlot(appt, shop, "Cancelled", accessToken);
       onDone();
       toast(

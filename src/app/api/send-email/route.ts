@@ -4,7 +4,7 @@ import { sendAppEmail, PRIVILEGED_EMAIL_TYPES, SERVER_ONLY_EMAIL_TYPES } from "@
 import { effectivePlan, isPaidPlan } from "@/lib/validation";
 import { ensurePlansHydrated } from "@/lib/plans-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
-import { authorizeShop } from "@/lib/api-auth";
+import { authorizeAppointment, authorizeShop } from "@/lib/api-auth";
 import { requireSuperAdmin } from "@/lib/admin-auth";
 
 // HTTP boundary for the shared email engine (src/lib/emailer.ts). This route's
@@ -25,6 +25,9 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { type, data } = body as { type: string; data: Record<string, string> };
+    if (!data || typeof data !== "object" || Array.isArray(data)) {
+      return NextResponse.json({ error: "Invalid email request." }, { status: 400 });
+    }
     let emailData = data;
     if (type === "shop_approved" || type === "shop_rejected") {
       if (!(await requireSuperAdmin(req))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -49,6 +52,107 @@ export async function POST(req: NextRequest) {
       };
     }
     let reviewAuthorized = false;
+    let resourceAuthorized = false;
+    // Public bookings already send their customer email from the booking route.
+    // Browser-triggered status changes may only notify the saved appointment's
+    // customer after an authorized shop member has made that status change.
+    if (["booking_confirmation", "appointment_rejected", "no_show_followup"].includes(type)) {
+      if (typeof data.appointmentId !== "string" ||
+          !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.appointmentId)) {
+        return NextResponse.json({ error: "Invalid appointment reference." }, { status: 400 });
+      }
+      const auth = await authorizeAppointment(req, data.appointmentId, { permission: "manage_appointments" });
+      if ("error" in auth) return auth.error;
+      const appt = auth.appointment;
+      const expectedStatus = type === "booking_confirmation" ? "confirmed" : type === "appointment_rejected" ? "cancelled" : "no-show";
+      if (appt.status !== expectedStatus) {
+        return NextResponse.json({ error: "Appointment status changed; notification not sent." }, { status: 409 });
+      }
+      if (typeof appt.client_email !== "string" || !appt.client_email) {
+        return NextResponse.json({ error: "Appointment has no email recipient." }, { status: 400 });
+      }
+      const [serviceResult, barberResult] = await Promise.all([
+        appt.service_id ? supabaseAdmin.from("services").select("name").eq("id", String(appt.service_id)).maybeSingle() : Promise.resolve({ data: null, error: null }),
+        appt.barber_id ? supabaseAdmin.from("barbers").select("name").eq("id", String(appt.barber_id)).maybeSingle() : Promise.resolve({ data: null, error: null }),
+      ]);
+      if (serviceResult.error || barberResult.error) return NextResponse.json({ error: "Unable to verify appointment details." }, { status: 503 });
+      const shop = auth.shop;
+      const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca").replace(/\/+$/, "");
+      emailData = {
+        appointmentId: appt.id, shopId: auth.shop.id,
+        clientName: String(appt.client_name ?? "there"), clientEmail: appt.client_email,
+        shopName: String(shop.name ?? ""), shopEmail: String(shop.email ?? ""), shopSlug: String(shop.slug ?? ""),
+        serviceName: serviceResult.data?.name ?? "Your service", barberName: barberResult.data?.name ?? "Any Available",
+        date: String(appt.date ?? ""), time: String(appt.time_slot ?? ""),
+        total: `$${(Number(appt.total_amount ?? 0) + Number(appt.tip_amount ?? 0)).toFixed(2)}`,
+        bookingId: appt.id.slice(0, 8).toUpperCase(),
+        ...(type === "appointment_rejected" ? { reason: typeof data.reason === "string" ? data.reason.slice(0, 1000) : "" } : {}),
+        ...(type === "no_show_followup" ? { bookingUrl: `${baseUrl}/book/${String(shop.slug ?? "")}` } : {}),
+      };
+      resourceAuthorized = true;
+    }
+    if (type === "rebooking_reminder") {
+      if (typeof data.shopId !== "string" || typeof data.clientEmail !== "string" ||
+          !/^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+$/.test(data.clientEmail) || data.clientEmail.length > 254) {
+        return NextResponse.json({ error: "Invalid client email request." }, { status: 400 });
+      }
+      const auth = await authorizeShop(req, data.shopId, { permission: "manage_appointments" });
+      if ("error" in auth) return auth.error;
+      const email = data.clientEmail.toLowerCase();
+      const pattern = email.replace(/[\\%_]/g, "\\$&");
+      let recipient: { name: string; email: string; clientId?: string } | null = null;
+      for (const source of [
+        { table: "clients", email: "email", name: "name" },
+        { table: "appointments", email: "client_email", name: "client_name" },
+        { table: "transactions", email: "client_email", name: "client_name" },
+      ]) {
+        const { data: rows, error } = await supabaseAdmin.from(source.table)
+          .select(`${source.email}, ${source.name}${source.table === "clients" ? ", id" : ""}`)
+          .eq("shop_id", auth.shop.id).ilike(source.email, pattern).limit(1);
+        if (error) return NextResponse.json({ error: "Unable to verify email recipient." }, { status: 503 });
+        const row = rows?.[0] as unknown as Record<string, unknown> | undefined;
+        const storedEmail = row?.[source.email];
+        if (typeof storedEmail === "string" && storedEmail.toLowerCase() === email) {
+          recipient = { email: storedEmail, name: typeof row?.[source.name] === "string" ? row[source.name] as string : "there",
+            clientId: typeof row?.id === "string" ? row.id : undefined };
+          break;
+        }
+      }
+      if (!recipient) return NextResponse.json({ error: "Client not found in this shop." }, { status: 404 });
+      const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://clipwise.ca").replace(/\/+$/, "");
+      emailData = {
+        clientName: recipient.name, clientEmail: recipient.email,
+        shopName: String(auth.shop.name ?? ""), shopEmail: String(auth.shop.email ?? ""),
+        bookingUrl: `${baseUrl}/book/${String(auth.shop.slug ?? "")}`,
+        ...(recipient.clientId ? { unsubscribeUrl: `${baseUrl}/api/unsubscribe?c=${recipient.clientId}` } : {}),
+      };
+      resourceAuthorized = true;
+    }
+    if (type === "new_barber_request") {
+      const token = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
+      if (!token) return NextResponse.json({ error: "Sign in to request to join a shop." }, { status: 401 });
+      const { data: userData, error: userError } = await supabaseAdmin.auth.getUser(token);
+      const applicant = userData.user;
+      if (userError || !applicant || !applicant.email || !applicant.email_confirmed_at) {
+        return NextResponse.json({ error: "A verified account is required." }, { status: 401 });
+      }
+      if (typeof data.shopId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.shopId)) {
+        return NextResponse.json({ error: "Invalid shop reference." }, { status: 400 });
+      }
+      const { data: shop, error } = await supabaseAdmin.from("shops")
+        .select("id, name, email, status, is_active, users(email)").eq("id", data.shopId).maybeSingle();
+      if (error) return NextResponse.json({ error: "Unable to verify shop." }, { status: 503 });
+      if (!shop || shop.status !== "approved" || !shop.is_active) return NextResponse.json({ error: "Shop not available." }, { status: 404 });
+      const owner = Array.isArray(shop.users) ? shop.users[0] : shop.users;
+      const ownerEmail = owner?.email || shop.email;
+      if (!ownerEmail) return NextResponse.json({ error: "Shop has no email recipient." }, { status: 400 });
+      const barberName = typeof data.barberName === "string" ? data.barberName.trim().slice(0, 120) : "";
+      if (!barberName) return NextResponse.json({ error: "Name is required." }, { status: 400 });
+      emailData = { shopName: shop.name ?? "", ownerEmail, barberName, barberEmail: applicant.email,
+        barberPhone: typeof data.barberPhone === "string" ? data.barberPhone.trim().slice(0, 40) : "",
+        bio: typeof data.bio === "string" ? data.bio.trim().slice(0, 1000) : "" };
+      resourceAuthorized = true;
+    }
     if (type === "review_request") {
       if (!data || typeof data.appointmentId !== "string" ||
           !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.appointmentId)) {
@@ -182,7 +286,7 @@ export async function POST(req: NextRequest) {
 
     // Gate the abusable types so /api/send-email can't be used as an open
     // phishing/spam relay (arbitrary HTML/recipient or a login/invite link).
-    if (PRIVILEGED_EMAIL_TYPES.has(type) && !reviewAuthorized) {
+    if (PRIVILEGED_EMAIL_TYPES.has(type) && !reviewAuthorized && !resourceAuthorized) {
       const internal = req.headers.get("x-internal-secret");
       const okInternal = !!process.env.CRON_SECRET && internal === process.env.CRON_SECRET;
       let okStaff = false;

@@ -1057,35 +1057,8 @@ export default function BookingClient() {
     // this browser completing a request — a customer closing the tab right after
     // "Confirmed" can't cost the shop the booking alert anymore.
 
-    const bookingData = {
-      clientName: clientInfo.name,
-      clientEmail: clientInfo.email || "—",
-      clientPhone: clientInfo.phone || "—",
-      shopId: shop.id,
-      shopName: shop.name,
-      shopEmail: shop.email ?? "",
-      shopSlug: shop.slug,
-      barberName: barbers.find(b => b.id === finalBarberId)?.name ?? "Any Available",
-      serviceName: service?.name ?? "—",
-      date: selectedDate ? formatDateForDb(selectedDate) : "",
-      time: selectedTime ?? "",
-      total: `$${total.toFixed(2)}`,
-      bookingId: newApptId.slice(0, 8).toUpperCase(),
-      appointmentId: newApptId,
-    };
-
-    // Email the customer. Pending in-person bookings get a "request received —
-    // awaiting confirmation" email, NOT a confirmation (that's sent on approve).
-    if (clientInfo.email) {
-      fetch("/api/send-email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: inPersonStatus === "pending" ? "booking_request_received" : "booking_confirmation",
-          data: { ...bookingData, clientEmail: clientInfo.email },
-        }),
-      }).catch(() => null);
-    }
+    // /api/book/in-person already sends the saved booking's customer email.
+    // Do not send a second browser-authored copy (or duplicate confirmations).
 
     // The owner + assigned-barber "new booking" emails are sent SERVER-SIDE by
     // /api/book/in-person (it can look up their real addresses — this public

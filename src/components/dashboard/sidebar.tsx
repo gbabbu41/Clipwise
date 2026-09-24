@@ -410,7 +410,7 @@ export function Sidebar() {
     } else {
       const { error } = await supabase.from("appointments").update({ status: "cancelled" }).eq("id", a.id);
       if (error) { setNotifActing(null); showNotifToast("Couldn't decline — please try again"); return; }
-      sendRejectionEmail(a, shop, "");
+      sendRejectionEmail(a, shop, "", accessToken);
       notifyFreedSlot(a, shop, "Cancelled", accessToken);
       showNotifToast(`Booking declined${who}`);
     }

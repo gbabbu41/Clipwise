@@ -7,6 +7,7 @@ execFileSync(process.execPath, [path.join(__dirname, 'marketing-recipient-check.
 execFileSync(process.execPath, [path.join(__dirname, 'quick-add-load-check.cjs')], { stdio: 'inherit' });
 execFileSync(process.execPath, [path.join(__dirname, 'public-booking-load-check.cjs')], { stdio: 'inherit' });
 execFileSync(process.execPath, [path.join(__dirname, 'review-email-auth-check.cjs')], { stdio: 'inherit' });
+execFileSync(process.execPath, [path.join(__dirname, 'customer-email-boundary-check.cjs')], { stdio: 'inherit' });
 execFileSync(process.execPath, [path.join(__dirname, 'setup-hours-isolation-check.cjs')], { stdio: 'inherit' });
 execFileSync(process.execPath, [path.join(__dirname, 'setup-location-save-check.cjs')], { stdio: 'inherit' });
 execFileSync(process.execPath, [path.join(__dirname, 'calendar-review-outcome-check.cjs')], { stdio: 'inherit' });
