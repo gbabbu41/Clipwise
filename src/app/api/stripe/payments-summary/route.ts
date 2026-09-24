@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { stripe } from "@/lib/stripe";
+import { confirmedStripeFee, stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { authorizeShop } from "@/lib/api-auth";
+import { readAllRows } from "@/lib/read-all-rows";
+import { confirmedFeesFromRows, missingFeeIntents, type FeeRow } from "@/lib/confirmed-fees";
+import type { ByPi } from "@/lib/revenue";
+
+const FEE_RETRY_MS = 10 * 60_000;
+const FEE_LOOKUPS_PER_REQUEST = 8;
+const recentFeeLookups = new Map<string, { at: number; value: ByPi[string] | null }>();
 
 const WEEKDAY: Record<string, number> = { sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6 };
 
@@ -32,13 +39,13 @@ function estimateNextPayout(sch?: { interval?: string; weekly_anchor?: string | 
 /**
  * Cross-check Payments against Stripe (the source of truth for card money).
  * For the shop's connected account it returns:
- *   - byPi:  paymentIntent id -> { gross, fee, net } from balance transactions
- *            (the exact net after Stripe's fee), so each card row shows real net;
+ *   - byPi: paymentIntent id -> { gross, fee, net } from confirmed ledger fees
+ *           plus bounded exact balance-transaction lookups for unresolved charges;
  *   - available + pending: the balance heading to the shop's bank (payout).
  *
  * Cash never touches Stripe, so it isn't here — the page keeps cash from the DB.
  * Un-onboarded shops can't take card at all, so `connected:false` and the page
- * just shows what little it has. No DB fee math is ever done.
+ * just shows what little it has. Estimates are never saved as confirmed fees.
  */
 export async function POST(req: NextRequest) {
   const { shop_id } = (await req.json().catch(() => ({}))) as { shop_id?: string };
@@ -61,7 +68,69 @@ export async function POST(req: NextRequest) {
   }
   const opts = { stripeAccount: shop!.stripe_account_id! };
 
+  let byPi: ByPi = {};
+  let feesReady = false;
   try {
+    // Stored positive fees are reusable forever. Fetch only fee-bearing rows;
+    // never replay the shop's full Stripe balance history on each page/focus.
+    const savedRows = await readAllRows<FeeRow>((from, to) => supabaseAdmin.from("transactions")
+      .select("id, payment_intent_id, stripe_fee, amount, tax, tip, payment_method, refunded, source")
+      .eq("shop_id", auth.shop.id).gt("stripe_fee", 0).not("payment_intent_id", "is", null)
+      .order("id").range(from, to));
+    byPi = confirmedFeesFromRows(savedRows);
+
+    // Recent unresolved rows and appointments without a ledger fee get a small,
+    // deduplicated, account-scoped exact lookup. Fresh charges can post their
+    // balance transaction later; estimates are never written to the ledger.
+    const cutoff = new Date(Date.now() - 400 * 86_400_000).toISOString();
+    const [missingRowsResult, apptResult] = await Promise.all([
+      supabaseAdmin.from("transactions")
+        .select("id, payment_intent_id, stripe_fee, amount, tax, tip, payment_method, refunded, source")
+        .eq("shop_id", auth.shop.id).eq("payment_method", "card")
+        .not("payment_intent_id", "is", null).or("stripe_fee.is.null,stripe_fee.eq.0")
+        .gte("created_at", cutoff).order("created_at", { ascending: false }).limit(150),
+      supabaseAdmin.from("appointments")
+        .select("payment_intent_id").eq("shop_id", auth.shop.id)
+        .in("payment_status", ["paid", "captured"]).not("payment_intent_id", "is", null)
+        .gte("created_at", cutoff).order("created_at", { ascending: false }).limit(150),
+    ]);
+    if (missingRowsResult.error || apptResult.error) throw new Error("Could not verify missing fees.");
+    const missingRows = (missingRowsResult.data ?? []) as FeeRow[];
+    const candidates = missingFeeIntents(missingRows, (apptResult.data ?? []).map(a => a.payment_intent_id), byPi, 300);
+    const now = Date.now();
+    const due: string[] = [];
+    for (const pi of candidates) {
+      const key = `${auth.shop.id}:${shop.stripe_account_id}:${pi}`;
+      const cached = recentFeeLookups.get(key);
+      if (cached && now - cached.at < FEE_RETRY_MS) {
+        if (cached.value) byPi[pi] = cached.value;
+        continue;
+      }
+      if (due.length < FEE_LOOKUPS_PER_REQUEST) due.push(pi);
+    }
+    await Promise.all(due.map(async pi => {
+      const key = `${auth.shop.id}:${shop.stripe_account_id}:${pi}`;
+      recentFeeLookups.set(key, { at: now, value: null });
+      const exact = await confirmedStripeFee(pi, shop.stripe_account_id!);
+      if (!exact) return;
+      byPi[pi] = exact;
+      recentFeeLookups.set(key, { at: now, value: exact });
+      const row = missingRows.find(r => r.payment_intent_id === pi && !r.refunded && r.source !== "refund");
+      // Legacy schema defaults to 0: it cannot distinguish confirmed zero from
+      // pending. Return a real zero now, but do not pretend it is durable cache.
+      if (!row || exact.fee <= 0) return;
+      const { data: written, error: writeError } = await supabaseAdmin.from("transactions")
+        .update({ stripe_fee: exact.fee }).eq("id", row.id).eq("shop_id", auth.shop.id)
+        .eq("payment_intent_id", pi).eq("payment_method", "card")
+        .or("stripe_fee.is.null,stripe_fee.eq.0").select("id");
+      if (writeError || written?.length !== 1) {
+        recentFeeLookups.delete(key);
+        console.warn("[payments-summary] confirmed fee could not be cached", { shop_id, pi });
+      }
+    }));
+    if (recentFeeLookups.size > 1000) recentFeeLookups.delete(recentFeeLookups.keys().next().value!);
+    feesReady = true;
+
     const balance = await stripe.balance.retrieve({}, opts);
     const sum = (arr?: { amount: number }[]) => (arr ?? []).reduce((s, b) => s + b.amount, 0) / 100;
     const available = sum(balance.available);
@@ -103,35 +172,6 @@ export async function POST(req: NextRequest) {
       } catch { /* ignore */ }
     }
 
-    // Walk balance transactions; map the underlying charge's PaymentIntent ->
-    // exact gross/fee/net. Only charge sources carry a payment_intent, so refunds
-    // and payouts are naturally skipped.
-    const byPi: Record<string, { gross: number; fee: number; net: number }> = {};
-    let startingAfter: string | undefined;
-    // Bound the walk by DATE, not by page count. The old page cap (50 × 100) meant
-    // a shop past ~5,000 balance txns silently lost fee data on older charges and
-    // Net read too high — the same failure we already hit once at 600. A ~13-month
-    // lookback covers every window the page can show (max preset is "This Year"
-    // plus a custom range) while capping the walk for any shop. The page-count cap
-    // stays as a hard safety stop against an unbounded loop.
-    const feeLookbackStart = Math.floor(Date.now() / 1000) - 400 * 86400;
-    for (let page = 0; page < 60; page++) {
-      const list = await stripe.balanceTransactions.list(
-        { limit: 100, created: { gte: feeLookbackStart }, expand: ["data.source"], ...(startingAfter ? { starting_after: startingAfter } : {}) },
-        opts,
-      );
-      for (const bt of list.data) {
-        const src = bt.source as { payment_intent?: string | null } | null;
-        const pi = src && typeof src === "object" ? src.payment_intent ?? null : null;
-        // One PaymentIntent can have several balance txns (e.g. a later partial
-        // refund BT). Refund/dispute BTs carry no payment_intent, so today only the
-        // original charge BT lands here; if that changes, prefer the charge BT.
-        if (pi) byPi[pi] = { gross: bt.amount / 100, fee: bt.fee / 100, net: bt.net / 100 };
-      }
-      if (!list.has_more) break;
-      startingAfter = list.data[list.data.length - 1]?.id;
-    }
-
     console.log("[payments-summary] ok", {
       shop_id, byPi: Object.keys(byPi).length, available, pending, inTransit, nextPayoutDate, nextPayoutAmount,
     });
@@ -156,6 +196,6 @@ export async function POST(req: NextRequest) {
       path: "/api/stripe/payments-summary",
       shop_id: shop_id ?? null,
     }).then(null, () => null);
-    return NextResponse.json({ connected: true, byPi: {}, available: 0, pending: 0, error: msg });
+    return NextResponse.json({ connected: true, byPi, feesReady, available: 0, pending: 0, error: msg });
   }
 }

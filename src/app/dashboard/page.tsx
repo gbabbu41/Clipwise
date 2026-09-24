@@ -378,7 +378,7 @@ export default function DashboardPage() {
       signal: AbortSignal.timeout(15000),
     })
       .then(r => (r.ok ? r.json() : null))
-      .then(d => { if (!d || d.error) throw new Error("Fees unavailable"); if (active) setStripeByPi(d.byPi ?? {}); })
+      .then(d => { if (!d || !d.byPi || (d.error && !d.feesReady)) throw new Error("Fees unavailable"); if (active) setStripeByPi(d.byPi); })
       .catch(() => { if (active) setFeesError(true); })
       .finally(() => { if (active) setFeesLoading(false); });
     return () => { active = false; };

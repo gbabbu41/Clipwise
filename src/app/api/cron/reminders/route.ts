@@ -425,6 +425,7 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   if (!authorized(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const lifecycleOk = await runSubscriptionMaintenance();
+  await backfillMissingStripeFees().catch(() => null);    // Vercel's scheduled GET needs the same fee repair as manual POST
   const result = await run();
   return lifecycleOk ? result : NextResponse.json({ error: "Reminders processed, but subscription maintenance needs retry." }, { status: 503 });
 }

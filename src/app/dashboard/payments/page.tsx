@@ -197,7 +197,12 @@ export default function PaymentsPage() {
       });
       const d = r.ok ? await r.json() : null;
       if (sequence !== stripeSequence.current) return;
-      if (d && !d.error) { setStripeNet(d); setFeesStatus("ready"); }
+      if (d && d.byPi && (!d.error || d.feesReady)) {
+        // A payout refresh can fail while the confirmed fee cache is healthy.
+        // Keep any last-known dynamic figures and still use the returned fees.
+        setStripeNet(prev => d.error && prev ? { ...prev, byPi: d.byPi } : d);
+        setFeesStatus(d.error ? "error" : "ready");
+      }
       else if (d && d.connected === false) setFeesStatus("ready");
       else setFeesStatus("error");
     } catch {
@@ -325,8 +330,13 @@ export default function PaymentsPage() {
   // (the fee lives on the tx, not the appointment row). Lets an online-booking
   // line get its fee from the ledger when the live Stripe fetch lags.
   const feeByAppt = new Map<string, number>();
+  const appointmentPi = new Map(appts.map(a => [a.id, a.payment_intent_id]));
   for (const t of txs) {
     if (t.refunded || t.stripe_fee == null || !Number.isFinite(t.stripe_fee) || !t.appointment_id) continue;
+    // A later balance charge has its own intent/fee and its own feed row. Never
+    // attach that fee to the original appointment as well.
+    const parentPi = appointmentPi.get(t.appointment_id);
+    if (parentPi ? t.payment_intent_id !== parentPi : t.source !== "completion") continue;
     if (!feeByAppt.has(t.appointment_id)) feeByAppt.set(t.appointment_id, t.stripe_fee as number);
   }
 

@@ -124,7 +124,7 @@ export default function AnalyticsPage() {
       ]);
       if (!feeResponse.ok) throw new Error("Fees unavailable");
       const fees = await feeResponse.json();
-      if (fees.error || !fees.byPi) throw new Error("Fees unavailable");
+      if (!fees.byPi || (fees.error && !fees.feesReady)) throw new Error("Fees unavailable");
       if (version !== requestVersion.current) return;
       setTransactions(txRes);
       setAppointments(apptRes);

@@ -90,7 +90,7 @@ const db = { from(table) {
   } });
   return query;
 } };
-global.fetch = async () => ({ ok: failFees !== true, json: async () => ({ byPi: {}, ...(failFees === 'body' ? { error: 'Stripe unavailable' } : {}) }) });
+global.fetch = async () => ({ ok: failFees !== true, json: async () => ({ byPi: {}, ...(failFees === 'body' ? { error: 'Stripe unavailable', feesReady: true } : failFees === 'unverified' ? { error: 'Fee read failed', feesReady: false } : {}) }) });
 const passthrough = name => ({ children, ...props }) => React.createElement(name, props, children);
 const mocks = {
   '@/lib/auth-context': { useAuth: () => auth }, '@/lib/supabase': { supabase: db },
@@ -116,12 +116,13 @@ const flush = () => new Promise(resolve => setImmediate(resolve));
   failTable = ''; failFees = true;
   await act(async () => { view.root.findAllByType('button').find(b => b.props.children === 'Retry analytics').props.onClick(); await flush(); });
   assert(JSON.stringify(view.toJSON()).includes('Analytics could not be loaded'));
+  failFees = 'unverified';
+  await act(async () => { view.root.findAllByType('button').find(b => b.props.children === 'Retry analytics').props.onClick(); await flush(); });
+  assert(JSON.stringify(view.toJSON()).includes('Analytics could not be loaded'), 'Failed fee reads must remain fail-closed');
   failFees = 'body';
   await act(async () => { view.root.findAllByType('button').find(b => b.props.children === 'Retry analytics').props.onClick(); await flush(); });
-  assert(JSON.stringify(view.toJSON()).includes('Analytics could not be loaded'));
+  assert(JSON.stringify(view.toJSON()).includes('Gross sales'), 'Cached fees remain usable if the dynamic payout lookup fails');
   failFees = false;
-  await act(async () => { view.root.findAllByType('button').find(b => b.props.children === 'Retry analytics').props.onClick(); await flush(); });
-  assert(JSON.stringify(view.toJSON()).includes('Gross sales'));
   const transactionQuery = queryLog.find(q => q.table === 'transactions');
   assert(transactionQuery.filters.some(f => f[0] === 'gte' && f[1] === 'created_at'));
   assert(transactionQuery.filters.some(f => f[0] === 'lt' && f[1] === 'created_at'));
@@ -136,5 +137,5 @@ const flush = () => new Promise(resolve => setImmediate(resolve));
   output = JSON.stringify(view.toJSON());
   assert(output.includes('Analytics could not be loaded')); assert(!output.includes('Gross sales'));
   view.unmount();
-  console.log('PASS analytics read errors, fee errors, retry, bounded queries, loading suppression and stale period/shop response guard');
+  console.log('PASS analytics read errors, cached fees during payout errors, retry, bounded queries, loading suppression and stale period/shop response guard');
 })().catch(error => { console.error(error); process.exitCode = 1; });

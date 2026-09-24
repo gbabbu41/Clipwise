@@ -49,6 +49,30 @@ export async function stripeFeeCents(
   }
 }
 
+/** A confirmed CAD balance transaction, including a legitimate zero fee.
+ * Unlike stripeFeeCents(), null means the fee has not posted (or cannot be
+ * read); callers must never save an estimate or an unavailable fee as exact. */
+export async function confirmedStripeFee(
+  paymentIntentId: string,
+  connectedAccountId: string,
+): Promise<{ gross: number; fee: number; net: number } | null> {
+  try {
+    const pi = await stripe.paymentIntents.retrieve(
+      paymentIntentId,
+      { expand: ["latest_charge.balance_transaction"] },
+      { stripeAccount: connectedAccountId },
+    );
+    const charge = pi.latest_charge;
+    if (!charge || typeof charge === "string") return null;
+    const bt = (charge as Stripe.Charge).balance_transaction;
+    if (!bt || typeof bt === "string" || pi.currency !== "cad" || bt.currency !== "cad" ||
+        !Number.isFinite(bt.amount) || !Number.isFinite(bt.fee) || !Number.isFinite(bt.net) || bt.amount <= 0 || bt.fee < 0) return null;
+    return { gross: bt.amount / 100, fee: bt.fee / 100, net: bt.net / 100 };
+  } catch {
+    return null;
+  }
+}
+
 // Monthly subscription pricing (in cents, CAD)
 export const PLAN_PRICING: Record<string, { amount: number; name: string }> = {
   pro: { amount: 2300, name: "ClipWise Pro" },

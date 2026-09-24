@@ -19,7 +19,7 @@ export async function backfillMissingStripeFees(): Promise<{ scanned: number; fi
   const cutoff = new Date(Date.now() - 45 * 86_400_000).toISOString();
   const settled = new Date(Date.now() - 15 * 60_000).toISOString();
 
-  const { data: rows } = await supabaseAdmin
+  const { data: rows, error: rowsError } = await supabaseAdmin
     .from("transactions")
     .select("id, shop_id, payment_intent_id, refunded")
     .eq("payment_method", "card")
@@ -27,15 +27,18 @@ export async function backfillMissingStripeFees(): Promise<{ scanned: number; fi
     .or("stripe_fee.is.null,stripe_fee.eq.0")
     .gte("created_at", cutoff)
     .lte("created_at", settled)
+    .order("created_at", { ascending: false }).order("id")
     .limit(150);
+  if (rowsError) throw new Error("Could not read transactions needing Stripe fees.");
   if (!rows || rows.length === 0) return { scanned: 0, filled: 0 };
 
   // Resolve each shop's connected-account id once (fee lives on the connected acct).
   const shopIds = Array.from(new Set(rows.map(r => r.shop_id).filter(Boolean))) as string[];
   const acctByShop = new Map<string, string | null>();
   if (shopIds.length) {
-    const { data: shops } = await supabaseAdmin
+    const { data: shops, error: shopsError } = await supabaseAdmin
       .from("shops").select("id, stripe_account_id, stripe_connected").in("id", shopIds);
+    if (shopsError) throw new Error("Could not resolve connected accounts for fee backfill.");
     for (const s of shops ?? []) {
       acctByShop.set(s.id, (s.stripe_account_id && s.stripe_connected) ? s.stripe_account_id : null);
     }
@@ -47,9 +50,13 @@ export async function backfillMissingStripeFees(): Promise<{ scanned: number; fi
     const acct = r.shop_id ? acctByShop.get(r.shop_id) ?? null : null;
     const feeCents = await stripeFeeCents(r.payment_intent_id as string, acct);
     if (feeCents > 0) {
-      await supabaseAdmin.from("transactions")
-        .update({ stripe_fee: feeCents / 100 }).eq("id", r.id).then(null, () => null);
-      filled++;
+      const { data: saved, error: saveError } = await supabaseAdmin.from("transactions")
+        .update({ stripe_fee: feeCents / 100 }).eq("id", r.id)
+        .eq("shop_id", r.shop_id).eq("payment_intent_id", r.payment_intent_id)
+        .or("stripe_fee.is.null,stripe_fee.eq.0")
+        .select("id");
+      if (saveError) throw new Error("Could not save a confirmed Stripe fee.");
+      if (saved?.length === 1) filled++;
     }
   }
   return { scanned: rows.length, filled };
