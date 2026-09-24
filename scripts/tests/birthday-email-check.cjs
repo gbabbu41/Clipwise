@@ -42,6 +42,12 @@ const payload = { type: 'birthday_wish', data: { shopId: 'shop', clientEmail: 'c
 const call = (body = payload, token = 'valid', internal = true) => POST(new NextRequest('https://clipwise.ca/api/send-email', { method: 'POST', headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(internal ? { 'x-internal-secret': 'dummy-cron' } : {}) }, body: JSON.stringify(body) }));
 (async () => {
   process.env.RESEND_API_KEY = 'dummy'; process.env.CRON_SECRET = 'dummy-cron';
+  for (const type of ['appointment_reminder', 'appointment_updated', 'appointment_cancelled', 'barber_appointment_change', 'new_booking_owner', 'new_booking_barber', 'schedule_updated', 'time_off_request', 'time_off_decision', 'waitlist_slot_open']) {
+    for (const token of ['', 'valid']) for (const internal of [false, true]) {
+      reset(); assert.equal((await call({ type, data: { clientEmail: 'unrelated@example.invalid', barberEmail: 'unrelated@example.invalid', ownerEmail: 'unrelated@example.invalid' } }, token, internal)).status, 403, `${type} must use its dedicated workflow`);
+      assert.equal(sends.length, 0); assert.equal(queries.length, 0);
+    }
+  }
   reset();
   assert.equal((await call({ type: 'marketing_campaign', data: { to: 'unrelated@example.invalid', subject: 'Forged campaign', htmlBody: '<a href="https://example.invalid">Forged</a>' } }, '', true)).status, 403, 'generic marketing must not bypass the dedicated campaign route');
   assert.equal(sends.length, 0);
@@ -81,6 +87,27 @@ const call = (body = payload, token = 'valid', internal = true) => POST(new Next
     }
   }
   const page = fs.readFileSync(path.join(root, 'src/app/dashboard/clients/page.tsx'), 'utf8');
+  for (const [file, types] of [
+    ['src/app/api/cron/reminders/route.ts', ['appointment_reminder']],
+    ['src/app/api/appointments/update/route.ts', ['appointment_updated', 'new_booking_barber', 'barber_appointment_change']],
+    ['src/app/api/my-booking/[id]/route.ts', ['appointment_cancelled', 'appointment_updated', 'barber_appointment_change']],
+    ['src/app/api/appointments/notify-cancellation/route.ts', ['barber_appointment_change']],
+    ['src/lib/notify-booking-emails.ts', ['new_booking_owner', 'new_booking_barber']],
+    ['src/lib/finalize-booking-session.ts', ['new_booking_owner', 'new_booking_barber']],
+    ['src/app/api/schedule/route.ts', ['schedule_updated']],
+    ['src/app/api/calendar/block/route.ts', ['time_off_request']],
+    ['src/app/api/schedule/time-off/route.ts', ['time_off_request']],
+    ['src/app/api/time-off/submit/route.ts', ['time_off_request']],
+    ['src/app/api/time-off/decide/route.ts', ['time_off_decision']],
+    ['src/app/api/time-off/cancel/route.ts', ['time_off_decision']],
+    ['src/app/api/time-off/exclude-date/route.ts', ['time_off_decision']],
+    ['src/lib/waitlist-notify-server.ts', ['waitlist_slot_open']],
+  ]) {
+    const caller = fs.readFileSync(path.join(root, file), 'utf8');
+    assert.match(caller, /sendAppEmail\(/, `${file} must retain internal sender`);
+    for (const type of types) assert.ok(caller.includes(`"${type}"`), `${file}: ${type}`);
+    assert.doesNotMatch(caller.replace(/^\s*\/\/.*$/gm, ''), /\/api\/send-email/);
+  }
   const handler = page.slice(page.indexOf('  const sendBirthdayEmail ='), page.indexOf('  const addPoints ='));
   assert.match(handler, /Authorization: `Bearer \$\{accessToken\}`/); assert.match(handler, /shopId: shop.id/);
   assert.match(handler, /birthdaySendInFlight.current = true/); assert.match(handler, /finally/); assert.doesNotMatch(handler, /shopName:/);
