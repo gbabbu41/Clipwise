@@ -1,4 +1,4 @@
-const CACHE = 'clipwise-v4';
+const CACHE = 'clipwise-v5';
 const STATIC = [
   '/',
   '/dashboard',
@@ -23,47 +23,46 @@ self.addEventListener('fetch', e => {
   const { request } = e;
   const url = new URL(request.url);
 
-  // Skip non-GET, cross-origin, and API/Supabase requests
+  // Skip non-GET, cross-origin, and API/Supabase requests.
   if (request.method !== 'GET') return;
   if (url.origin !== location.origin) return;
   if (url.pathname.startsWith('/api/')) return;
+  // Next.js RSC / client-navigation payloads must stay fresh — let them hit the
+  // network so client-side navigation always shows current data.
+  if (url.searchParams.has('_rsc')) return;
 
-  // Network-first for navigation (pages)
+  // Navigation (a full page load) → NETWORK-FIRST. The HTML is small and must be
+  // fresh so its auth redirect AND the CURRENT hashed asset filenames are always
+  // right (that's what keeps cache-first assets below from ever going stale).
+  // Falls back to the cached shell / offline page only when the network is down.
   if (request.mode === 'navigate') {
     e.respondWith(
-      fetch(request).catch(() =>
-        caches.match('/offline') || caches.match('/')
-      )
+      fetch(request)
+        .then(res => {
+          if (res && res.ok) { const clone = res.clone(); caches.open(CACHE).then(c => c.put(request, clone)); }
+          return res;
+        })
+        .catch(() => caches.match(request).then(r => r || caches.match('/offline').then(o => o || caches.match('/'))))
     );
     return;
   }
 
-  // Network-first for JS/CSS — guarantees fresh app code on every load.
-  // Falls back to cache only when offline.
-  if (url.pathname.match(/\.(js|css)$/)) {
+  // Immutable, content-hashed build assets (JS/CSS) + same-origin static media →
+  // CACHE-FIRST. This is the big app-speed win: the JS bundle is served instantly
+  // from cache instead of re-downloading on every open. A new deploy ships NEW
+  // filenames, so the fresh HTML references them and any not-yet-cached file is
+  // fetched once and then cached — never stale, because the name changes whenever
+  // the content does.
+  if (url.pathname.match(/\.(js|css|woff2?|png|jpe?g|svg|ico|webp|gif)$/)) {
     e.respondWith(
-      fetch(request).then(res => {
-        if (res.ok) {
-          const clone = res.clone();
-          caches.open(CACHE).then(c => c.put(request, clone));
-        }
+      caches.match(request).then(cached => cached || fetch(request).then(res => {
+        if (res && res.ok) { const clone = res.clone(); caches.open(CACHE).then(c => c.put(request, clone)); }
         return res;
-      }).catch(() => caches.match(request))
+      }))
     );
     return;
   }
 
-  // Cache-first for truly static assets (fonts, images, icons)
-  e.respondWith(
-    caches.match(request).then(cached => {
-      if (cached) return cached;
-      return fetch(request).then(res => {
-        if (res.ok && (url.pathname.match(/\.(woff2?|png|svg|ico)$/))) {
-          const clone = res.clone();
-          caches.open(CACHE).then(c => c.put(request, clone));
-        }
-        return res;
-      });
-    })
-  );
+  // Everything else: network, fall back to cache when offline.
+  e.respondWith(fetch(request).catch(() => caches.match(request)));
 });
