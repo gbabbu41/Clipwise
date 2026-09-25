@@ -1971,6 +1971,19 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     return out;
   }, [appointments, blocks, minServiceMin]);
 
+  // From a tap inside an empty "+" gap, seed the add sheet at the TAPPED time
+  // (snapped to 15 min) rather than the gap's start — so tapping 10 AM inside a
+  // long free block opens the sheet at 10 AM. rowPx = pixels-per-hour for the
+  // active layout (day view uses rowH, multi-day uses ROW_PX).
+  const seededTapTime = (e: { currentTarget: HTMLElement; clientY: number }, gapSlot: string, gapMinutes: number, rowPx: number): string => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const offsetMin = rowPx > 0 ? ((e.clientY - rect.top) / rowPx) * 60 : 0;
+    const startMin = timeToMinutes(gapSlot);
+    const snapped = Math.round((startMin + offsetMin) / ADD_STEP) * ADD_STEP;
+    const clamped = Math.min(startMin + Math.max(0, gapMinutes - ADD_STEP), Math.max(startMin, snapped));
+    return minsToSlot(clamped);
+  };
+
   // "9:00 AM" + 45 → "9:00 AM – 9:45 AM"
   const rangeLabel = (start: string, mins: number) => {
     const endMin = timeToMinutes(start) + (mins > 0 ? mins : EMPTY_STEP);
@@ -2830,7 +2843,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                 const laid = layoutColumn(colAppts);
                 // Show "+" boxes across the whole visible grid; the ones outside
                 // the barber's schedule are greyed (still bookable as overtime).
-                const gridWin = { start: `${String(winStart).padStart(2, "0")}:00:00`, end: `${String(winEnd).padStart(2, "0")}:00:00` };
+                const gridWin = { start: `${String(winStart).padStart(2, "0")}:00:00`, end: winEnd >= 24 ? "23:59:59" : `${String(winEnd).padStart(2, "0")}:00:00` };
                 const colBlocks = blocksFor(b.id, dateStr);
                 const empties = windowEmpties(b.id, dateStr, gridWin)
                   .filter(e => { const s = timeToMinutes(e.slot); return !colBlocks.some(bl => s < bl.endMin && s + e.minutes > bl.startMin); });
@@ -2846,11 +2859,11 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                         <button key={`e${slot}`}
                           title={outside ? "Outside working hours — tap to add" : "Add appointment"}
                           style={{ top: `${top + 2}px`, height: `${height}px`, left: "4px", right: "4px", position: "absolute" }}
-                          // Every slot gets the same fill so all barber columns read
-                          // consistently, regardless of schedule (no more half-shaded
-                          // columns). The tooltip still notes outside-hours.
-                          className="rounded-lg transition-colors pointer-events-auto overflow-hidden bg-card-raised hover:bg-surface-overlay"
-                          onClick={() => openAdd(b.id, b.name, slot, minutes)} />
+                          // Transparent tap target — keeps the black surface (better
+                          // contrast with appointment cards); a faint hover shows it's
+                          // clickable. Tap seeds the add sheet at the tapped time.
+                          className="rounded-lg transition-colors pointer-events-auto overflow-hidden hover:bg-surface-overlay/40"
+                          onClick={(e) => openAdd(b.id, b.name, seededTapTime(e, slot, minutes, rowH), minutes)} />
                       );
                     })}
                     {/* Unavailability (display-only) — full-day off or recurring
@@ -3014,7 +3027,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     // Same 7 AM-capped rail as Day view (extends earlier only for an early
     // appointment/shift across the shown days); bottom stays at midnight.
     const { winStart, winEnd, hours } = fullDayCalendarWindow(gridStartHour(dayStrs, [barber.id]));
-    const gridWin = { start: `${String(winStart).padStart(2, "0")}:00:00`, end: `${String(winEnd).padStart(2, "0")}:00:00` };
+    const gridWin = { start: `${String(winStart).padStart(2, "0")}:00:00`, end: winEnd >= 24 ? "23:59:59" : `${String(winEnd).padStart(2, "0")}:00:00` };
 
     const gridCols = `48px repeat(${multiDayCount}, minmax(0, 1fr))`;
     const anyToday = dayStrs.includes(shopToday);
@@ -3079,8 +3092,8 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                       return (
                         <button key={`e${slot}`} title="Add appointment"
                           style={{ top: `${top + 2}px`, height: `${height}px`, left: "2px", right: "2px", position: "absolute" }}
-                          className="rounded-lg transition-colors pointer-events-auto overflow-hidden bg-card-raised hover:bg-surface-overlay"
-                          onClick={() => openAdd(barber.id, barber.name, slot, minutes, false, ds)} />
+                          className="rounded-lg transition-colors pointer-events-auto overflow-hidden hover:bg-surface-overlay/40"
+                          onClick={(e) => openAdd(barber.id, barber.name, seededTapTime(e, slot, minutes, ROW_PX), minutes, false, ds)} />
                       );
                     })}
                     {/* Unavailability (display-only) — full-day off or breaks;
