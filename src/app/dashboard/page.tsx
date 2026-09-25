@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback, useMemo, useRef, Fragment } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import {
   Calendar, DollarSign, Users, Star, Plus, X, ChevronDown,
@@ -12,7 +13,13 @@ import { Button } from "@/components/ui/button";
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import { ApptDetail, Portal, makeApptActions } from "@/components/calendar-view";
 import { useConfirm } from "@/components/ui/confirm-dialog";
-import { StatsCarousel } from "@/components/dashboard/stats-carousel";
+// Lazy-load the stats carousel (it pulls in recharts, ~130 kB). Keeping it out of
+// the dashboard's initial JS lets the shell paint fast; the charts hydrate a beat
+// later behind a skeleton (and stay instant after the SW caches the chunk).
+const StatsCarousel = dynamic(
+  () => import("@/components/dashboard/stats-carousel").then(m => m.StatsCarousel),
+  { ssr: false, loading: () => <div className="h-64 rounded-2xl bg-card border border-border animate-pulse" /> },
+);
 import { readAllRows } from "@/lib/read-all-rows";
 import { hasMissingCardFees } from "@/lib/analytics-period";
 import { useSheetDrag } from "@/hooks/use-sheet-drag";
