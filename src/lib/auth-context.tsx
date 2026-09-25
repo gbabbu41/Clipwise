@@ -125,6 +125,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setShop(null);
           setShops([]);
           setAccessToken(null);
+          // Catch-all clear on ANY logout (manual sign-out fires this too, and so
+          // does a session-expiry / unauthorized auto-logout) — so the on-device
+          // instant-paint cache, incl. any client names, never lingers.
+          clearViewCache();
         }
       } finally {
         if (mounted) setLoading(false);
