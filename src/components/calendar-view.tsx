@@ -16,6 +16,7 @@ import { freesSlot, apptDuration } from "@/lib/availability";
 import { clientMatchesQuery } from "@/lib/client-search";
 import { safeTz, todayInTz, nowMinutesInTz } from "@/lib/timezone";
 import { calendarFocusTop, calendarLandingHour, fullDayCalendarWindow, startCalendarAutofocus } from "@/lib/calendar-autofocus";
+import { cacheGet, cacheSet } from "@/lib/view-cache";
 import { calendarEditTotals, type CalendarAddContext } from "@/lib/calendar-workflow";
 import { clampNoShowPct, NO_SHOW_LEAD_MINUTES, formatPhone } from "@/lib/validation";
 
@@ -1621,7 +1622,6 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     // overwrite it — leaving the previous day's/month's appointments under the new
     // date (and an off-duty barber column). Only the latest load may commit.
     const seq = ++loadSeqRef.current;
-    setLoading(true);
 
     let rangeStart: Date, rangeEnd: Date;
     if (view === "year") {
@@ -1681,6 +1681,23 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
       .gte("end_date", formatDateForDb(rangeStart));
     if (scopeId) fullOffQ = fullOffQ.or(`barber_id.eq.${scopeId},barber_id.is.null`);
 
+    // Instant paint: show the last cached snapshot for THIS exact view/range/scope
+    // immediately, then the live fetch below overwrites it. On-device only, cleared
+    // on logout (see view-cache). Cold key → normal spinner.
+    const scopeSig = scopeId ?? (barberFilter !== "all" ? barberFilter : "all");
+    const cacheKey = `cal_${shop.id}_${view}_${formatDateForDb(rangeStart)}_${formatDateForDb(rangeEnd)}_${scopeSig}`;
+    const cachedSnap = cacheGet<{ appts: AppointmentWithDetails[]; barbers: Barber[]; blocks: BlockRow[]; fullOff: FullDayOff[] }>(cacheKey);
+    if (cachedSnap) {
+      setAppointments(cachedSnap.appts);
+      setBarbers(cachedSnap.barbers);
+      setBlocks(cachedSnap.blocks);
+      setFullDayOff(cachedSnap.fullOff);
+      setLoadError("");
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+
     try {
       const [{ data: appts, error: apptsErr }, { data: bs, error: barbersErr }, { data: blk, error: blocksErr }, { data: fdo, error: timeOffErr }] = await Promise.all([
         q,
@@ -1698,6 +1715,13 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
       setBlocks((blk ?? []) as BlockRow[]);
       setFullDayOff((fdo ?? []) as FullDayOff[]);
       setLoadError("");
+      // Save this snapshot for the next instant paint of the same view/range/scope.
+      cacheSet(cacheKey, {
+        appts: (appts ?? []) as AppointmentWithDetails[],
+        barbers: (bs ?? []) as Barber[],
+        blocks: (blk ?? []) as BlockRow[],
+        fullOff: (fdo ?? []) as FullDayOff[],
+      });
     } catch {
       if (seq === loadSeqRef.current) setLoadError("We couldn't refresh this calendar. Availability may be out of date. Retry before using the schedule.");
     } finally {

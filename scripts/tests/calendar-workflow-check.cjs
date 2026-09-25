@@ -70,7 +70,7 @@ function editor(action) {
     const state = { appointments: ['previous'], error: 'previous error', loading: true };
     const results = [0, 1, 2, 3].map(index => ({ data: [index], error: index === failIndex ? { message: 'offline' } : null }));
     const chain = { select() { return this; }, eq() { return this; }, order() { return Promise.resolve(results[1]); } };
-    const env = { q: reject ? Promise.reject(new Error('offline')) : Promise.resolve(results[0]), blocksQ: Promise.resolve(results[2]), fullOffQ: Promise.resolve(results[3]), supabase: { from: () => chain }, shop: { id: 'shop' }, seq: 1, loadSeqRef: { current: stale ? 2 : 1 }, setAppointments: v => { state.appointments = v; }, setBarbers: v => { state.barbers = v; }, setBlocks: v => { state.blocks = v; }, setFullDayOff: v => { state.timeOff = v; }, setLoadError: v => { state.error = v; }, setLoading: v => { state.loading = v; } };
+    const env = { q: reject ? Promise.reject(new Error('offline')) : Promise.resolve(results[0]), blocksQ: Promise.resolve(results[2]), fullOffQ: Promise.resolve(results[3]), supabase: { from: () => chain }, shop: { id: 'shop' }, seq: 1, loadSeqRef: { current: stale ? 2 : 1 }, setAppointments: v => { state.appointments = v; }, setBarbers: v => { state.barbers = v; }, setBlocks: v => { state.blocks = v; }, setFullDayOff: v => { state.timeOff = v; }, setLoadError: v => { state.error = v; }, setLoading: v => { state.loading = v; }, cacheSet: () => {}, cacheKey: 'k' };
     await new Function(...Object.keys(env), `${loadCode}; return snapshot();`)(...Object.values(env));
     return state;
   }

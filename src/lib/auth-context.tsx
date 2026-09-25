@@ -5,6 +5,7 @@ import { supabase } from "./supabase";
 import type { UserProfile, Shop } from "./database.types";
 import { hydratePlanConfig } from "./validation";
 import { planRowsToConfig, type PlanRow } from "./plans";
+import { clearViewCache } from "./view-cache";
 
 interface AuthContextType {
   user: User | null;
@@ -162,6 +163,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setShops([]);
     setAccessToken(null);
     try { localStorage.removeItem(ACTIVE_SHOP_KEY); } catch { /* storage unavailable */ }
+    clearViewCache(); // drop on-device instant-paint snapshots (incl. any client names)
   };
 
   return (
