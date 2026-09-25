@@ -14,6 +14,7 @@ import { UnreadBadge } from "@/components/notification-badge";
 import { useShopUnreadCount } from "@/hooks/use-unread-count";
 import { shareLink } from "@/lib/share";
 import { barberRowCut } from "@/lib/barber-earnings";
+import { cacheGet, cacheSet } from "@/lib/view-cache";
 import type { AppointmentWithDetails } from "@/lib/database.types";
 import Link from "next/link";
 
@@ -71,14 +72,21 @@ export default function BarberOverviewPage() {
   // appointment modal needs (services + barber relations, payment fields).
   const loadAppointments = useCallback(async () => {
     if (!shop?.id || !barber?.id) { setLoading(false); return; }
+    // Instant paint from the last cached snapshot, then refresh below.
+    const ckey = `bd_today_${shop.id}_${barber.id}_${todayStr}`;
+    const cached = cacheGet<AppointmentWithDetails[]>(ckey);
+    if (cached) { setAppointments(cached); setLoading(false); }
     const { data, error } = await supabase
       .from("appointments")
       .select("*, services(name, duration_minutes), barbers(name)")
       .eq("shop_id", shop.id).eq("barber_id", barber.id).eq("date", todayStr)
       .order("time_slot");
-    if (error) showToast("Couldn't load today's schedule — please refresh.");
-    setAppointments((data ?? []) as AppointmentWithDetails[]);
+    // On a failed refresh, keep the cached schedule rather than blanking it.
+    if (error) { if (!cached) showToast("Couldn't load today's schedule — please refresh."); setLoading(false); return; }
+    const rows = (data ?? []) as AppointmentWithDetails[];
+    setAppointments(rows);
     setLoading(false);
+    cacheSet(ckey, rows);
   }, [shop?.id, barber?.id, todayStr, showToast]);
   useEffect(() => { loadAppointments(); }, [loadAppointments]);
 
@@ -88,6 +96,9 @@ export default function BarberOverviewPage() {
   useEffect(() => {
     if (!shop?.id || !barber?.id) return;
     const days = currentWeekDays();
+    const ckey = `bd_week_${shop.id}_${barber.id}_${formatDateForDb(days[0])}`;
+    const cached = cacheGet<AppointmentWithDetails[]>(ckey);
+    if (cached) setWeekAppts(cached); // instant paint
     (async () => {
       const { data, error } = await supabase
         .from("appointments")
@@ -96,7 +107,9 @@ export default function BarberOverviewPage() {
         .gte("date", formatDateForDb(days[0])).lte("date", formatDateForDb(days[6]))
         .order("time_slot");
       if (error) { console.error("barber week appts load failed:", error.message); return; }
-      setWeekAppts((data ?? []) as AppointmentWithDetails[]);
+      const rows = (data ?? []) as AppointmentWithDetails[];
+      setWeekAppts(rows);
+      cacheSet(ckey, rows);
     })();
   }, [shop?.id, barber?.id]);
 
