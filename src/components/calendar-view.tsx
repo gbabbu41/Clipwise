@@ -3610,7 +3610,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
           sidebar's fixed top bar still carries the bell+avatar (HeaderControls
           is max-lg:hidden), so nothing doubles up. */}
       <div data-calendar-toolbar className="shrink-0 border-b border-border px-2 sm:px-6 py-2 lg:pt-4 flex flex-nowrap items-center justify-between gap-1 sm:gap-3">
-        <div className="flex flex-1 items-center gap-0.5 sm:gap-3 min-w-0">
+        <div className="flex flex-1 items-center gap-1.5 min-[360px]:gap-2.5 sm:gap-3 min-w-0">
           {backLabel && (
             <button onClick={goBack} aria-label={`Back to ${backLabel}`}
               className="flex items-center gap-0.5 text-sm font-medium text-[#9a9a9a] hover:text-foreground transition-colors flex-shrink-0 -ml-1">
@@ -3627,11 +3627,11 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
               easy, safe tap target (no mis-taps between them). */}
           <div className="flex items-center gap-0.5 sm:gap-2 flex-shrink-0">
             <button onClick={() => goPeriod(-1)} aria-label="Previous"
-              className="p-1 sm:p-2 rounded-lg text-grey hover:text-foreground hover:bg-card-raised active:bg-surface-overlay transition-colors">
+              className="p-1 min-[360px]:p-1.5 sm:p-2 rounded-lg text-grey hover:text-foreground hover:bg-card-raised active:bg-surface-overlay transition-colors">
               <ChevronLeft size={20} />
             </button>
             <button onClick={() => goPeriod(1)} aria-label="Next"
-              className="p-1 sm:p-2 rounded-lg text-grey hover:text-foreground hover:bg-card-raised active:bg-surface-overlay transition-colors">
+              className="p-1 min-[360px]:p-1.5 sm:p-2 rounded-lg text-grey hover:text-foreground hover:bg-card-raised active:bg-surface-overlay transition-colors">
               <ChevronRight size={20} />
             </button>
           </div>
@@ -3729,11 +3729,11 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
             </button>
           )}
           {(view === "day" && dayLayout === "timeline" && formatDateForDb(currentDate) === shopToday || view === "multiday" && multiDays.some(day => formatDateForDb(day) === shopToday)) && (
-            <button type="button" onClick={focusNow} aria-label="Scroll to current time" title="Now — scroll to current time" className="p-2 sm:px-2.5 sm:py-1.5 text-xs font-medium text-[#ccc] border border-border bg-card-raised rounded-lg"><LocateFixed size={16} className="sm:hidden" /><span className="hidden sm:inline">Now</span></button>
+            <button type="button" onClick={focusNow} aria-label="Scroll to current time" title="Now — scroll to current time" className="p-1.5 min-[360px]:p-2 sm:px-2.5 sm:py-1.5 text-xs font-medium text-[#ccc] border border-border bg-card-raised rounded-lg"><LocateFixed size={16} className="sm:hidden" /><span className="hidden sm:inline">Now</span></button>
           )}
           {(!onToday || view === "multiday" && formatDateForDb(currentDate) !== shopToday) && (
             <button onClick={() => { setNavDir(0); setCurrentDate(new Date(`${shopToday}T00:00:00`)); }} aria-label="Go to today" title="Today"
-              className="p-2 sm:px-2.5 sm:py-1.5 text-xs font-medium text-[#ccc] border border-border bg-card-raised rounded-lg hover:bg-surface-overlay hover:text-foreground transition-colors">
+              className="p-1.5 min-[360px]:p-2 sm:px-2.5 sm:py-1.5 text-xs font-medium text-[#ccc] border border-border bg-card-raised rounded-lg hover:bg-surface-overlay hover:text-foreground transition-colors">
               {/* Month/Year have room → spell "Today" (the view picker already shows
                   a calendar glyph there, so an icon here would read as two
                   calendars). Day / 3-Day are tight → keep the compact icon on phone. */}
