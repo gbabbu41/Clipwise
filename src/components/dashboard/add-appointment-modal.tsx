@@ -533,7 +533,9 @@ export function AddAppointmentModal({
                   {mode === "existing" && <Check size={17} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-emerald-400" />}
                 </div>
                 {showResults && (
-                  <div className="mt-1.5 bg-card-raised border border-border rounded-xl overflow-y-auto overscroll-contain max-h-[min(45vh,320px)]">
+                  // data-no-sheet-drag: a swipe here scrolls the client list, never
+                  // drags the sheet toward dismiss (the list is its own scroll area).
+                  <div data-no-sheet-drag className="mt-1.5 bg-card-raised border border-border rounded-xl overflow-y-auto overscroll-contain max-h-[min(45vh,320px)]">
                     {matches.map(c => (
                       <button key={c.id} type="button" onClick={() => pickExisting(c)}
                         className="w-full flex items-center gap-3 px-3 py-2.5 text-left border-t border-border first:border-t-0 hover:bg-surface-overlay transition-colors">
