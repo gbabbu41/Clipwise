@@ -737,21 +737,25 @@ export function Sidebar() {
                 href={item.href}
                 title={item.label}
                 className={cn(
-                  // Calm active state: a soft raised row + a monochrome accent bar +
-                  // matching icon (no loud pill, no trailing arrow) so "you are here"
-                  // reads clearly without out-shouting the page content or the brand.
-                  // cw-nav-item is the hook the collapsed rail uses to center icons.
+                  // Active state matches the barber portal exactly: a solid filled
+                  // pill (foreground bg, inverted text/icon) so the selected page
+                  // reads the SAME in both portals. cw-nav-item is the hook the
+                  // collapsed rail uses to center icons.
                   "cw-nav-item relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group",
                   isActive
-                    ? "bg-card-raised text-foreground"
+                    ? "bg-foreground text-background border border-foreground"
                     : "text-grey hover:text-foreground hover:bg-card-raised",
                 )}
               >
-                {isActive && <span aria-hidden className="absolute left-1 top-2.5 bottom-2.5 w-[3px] rounded-full bg-foreground" />}
-                <Icon size={18} className={cn(isActive ? "text-foreground" : "text-grey group-hover:text-foreground")} />
+                <Icon size={18} className={cn(isActive ? "text-background" : "text-grey group-hover:text-foreground")} />
                 <span className="cw-nav-label flex-1">{item.label}</span>
                 {item.badge && unreadCount > 0 && (
-                  <span className="cw-nav-badge text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center bg-foreground text-background">
+                  <span className={cn(
+                    // On the filled active pill a foreground badge would vanish, so
+                    // it flips to a card chip (mirrors the barber portal badge).
+                    "cw-nav-badge text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center",
+                    isActive ? "bg-card text-foreground" : "bg-foreground text-background",
+                  )}>
                     {unreadCount}
                   </span>
                 )}
