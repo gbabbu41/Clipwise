@@ -15,7 +15,7 @@ import {
 import { freesSlot, apptDuration } from "@/lib/availability";
 import { clientMatchesQuery } from "@/lib/client-search";
 import { safeTz, todayInTz, nowMinutesInTz } from "@/lib/timezone";
-import { calendarFocusTop, calendarLandingHour, fullDayCalendarWindow, startCalendarAutofocus } from "@/lib/calendar-autofocus";
+import { calendarFocusTop, calendarHourOffset, calendarLandingHour, fullDayCalendarWindow, startCalendarAutofocus } from "@/lib/calendar-autofocus";
 import { cacheGet, cacheSet } from "@/lib/view-cache";
 import { calendarEditTotals, type CalendarAddContext } from "@/lib/calendar-workflow";
 import { clampNoShowPct, NO_SHOW_LEAD_MINUTES, formatPhone } from "@/lib/validation";
@@ -1852,7 +1852,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
       // Morning starts align near the top; today's time is centred. This only
       // measures during the initial attempt, never after user takeover.
       return grid.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop
-        + ((hour - start) / (end - start)) * grid.offsetHeight
+        + calendarHourOffset(hour, start, end, grid.offsetHeight)
         + (grid.dataset.landingAlign === "start" ? el.clientHeight / 2 - 8 : 0);
     });
   }, [focusKey, view]);
@@ -1864,26 +1864,36 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     const grid = el?.querySelector<HTMLElement>("[data-calendar-time-grid]");
     if (!el || !grid) return;
     const target = grid.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop
-      + (nowMinutesInTz(shopTz) / 1440) * grid.offsetHeight;
+      + calendarHourOffset(nowMinutesInTz(shopTz) / 60, Number(grid.dataset.startHour), Number(grid.dataset.endHour), grid.offsetHeight);
     el.scrollTop = calendarFocusTop(target, el.clientHeight, el.scrollHeight);
   };
 
   const landingFor = (dates: string[], barberIds: string[]) => {
-    const starts = appointments.filter(a => dates.includes(a.date) && !!a.barber_id && barberIds.includes(a.barber_id) && !freesSlot(a)).map(a => parseTime(a.time_slot));
-    const weekdays = dates.map(date => new Date(`${date}T00:00:00`).getDay());
-    weeklyHours.filter(s => barberIds.includes(s.barber_id) && weekdays.includes(s.day_of_week)).forEach(s => starts.push(hourOfDb(s.start_time)));
-    return calendarLandingHour(dates.includes(shopToday), shopHour, starts);
+    const earliest = gridStartHour(dates, barberIds);
+    return calendarLandingHour(dates.includes(shopToday), shopHour, earliest == null ? [] : [earliest]);
   };
 
   // Earliest hour the grid should open to: 7 AM by default, earlier only when the
   // day has an appointment or a scheduled shift before 7 — so the timeline never
   // opens onto (or scrolls up into) empty pre-dawn hours when nothing is there.
-  // Mirrors landingFor's inputs (appointments + working hours). Undefined = no
+  // Include visible timed blocks and freed-slot reminders too. Undefined = no
   // early event → the window's own 7 AM cap applies.
   const gridStartHour = (dates: string[], barberIds: string[]): number | undefined => {
     const starts = appointments.filter(a => dates.includes(a.date) && !!a.barber_id && barberIds.includes(a.barber_id) && !freesSlot(a)).map(a => parseTime(a.time_slot));
     const weekdays = dates.map(date => new Date(`${date}T00:00:00`).getDay());
     weeklyHours.filter(s => barberIds.includes(s.barber_id) && weekdays.includes(s.day_of_week)).forEach(s => starts.push(hourOfDb(s.start_time)));
+    // Freed-slot reminders are rendered only by the single-day timeline.
+    (view === "day" ? appointments : []).filter(a => dates.includes(a.date) && !!a.barber_id && barberIds.includes(a.barber_id)
+      && (a.status === "cancelled" || a.status === "no-show") && !dismissedFreed.has(a.id))
+      .filter(a => {
+        const start = timeToMinutes(a.time_slot), end = start + apptDuration(a);
+        return !appointments.some(active => active.date === a.date && active.barber_id === a.barber_id && !freesSlot(active)
+          && timeToMinutes(active.time_slot) < end && timeToMinutes(active.time_slot) + apptDuration(active) > start);
+      }).forEach(a => starts.push(parseTime(a.time_slot)));
+    for (const date of dates) for (const barberId of barberIds) {
+      blocksFor(barberId, date).forEach(block => starts.push(block.startMin / 60));
+      unavailBandsFor(barberId, date).filter(band => !band.fullDay).forEach(band => starts.push(band.startMin / 60));
+    }
     const valid = starts.filter(h => Number.isFinite(h) && h >= 0 && h < 24);
     return valid.length ? Math.min(...valid) : undefined;
   };

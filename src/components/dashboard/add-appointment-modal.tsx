@@ -350,6 +350,7 @@ export function AddAppointmentModal({
     for (const t of TIME_OPTIONS) {
       const tm = timeToMinutes(t);
       const end = tm + slotDuration;
+      if (end > 1440) { map.set(t, { disabled: true, tag: "ends after midnight" }); continue; }
       if (!avail) { map.set(t, { disabled: false, tag: "" }); continue; }
       if (isToday && tm <= nowMin) { map.set(t, { disabled: true, tag: "past" }); continue; }
       const booked = (avail.busy ?? []).some(b => { const bs = timeToMinutes(b.time_slot); return tm < bs + (b.duration || 30) && bs < end; });
@@ -414,7 +415,7 @@ export function AddAppointmentModal({
     // Only these explicit endpoint responses establish rejection before a write
     // or rejection of the insert by the DB. Unknown statuses/bodies stay uncertain.
     const knownErrors: Record<number, string[]> = {
-      400: ["Missing required fields", "That time has already passed — please pick a future time.", "One or more selected services are unavailable.", "That date is beyond this shop's booking window.", "That barber isn't part of this shop."],
+      400: ["Missing required fields", "Choose a time that lets this appointment finish by midnight.", "That time has already passed — please pick a future time.", "One or more selected services are unavailable.", "That date is beyond this shop's booking window.", "That barber isn't part of this shop."],
       403: ["This shop isn't accepting bookings.", "This shop isn't accepting bookings right now.", "This shop requires a card to book online."],
       409: ["Sorry, that time was just booked. Please pick another slot.", "Sorry, that time is fully booked. Please pick another slot.", "That time was just booked — please pick another slot."],
       429: ["Too many requests — please slow down and try again shortly.", "You already have several bookings with this shop for that day. Please call the shop if you need to add more."],

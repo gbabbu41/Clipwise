@@ -219,6 +219,10 @@ export async function POST(request: NextRequest) {
   const startMin = timeToMinutes(b.time_slot);
   const duration = charge.duration > 0 ? charge.duration : 30;
   const endMin = startMin + duration;
+  // Conflict checks are date-scoped; never create an unchecked next-day tail.
+  if (!Number.isFinite(startMin) || startMin < 0 || startMin >= 1440 || endMin > 1440) {
+    return NextResponse.json({ error: "Choose a time that lets this appointment finish by midnight." }, { status: 400 });
+  }
 
   // Resolve barber + conflict check (service-role → sees real bookings).
   let barberId = b.barber_id && b.barber_id !== "any" ? b.barber_id : null;

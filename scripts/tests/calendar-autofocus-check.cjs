@@ -3,7 +3,61 @@ const root = path.resolve(__dirname, '../..'), appReq = Module.createRequire(pat
 const filename = path.join(root, 'src/lib/calendar-autofocus.ts'), m = new Module(filename, module);
 m.filename = filename; m.require = appReq;
 m._compile(ts.transpileModule(fs.readFileSync(filename, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, filename);
-const { calendarLandingHour, fullDayCalendarWindow, calendarFocusTop, startCalendarAutofocus } = m.exports;
+const { calendarLandingHour, fullDayCalendarWindow, calendarFocusTop, calendarHourOffset, startCalendarAutofocus } = m.exports;
+assert.equal(calendarHourOffset(12, 7, 24, 17 * 62), 5 * 62);
+assert.equal(calendarHourOffset(12, 0, 24, 24 * 62), 12 * 62);
+assert.equal(calendarHourOffset(6.5, 6, 24, 18 * 62), 31);
+assert.equal(calendarHourOffset(2, 7, 24, 1054), 0);
+assert.equal(calendarHourOffset(25, 7, 24, 1054), 1054);
+assert.equal(calendarHourOffset(NaN, 7, 24, 1054), 0);
+
+// Exercise the actual grid-start selector, not a parallel test implementation.
+const viewSource = fs.readFileSync(path.join(root, 'src/components/calendar-view.tsx'), 'utf8');
+const viewAst = ts.createSourceFile('calendar.tsx', viewSource, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+let gridExpression;
+function findGrid(node) {
+  if (ts.isVariableDeclaration(node) && node.name.getText(viewAst) === 'gridStartHour') gridExpression = node.initializer.getText(viewAst);
+  ts.forEachChild(node, findGrid);
+}
+findGrid(viewAst); assert(gridExpression);
+const gridCode = ts.transpileModule('const action = ' + gridExpression, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText + ';return action;';
+function earliest(appointments = [], extra = {}) {
+  const env = { view: 'day', appointments, weeklyHours: [], dismissedFreed: new Set(), parseTime: Number, timeToMinutes: t => Number(t) * 60,
+    apptDuration: a => a.duration || 30, freesSlot: a => ['cancelled', 'no-show'].includes(a.status), hourOfDb: Number,
+    blocksFor: () => [], unavailBandsFor: () => [], ...extra };
+  return new Function(...Object.keys(env), gridCode)(...Object.values(env))(['2026-10-01'], ['b']);
+}
+const early = { id: 'early', date: '2026-10-01', barber_id: 'b', time_slot: '6', status: 'confirmed' };
+assert.equal(earliest(), undefined);
+assert.equal(earliest([early]), 6);
+assert.equal(earliest([{ ...early, status: 'cancelled' }]), 6);
+assert.equal(earliest([{ ...early, status: 'no-show' }]), 6);
+assert.equal(earliest([{ ...early, status: 'cancelled' }], { view: 'multiday' }), undefined, 'unrendered multiday reminder does not unlock empty hours');
+assert.equal(earliest([{ ...early, status: 'cancelled' }], { dismissedFreed: new Set(['early']) }), undefined);
+assert.equal(earliest([{ ...early, status: 'cancelled' }, { ...early, id: 'replacement' }]), 6);
+assert.equal(earliest([{ ...early, time_slot: '6.75', status: 'cancelled', duration: 60 }, { ...early, id: 'replacement', time_slot: '7' }]), 7, 'hidden rebooked reminder must not expose empty early rail');
+assert.equal(earliest([{ ...early, barber_id: 'other' }]), undefined);
+assert.equal(earliest([], { blocksFor: () => [{ startMin: 330 }] }), 5.5);
+assert.equal(earliest([], { unavailBandsFor: () => [{ startMin: 360, fullDay: false }] }), 6);
+assert.equal(earliest([], { unavailBandsFor: () => [{ startMin: 0, fullDay: true }] }), undefined);
+
+const modalSource = fs.readFileSync(path.join(root, 'src/components/dashboard/add-appointment-modal.tsx'), 'utf8');
+const slotStart = modalSource.indexOf('  const slotStatuses ='), slotEnd = modalSource.indexOf('  const anyFree', slotStart);
+const slotCode = ts.transpileModule(modalSource.slice(slotStart, slotEnd), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText + ';return slotStatuses;';
+const slotEnv = { useMemo: fn => fn(), date: '2099-01-01', formatDateForDb: () => '2026-01-01', TIME_OPTIONS: ['23.5', '23.75'], timeToMinutes: t => Number(t) * 60, slotDuration: 30, avail: null };
+const slots = new Function(...Object.keys(slotEnv), slotCode)(...Object.values(slotEnv));
+assert.equal(slots.get('23.5').disabled, false, 'ending exactly at midnight fits');
+assert.equal(slots.get('23.75').disabled, true, 'overnight tail rejected even before availability loads');
+
+const routeSource = fs.readFileSync(path.join(root, 'src/app/api/book/in-person/route.ts'), 'utf8');
+const boundaryStart = routeSource.indexOf('  const startMin = timeToMinutes(b.time_slot);');
+const boundaryEnd = routeSource.indexOf('  // Resolve barber', boundaryStart);
+const boundaryCode = ts.transpileModule(routeSource.slice(boundaryStart, boundaryEnd), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
+const boundary = new Function('b', 'charge', 'timeToMinutes', 'NextResponse', boundaryCode);
+const response = { json: (body, options) => ({ ...body, ...options }) };
+assert.equal(boundary({ time_slot: 1410 }, { duration: 30 }, Number, response), undefined);
+assert.equal(boundary({ time_slot: 1425 }, { duration: 30 }, Number, response).status, 400);
+assert.equal(boundary({ time_slot: NaN }, { duration: 30 }, Number, response).status, 400);
 assert.equal(calendarLandingHour(true, 22.5, [5, 9]), 22.5);
 assert.equal(calendarLandingHour(false, 22.5, []), 7);
 assert.equal(calendarLandingHour(false, 22.5, [9, 10]), 7);

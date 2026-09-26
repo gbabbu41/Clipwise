@@ -2,7 +2,7 @@
 export function fullDayCalendarWindow(earliestEventHour?: number): { winStart: number; winEnd: number; hours: number[] } {
   // Bottom stays at midnight; the TOP is capped at 7 AM so the timeline never
   // opens onto empty pre-dawn hours (and can't be scrolled above 7) when nothing
-  // is there. It extends earlier ONLY when the day has an appointment or a
+  // is there. It extends earlier ONLY for a visible timed item or a
   // scheduled shift before 7 — pass that hour in. Geometry still depends only on
   // the day's own events, so it's stable across realtime reloads unless a real
   // early event exists.
@@ -22,6 +22,12 @@ export function calendarFocusTop(target: number, viewport: number, content: numb
 export function calendarLandingHour(showsToday: boolean, currentHour: number, starts: number[]): number {
   if (showsToday) return Math.max(0, Math.min(24, currentHour));
   return Math.min(7, ...starts.filter(hour => Number.isFinite(hour) && hour >= 0 && hour < 24));
+}
+
+/** Map clock time into the visible rail, including its 7 AM cap. */
+export function calendarHourOffset(hour: number, start: number, end: number, height: number): number {
+  if (![hour, start, end, height].every(Number.isFinite) || end <= start) return 0;
+  return ((Math.max(start, Math.min(end, hour)) - start) / (end - start)) * height;
 }
 
 export function startCalendarAutofocus(el: HTMLElement, measure: () => number | null): () => void {
