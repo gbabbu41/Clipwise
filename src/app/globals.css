@@ -2,6 +2,31 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Calendar timelines only: keep booking/status overlays and geometry intact. */
+.portal [data-calendar-time-grid] {
+  --calendar-grid: #101113;
+  --calendar-gutter: #1a1b1e;
+  --calendar-line: #303238;
+  --calendar-hour: #8b9096;
+  background-color: var(--calendar-grid);
+}
+html[data-theme="light"] .portal [data-calendar-time-grid] {
+  --calendar-grid: #ffffff;
+  --calendar-gutter: #f6f7f9;
+  --calendar-line: #d9dde3;
+  --calendar-hour: #60646b;
+}
+.portal [data-calendar-time-grid] .cw-time-row,
+.portal [data-calendar-time-grid] .cw-time-row > .border-l {
+  border-color: var(--calendar-line);
+}
+.portal [data-calendar-time-grid] .cw-time-gutter { background-color: var(--calendar-gutter); }
+.portal [data-calendar-time-grid] .cw-time-label {
+  color: var(--calendar-hour);
+  font-size: 11px;
+  font-weight: 500;
+}
+
 :root {
   /* ── ClipWise v2 design system ─────────────────────────────────────────
      Pure-black base, white accents, hairline borders. Manrope for body,

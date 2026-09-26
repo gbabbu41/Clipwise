@@ -2858,9 +2858,9 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
         <div ref={attachScroll} data-focus-key={focusKey} className="overflow-y-auto overflow-x-hidden overscroll-y-contain flex-1 min-h-0" style={{ overflowAnchor: "none" }}>
           <div className="relative" data-calendar-time-grid data-start-hour={winStart} data-end-hour={winEnd} data-landing-hour={landingFor([dateStr], cols.map(b => b.id))} data-landing-align={dateStr === shopToday ? "center" : "start"}>
             {hours.map(hour => (
-              <div key={hour} className="grid border-b border-border relative" style={{ gridTemplateColumns: `56px repeat(${cols.length}, minmax(0, 1fr))`, height: `${rowH}px` }}>
-                <div className="relative text-right pr-2">
-                  <span className="text-[10px] text-grey">
+              <div key={hour} className="cw-time-row grid border-b border-border relative" style={{ gridTemplateColumns: `56px repeat(${cols.length}, minmax(0, 1fr))`, height: `${rowH}px` }}>
+                <div className="cw-time-gutter relative text-right pr-2">
+                  <span className="cw-time-label text-[10px] text-grey">
                     {hour === 0 ? "12 AM" : hour < 12 ? `${hour} AM` : hour === 12 ? "12 PM" : `${hour - 12} PM`}
                   </span>
                 </div>
@@ -3098,8 +3098,8 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
         <div ref={attachScroll} data-focus-key={focusKey} className="overflow-auto overscroll-y-contain flex-1 min-h-0" style={{ overflowAnchor: "none" }}>
           <div className="relative" data-calendar-time-grid data-start-hour={winStart} data-end-hour={winEnd} data-landing-hour={landingFor(dayStrs, [barber.id])} data-landing-align={anyToday ? "center" : "start"}>
             {hours.map(hour => (
-              <div key={hour} className="grid border-b border-border" style={{ gridTemplateColumns: gridCols, height: `${ROW_PX}px` }}>
-                <div className="text-[10px] text-grey text-right pr-2 pt-1">
+              <div key={hour} className="cw-time-row grid border-b border-border" style={{ gridTemplateColumns: gridCols, height: `${ROW_PX}px` }}>
+                <div className="cw-time-gutter cw-time-label text-[10px] text-grey text-right pr-2 pt-1">
                   {hour === 0 ? "12 AM" : hour < 12 ? `${hour} AM` : hour === 12 ? "12 PM" : `${hour - 12} PM`}
                 </div>
                 {multiDays.map(day => (
