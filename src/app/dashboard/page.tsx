@@ -177,7 +177,14 @@ export default function DashboardPage() {
   const loadSequence = useRef(0);
   const sideSequence = useRef(0);
   const [loadedReportKey, setLoadedReportKey] = useState("");
-  const reportKey = `${shop?.id ?? ""}:${dateFilter}:${customStart}:${customEnd}`;
+  const [myBarberId, setMyBarberId] = useState<string | null>(null);
+  const reportKey = JSON.stringify([shop?.id, profile?.id, accessToken, myBarberId, dateFilter, customStart, customEnd]);
+  const reportScopeRef = useRef(reportKey);
+  reportScopeRef.current = reportKey;
+  const [scheduleAppts, setScheduleAppts] = useState<AppointmentWithDetails[]>([]);
+  const [loadingSchedule, setLoadingSchedule] = useState(true);
+  const [scheduleError, setScheduleError] = useState(false);
+  const [loadedScheduleKey, setLoadedScheduleKey] = useState("");
   const [financialBarbers, setFinancialBarbers] = useState<Barber[]>([]);
   const [feesError, setFeesError] = useState(false);
   const [feeRetry, setFeeRetry] = useState(0);
@@ -210,7 +217,6 @@ export default function DashboardPage() {
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [apptCounts, setApptCounts] = useState<Record<string, number>>({});
-  const [myBarberId, setMyBarberId] = useState<string | null>(null);
   // Client rows (id + created_at) for the "New Clients" KPI — a client is "new"
   // in a period if their record was first created (their first booking/POS
   // auto-registers them) in that window. Loaded once per shop; filtered by date
@@ -311,6 +317,9 @@ export default function DashboardPage() {
     if (!shop) { setLoadingAppts(false); return; }
     setLoadingAppts(true);
     setLoadError(false);
+    setLoadingSchedule(true);
+    setScheduleError(false);
+    const current = () => sequence === loadSequence.current && reportScopeRef.current === reportKey;
     try {
     const [start, end] = getDateRange(dateFilter, customStart, customEnd);
     let q = supabase
@@ -350,24 +359,38 @@ export default function DashboardPage() {
       .in("payment_status", ["paid", "captured"])
       .order("created_at", { ascending: false }).order("id");
     if (profile?.role === "barber" && myBarberId) revQ = revQ.eq("barber_id", myBarberId);
-    const [data, txData, revData, staffData] = await Promise.all([
-      readAllRows((from, to) => q.order("id").range(from, to)), txReq,
-      readAllRows((from, to) => revQ.range(from, to)),
+    const scheduleReq = Promise.all([
+      readAllRows((from, to) => q.order("id").range(from, to)),
       readAllRows((from, to) => supabase.from("barbers").select("*").eq("shop_id", shop.id).order("id").range(from, to)),
+    ]).then(([data, staffData]) => {
+      if (current()) {
+        setScheduleAppts(data as AppointmentWithDetails[]);
+        setBarbers((staffData as Barber[]).filter(b => b.is_active));
+        setLoadedScheduleKey(reportKey);
+        setLoadingSchedule(false);
+      }
+      return { data, staffData };
+    }).catch(error => {
+      if (current()) { setScheduleError(true); setLoadingSchedule(false); }
+      throw error;
+    });
+    // Fresh operational rows need only their own complete prerequisites. Financial
+    // publication still waits for ALL rows and uses a separate atomic snapshot.
+    const [schedule, txData, revData] = await Promise.all([
+      scheduleReq, txReq, readAllRows((from, to) => revQ.range(from, to)),
     ]);
-    if (sequence !== loadSequence.current) return;
-    setAppointments(data as AppointmentWithDetails[]);
+    if (!current()) return;
+    setAppointments(schedule.data as AppointmentWithDetails[]);
     setTxns(txData as RevTx[]);
     setRevenueAppts(revData as RevApptRow[]);
-    setFinancialBarbers(staffData as Barber[]);
-    setBarbers((staffData as Barber[]).filter(b => b.is_active));
-    setLoadedReportKey(`${shop.id}:${dateFilter}:${customStart}:${customEnd}`);
+    setFinancialBarbers(schedule.staffData as Barber[]);
+    setLoadedReportKey(reportKey);
     } catch {
-      if (sequence === loadSequence.current) setLoadError(true);
+      if (current()) setLoadError(true);
     } finally {
-      if (sequence === loadSequence.current) setLoadingAppts(false);
+      if (current()) setLoadingAppts(false);
     }
-  }, [shop, dateFilter, customStart, customEnd, profile, myBarberId]);
+  }, [shop, dateFilter, customStart, customEnd, profile, myBarberId, reportKey]);
 
   // Live Stripe net/fees (same endpoint the Payments page uses — the money source
   // of truth). Bearer-authorized; owner or active barber of the shop. Lets the
@@ -477,7 +500,7 @@ export default function DashboardPage() {
   // When the user clicks a day in the calendar we serve the date-specific
   // fetch (selectedDayAppts) so the picked date's bookings always render,
   // independent of the page-level dateFilter.
-  const displayAppts = selectedCalDate ? selectedDayAppts : appointments;
+  const displayAppts = selectedCalDate ? selectedDayAppts : scheduleAppts;
   // Reset the "Today's Schedule" list cap whenever the range/day changes.
   useEffect(() => { setVisibleAppts(20); }, [dateFilter, customStart, customEnd, selectedCalDate]);
   const todayStr = formatDateForDb(new Date());
@@ -485,6 +508,7 @@ export default function DashboardPage() {
   // ── Today's Schedule → full appointment actions (reuse the shared modal) ─────
   const patchAppt = useCallback((id: string, p: Partial<AppointmentWithDetails>) => {
     setAppointments(prev => prev.map(a => (a.id === id ? { ...a, ...p } as AppointmentWithDetails : a)));
+    setScheduleAppts(prev => prev.map(a => (a.id === id ? { ...a, ...p } as AppointmentWithDetails : a)));
     setSelectedDayAppts(prev => prev.map(a => (a.id === id ? { ...a, ...p } as AppointmentWithDetails : a)));
     setSelectedAppt(prev => (prev && prev.id === id ? { ...prev, ...p } as AppointmentWithDetails : prev));
   }, []);
@@ -493,7 +517,7 @@ export default function DashboardPage() {
     () => makeApptActions({ shop, accessToken, patch: patchAppt, setBusy: setDetailBusy, toast: showToast, onDone: () => setSelectedAppt(null), confirm: (m) => confirm({ message: m }) }),
     [shop, accessToken, patchAppt, confirm],
   );
-  const todayAppts = appointments.filter((a) => a.date === todayStr);
+  const todayAppts = loadedScheduleKey === reportKey ? scheduleAppts.filter((a) => a.date === todayStr) : [];
 
   const completed = appointments.filter((a) => a.status === "completed");
   // Revenue figures count only PAID/captured completed appts (money actually
@@ -971,7 +995,9 @@ export default function DashboardPage() {
               <Link href="/dashboard/appointments" className="cwd-ca">View all</Link>
             </div>
             <div className="cwd-cardb">
-              {(selectedCalDate ? loadingSelectedDay : loadingAppts) ? (
+              {!selectedCalDate && scheduleError ? (
+                <p role="alert" className="text-sm text-grey">Couldn&apos;t load the schedule. <button className="underline" onClick={() => void loadAppointments()}>Retry</button></p>
+              ) : (selectedCalDate ? loadingSelectedDay : loadingSchedule || loadedScheduleKey !== reportKey) ? (
                 <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-14" />)}</div>
               ) : displayAppts.length === 0 ? (
                 <div className="py-8 text-center text-grey">
@@ -1026,7 +1052,7 @@ export default function DashboardPage() {
           <div className="cwd-card">
             <div className="cwd-cardh"><span className="cwd-ct">Staff Status</span></div>
             <div className="cwd-cardb cwd-ledgerb">
-              {barbers.length === 0 ? (
+              {scheduleError ? <p role="alert" className="text-sm text-grey">Staff status unavailable. Retry the schedule.</p> : loadingSchedule || loadedScheduleKey !== reportKey ? <Skeleton className="h-14" /> : barbers.length === 0 ? (
                 <div className="text-center py-4">
                   <p className="text-sm text-grey">No active staff</p>
                   <Link href="/dashboard/staff" className="inline-block mt-1.5 text-sm font-semibold text-accent-soft hover:text-foreground transition-colors">Add a barber →</Link>

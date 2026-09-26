@@ -1,4 +1,5 @@
 const { execFileSync } = require('node:child_process');
+execFileSync(process.execPath, [require('node:path').join(__dirname, 'page-switch-performance-check.cjs')], { stdio: 'inherit' });
 const path = require('node:path');
 execFileSync(process.execPath, [path.join(__dirname, 'client-profile-confirmation-check.cjs')], { stdio: 'inherit' });
 execFileSync(process.execPath, [path.join(__dirname, 'admin-email-auth-check.cjs')], { stdio: 'inherit' });

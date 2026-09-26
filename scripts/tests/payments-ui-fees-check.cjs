@@ -20,7 +20,7 @@ function load(file) {
 }
 const Page = load('src/app/dashboard/payments/page.tsx').default;
 const tx = { id: 'tx', client_name: 'QA client', service_name: 'Service', amount: 100, tax: 15, tip: 0, source: 'pos', payment_method: 'card', payment_intent_id: 'pi_test', created_at: new Date().toISOString(), barber_id: 'barber', commission_amount: 50 };
-function render(overrides = {}) { cursor = 0; states = { loading: false, loadedShop: 'shop', feesStatus: 'ready', txs: [tx], ...overrides }; return renderToStaticMarkup(React.createElement(Page)); }
+function render(overrides = {}) { cursor = 0; states = { loading: false, loadedShop: 'shop', loadedScope: JSON.stringify(['shop', 'owner', 'test']), feesStatus: 'ready', txs: [tx], ...overrides }; return renderToStaticMarkup(React.createElement(Page)); }
 let html = render({ stripeNet: { connected: true, byPi: {}, available: 0, pending: 0 } });
 // No live fee AND no recorded fee → the card fee is ESTIMATED (2.9% + 30¢, rounded
 // up), never "Unavailable". Gross stays $115.00; Net is the ≈-marked estimate
@@ -36,5 +36,7 @@ html = render({ txs: [{ ...tx, payment_method: 'cash', payment_intent_id: null }
 assert(html.includes('$115.00')); assert(!html.includes('Unavailable'));
 html = render({ selectedBarber: 'barber', barbers: [{ id: 'barber', name: 'QA barber', commission_percent: 50 }], stripeNet: null });
 assert(html.includes('$50.00')); assert(!html.includes('Unavailable'));
-for (const state of [{ loading: true }, { loadedShop: 'previous-shop' }, { loadError: true }]) { html = render(state); assert(!html.includes('$115.00')); assert(!html.includes('$0.00')); }
+for (const state of [{ loading: true }, { loadedShop: 'previous-shop' }, { loadedScope: 'previous-account' }, { loadError: true }]) { html = render(state); assert(!html.includes('$115.00')); assert(!html.includes('$0.00')); }
+html = render({ txs: [{ ...tx, stripe_fee: 0 }], stripeNet: { connected: true, byPi: { pi_test: { gross: 115, fee: 3, net: 112 } }, available: 0, pending: 0 } });
+assert(html.includes('$112.00')); assert(!html.includes('$111.36')); assert(!html.includes('(est.)'), 'resolved summary fee wins over old DB snapshot and is deducted once');
 console.log('PASS Payments UI missing/known card fees, cash-only, barber take-home, loading/error/shop scope');

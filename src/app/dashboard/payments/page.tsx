@@ -105,6 +105,17 @@ export default function PaymentsPage() {
   const [loadedShop, setLoadedShop] = useState<string | null>(null);
   const loadSequence = useRef(0);
   const stripeSequence = useRef(0);
+  const paymentScope = JSON.stringify([shop?.id, user?.id, accessToken]);
+  const paymentScopeRef = useRef(paymentScope);
+  paymentScopeRef.current = paymentScope;
+  const mountedRef = useRef(true);
+  const stripeRequestRef = useRef<{ scope: string; promise: Promise<void>; refreshAfter: boolean } | null>(null);
+  const [loadedScope, setLoadedScope] = useState("");
+  useEffect(() => {
+    mountedRef.current = true;
+    const invalidate = () => { loadSequence.current++; stripeSequence.current++; stripeRequestRef.current = null; };
+    return () => { mountedRef.current = false; invalidate(); };
+  }, []);
   const [appts, setAppts] = useState<ApptRow[]>([]);
   const [txs, setTxs] = useState<TxRow[]>([]);
   const [stripeNet, setStripeNet] = useState<{ connected: boolean; byPi: Record<string, { gross: number; fee: number; net: number }>; available: number; pending: number; inTransit?: number; nextPayoutDate?: number | null; nextPayoutAmount?: number | null; lastPayout?: { amount: number; date: number } | null } | null>(null);
@@ -185,9 +196,19 @@ export default function PaymentsPage() {
 
   // Live Stripe figures (payout balance, exact net/fees). Pulled separately so we
   // can re-sync it on its own cadence (Stripe state doesn't fire Supabase events).
-  const syncStripe = useCallback(async () => {
+  const syncStripe = useCallback((refreshAfter = false): Promise<void> => {
+    if (!shop?.id || !accessToken || !mountedRef.current || paymentScopeRef.current !== paymentScope) return Promise.resolve();
+    const pending = stripeRequestRef.current;
+    if (pending?.scope === paymentScope) {
+      // Focus/interval/manual requests join; a changed ledger needs one trailing refresh.
+      pending.refreshAfter ||= refreshAfter;
+      return pending.promise;
+    }
     const sequence = ++stripeSequence.current;
-    if (!shop?.id || !accessToken) return;
+    const current = () => mountedRef.current && paymentScopeRef.current === paymentScope && sequence === stripeSequence.current;
+    const request = { scope: paymentScope, promise: Promise.resolve(), refreshAfter: false };
+    stripeRequestRef.current = request;
+    request.promise = (async () => {
     try {
       const r = await fetch("/api/stripe/payments-summary", {
         method: "POST",
@@ -196,7 +217,7 @@ export default function PaymentsPage() {
         signal: AbortSignal.timeout(15000),
       });
       const d = r.ok ? await r.json() : null;
-      if (sequence !== stripeSequence.current) return;
+      if (!current()) return;
       if (d && d.byPi && (!d.error || d.feesReady)) {
         // A payout refresh can fail while the confirmed fee cache is healthy.
         // Keep any last-known dynamic figures and still use the returned fees.
@@ -207,15 +228,28 @@ export default function PaymentsPage() {
       else setFeesStatus("error");
     } catch {
       // transient/offline — keep last known figures; only flag if we never loaded.
-      if (sequence === stripeSequence.current) setFeesStatus("error");
+      if (current()) setFeesStatus("error");
     }
-  }, [shop, accessToken]);
+    })().finally(() => {
+      if (stripeRequestRef.current === request) stripeRequestRef.current = null;
+      if (request.refreshAfter && current()) void syncStripe();
+    });
+    return request.promise;
+  }, [shop, accessToken, paymentScope]);
+
+  useEffect(() => {
+    setStripeNet(null); setFeesStatus("loading"); setDetailItem(null);
+    return () => { stripeSequence.current++; stripeRequestRef.current = null; };
+  }, [paymentScope]);
 
   const loadData = useCallback(async () => {
     const sequence = ++loadSequence.current;
     if (!shop?.id || !accessToken) { setLoading(true); return; }
     setLoading(true);
     setLoadError(false);
+    // Start the existing summary while COMPLETE history reads are in flight.
+    // Live byPi remains authoritative over an older ledger snapshot's fee.
+    void syncStripe(true);
     try {
     const TX_COLS = "id, client_name, service_name, amount, tip, tax, payment_method, type, barber_id, commission_amount, stripe_fee, created_at, stripe_session_id, appointment_id, payment_intent_id, refunded, source";
     // Read every page before publishing totals.
@@ -225,19 +259,18 @@ export default function PaymentsPage() {
         .eq("shop_id", shop.id).or("total_amount.gt.0,status.eq.completed").order("date", { ascending: false }).order("id").range(from, to)),
       readAllRows((from, to) => supabase.from("transactions").select(`${TX_COLS}, client_email`).eq("shop_id", shop.id).order("created_at", { ascending: false }).order("id").range(from, to)),
     ]);
-    if (sequence !== loadSequence.current) return;
+    if (!mountedRef.current || paymentScopeRef.current !== paymentScope || sequence !== loadSequence.current) return;
     setAppts((a ?? []) as unknown as ApptRow[]);
     setTxs((t ?? []) as unknown as TxRow[]);
     setLoadedShop(shop.id);
-    syncStripe();
+    setLoadedScope(paymentScope);
     } catch {
-      if (sequence === loadSequence.current) setLoadError(true);
+      if (mountedRef.current && paymentScopeRef.current === paymentScope && sequence === loadSequence.current) setLoadError(true);
     } finally {
-      if (sequence === loadSequence.current) setLoading(false);
+      if (mountedRef.current && paymentScopeRef.current === paymentScope && sequence === loadSequence.current) setLoading(false);
     }
-  }, [shop, accessToken, syncStripe]);
+  }, [shop, accessToken, syncStripe, paymentScope]);
   useEffect(() => { loadData(); return () => { loadSequence.current++; }; }, [loadData]);
-  useEffect(() => { setStripeNet(null); setFeesStatus("loading"); setDetailItem(null); return () => { stripeSequence.current++; }; }, [shop?.id, accessToken]);
 
   // Keep the Stripe payout/balance figures live. A payout landing or the balance
   // moving never fires a Supabase change, so re-sync from Stripe when the tab
@@ -245,11 +278,12 @@ export default function PaymentsPage() {
   useEffect(() => {
     if (!shop) return;
     const onVisible = () => { if (document.visibilityState === "visible") syncStripe(); };
-    window.addEventListener("focus", syncStripe);
+    const onFocus = () => { void syncStripe(); };
+    window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onVisible);
     const id = setInterval(onVisible, 60000);
     return () => {
-      window.removeEventListener("focus", syncStripe);
+      window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVisible);
       clearInterval(id);
     };
@@ -764,7 +798,7 @@ export default function PaymentsPage() {
     return <FeatureLock title="Payments" description="Online & card payment tracking is available on the Pro and Premium plans." />;
   }
   if (loadError) return <div className="p-6" role="alert"><h1 className="text-xl font-semibold">Payments unavailable</h1><p className="text-grey mt-2">We couldn&apos;t load complete payment records. No totals are shown to avoid an inaccurate report.</p><button type="button" className="mt-4 rounded-lg border border-border px-4 py-2" onClick={() => void loadData()}>Retry</button></div>;
-  if (loading || !shop?.id || loadedShop !== shop.id) return <div className="p-6" role="status">Loading payments…</div>;
+  if (loading || !shop?.id || loadedShop !== shop.id || loadedScope !== paymentScope) return <div className="p-6" role="status">Loading payments…</div>;
 
   // ── Earnings carousel = the period selector. The three presets + a Custom card
   // are the swipeable cards; each is built by mkCard (shop or barber mode). ────
