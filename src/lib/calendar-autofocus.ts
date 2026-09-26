@@ -30,7 +30,14 @@ export function calendarHourOffset(hour: number, start: number, end: number, hei
   return ((Math.max(start, Math.min(end, hour)) - start) / (end - start)) * height;
 }
 
-export function startCalendarAutofocus(el: HTMLElement, measure: () => number | null): () => void {
+/** View entry starts on a complete hour; subsequent user scrolling stays free. */
+export function calendarHourAlignedTop(top: number, rowHeight: number): number {
+  return Number.isFinite(rowHeight) && rowHeight > 0
+    ? Math.floor(Math.max(0, top) / rowHeight) * rowHeight
+    : top;
+}
+
+export function startCalendarAutofocus(el: HTMLElement, measure: () => number | null, measureRowHeight?: () => number): () => void {
   let frame: number | null = null;
   let stopped = false;
   let previous = "";
@@ -65,7 +72,9 @@ export function startCalendarAutofocus(el: HTMLElement, measure: () => number | 
       stable = geometry === previous ? stable + 1 : 0;
       previous = geometry;
       if (stable >= 2) {
-        const top = calendarFocusTop(target, el.clientHeight, el.scrollHeight);
+        const top = calendarHourAlignedTop(
+          calendarFocusTop(target, el.clientHeight, el.scrollHeight), measureRowHeight?.() ?? 0,
+        );
         // Stop BEFORE the write. No grace-period guessing about who scrolled,
         // no second pass, and no surviving listeners/timers to fight a finger.
         stop();

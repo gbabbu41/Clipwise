@@ -1871,6 +1871,9 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
       return grid.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop
         + calendarHourOffset(hour, start, end, grid.offsetHeight)
         + (grid.dataset.landingAlign === "start" ? el.clientHeight / 2 - 8 : 0);
+    }, () => {
+      const grid = el.querySelector<HTMLElement>("[data-calendar-time-grid]");
+      return grid ? grid.offsetHeight / (Number(grid.dataset.endHour) - Number(grid.dataset.startHour)) : 0;
     });
   }, [focusKey, view]);
   useEffect(() => () => focusCleanupRef.current?.(), []);

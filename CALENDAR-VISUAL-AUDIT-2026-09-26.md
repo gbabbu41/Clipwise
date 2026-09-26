@@ -53,3 +53,25 @@ Mock fixtures are not application code and prohibit database writes.
 Validation: focused calendar autofocus/workflow regressions, full component browser
 checks, existing layout/contrast checks and real production build are required before
 push. Release CI/deployment status is checked separately after push.
+
+## Follow-up: actual view-entry alignment
+
+The earlier sticky-label change did not resolve the reported short first-row strip.
+A subsequent full-component transition reproduction (no injected scroll position)
+found Day→3-Day near7:58PM opened at scrollTop468 with62px rows:34px of the first
+visible hour was above the viewport, leaving a28px fragment under the headings.
+Initial autofocus now rounds down to a complete hour boundary: scrollTop434,
+first visible row62px. Day return also aligns434; past-date entry remains0.
+Only initial positioning changes. Manual scrolling at37px remains37px, Now keeps
+its original exact-time/bottom-clamped centering, and the4PM appointment retains
+its558px time offset plus existing2px visual inset.
+
+Reproduction/verification: `node scripts/tests/calendar-entry-alignment-check.cjs`
+after building the existing full-calendar mock bundle. Actual transitions run at
+392×853 in light/dark, with before/after screenshots saved in the same ignored
+folder as `transition-before-*` and `transition-after-*`.
+
+Important limitation: the exact original past-date Sep23–25 iPhone state did not
+reproduce; those transitions landed at0 in Chromium. This fixes the observed
+initial partial-row positioning without claiming verified Safari root cause.
+Parent reviewed the after screenshot before authorizing push.

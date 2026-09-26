@@ -3,7 +3,11 @@ const root = path.resolve(__dirname, '../..'), appReq = Module.createRequire(pat
 const filename = path.join(root, 'src/lib/calendar-autofocus.ts'), m = new Module(filename, module);
 m.filename = filename; m.require = appReq;
 m._compile(ts.transpileModule(fs.readFileSync(filename, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, filename);
-const { calendarLandingHour, fullDayCalendarWindow, calendarFocusTop, calendarHourOffset, startCalendarAutofocus } = m.exports;
+const { calendarLandingHour, fullDayCalendarWindow, calendarFocusTop, calendarHourOffset, calendarHourAlignedTop, startCalendarAutofocus } = m.exports;
+assert.equal(calendarHourAlignedTop(468, 62), 434, 'view entry removes partial hour even at bottom clamp');
+assert.equal(calendarHourAlignedTop(460, 62), 434, 'Day uses its measured row height');
+assert.equal(calendarHourAlignedTop(0, 62), 0, 'past-date start remains exact');
+assert.equal(calendarHourAlignedTop(100, 0), 100, 'missing geometry does not move scroll');
 assert.equal(calendarHourOffset(12, 7, 24, 17 * 62), 5 * 62);
 assert.equal(calendarHourOffset(12, 0, 24, 24 * 62), 12 * 62);
 assert.equal(calendarHourOffset(6.5, 6, 24, 18 * 62), 31);
