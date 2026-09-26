@@ -117,8 +117,8 @@ export function SetupSheet({ step, onClose }: { step: "location" | "hours"; onCl
       <div className="fixed inset-x-0 bottom-0 z-[61] bg-surface border-t border-border rounded-t-3xl p-5 pb-[calc(20px+env(safe-area-inset-bottom))] max-h-[85vh] overflow-y-auto animate-fade-in">
         <div className="mx-auto max-w-lg">
           <div className="flex items-center justify-between mb-1">
-            <h2 className="text-lg font-bold text-white">{step === "location" ? "Business location" : "Your working hours"}</h2>
-            <button onClick={closeSheet} disabled={saving} aria-label="Close" className="text-grey hover:text-white p-1"><X size={18} /></button>
+            <h2 className="text-lg font-bold text-foreground">{step === "location" ? "Business location" : "Your working hours"}</h2>
+            <button onClick={closeSheet} disabled={saving} aria-label="Close" className="text-grey hover:text-foreground p-1"><X size={18} /></button>
           </div>
           <p className="text-xs text-grey mb-4">{step === "location" ? "So clients know where to find you." : "When you're open for bookings."}</p>
           {error && <div className="mb-3 text-sm text-red-400">{error}</div>}
@@ -141,16 +141,16 @@ export function SetupSheet({ step, onClose }: { step: "location" | "hours"; onCl
             <div className="space-y-2.5">
               {DAYS.map((d, i) => (
                 <div key={d} className="flex items-center gap-3">
-                  <button type="button" onClick={() => setHours(h => h.map((x, idx) => idx === i ? { ...x, open: !x.open } : x))}
+                  <button type="button" role="switch" aria-checked={hours[i].open} aria-label={`${d} open for bookings`} onClick={() => setHours(h => h.map((x, idx) => idx === i ? { ...x, open: !x.open } : x))}
                     className={cn("w-11 h-6 rounded-full relative transition-colors flex-shrink-0", hours[i].open ? "bg-emerald-500" : "bg-surface-raised border border-border")}>
                     <span className={cn("absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all", hours[i].open ? "left-[22px]" : "left-0.5")} />
                   </button>
-                  <span className="text-sm text-white w-20 flex-shrink-0">{d}</span>
+                  <span className="text-sm text-foreground w-20 flex-shrink-0">{d}</span>
                   {hours[i].open ? (
                     <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <input type="time" className={inputCls} value={hours[i].start} onChange={e => setHours(h => h.map((x, idx) => idx === i ? { ...x, start: e.target.value } : x))} />
+                      <input type="time" aria-label={`${d} opening time`} className={inputCls} value={hours[i].start} onChange={e => setHours(h => h.map((x, idx) => idx === i ? { ...x, start: e.target.value } : x))} />
                       <span className="text-grey text-xs flex-shrink-0">to</span>
-                      <input type="time" className={inputCls} value={hours[i].end} onChange={e => setHours(h => h.map((x, idx) => idx === i ? { ...x, end: e.target.value } : x))} />
+                      <input type="time" aria-label={`${d} closing time`} className={inputCls} value={hours[i].end} onChange={e => setHours(h => h.map((x, idx) => idx === i ? { ...x, end: e.target.value } : x))} />
                     </div>
                   ) : <span className="text-sm text-grey flex-1">Closed</span>}
                 </div>
