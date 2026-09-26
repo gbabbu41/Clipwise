@@ -1,5 +1,17 @@
 # Notification/payment-result reliability — September 18, 2026
 
+## September 26 — bounded page-switch performance batch
+
+Owner-approved implementation; unchanged architecture/layout, accounting, fee-cache API/backfill/reconciliation, auth, service worker and swipe behavior.
+
+- Payments starts its existing Stripe summary alongside COMPLETE appointment/transaction history, not afterward. Same-scope focus/manual/interval requests join the pending promise; ledger-change reloads request one trailing summary. Render-time shop/user/token scope and unmount/sequence guards reject old responses and prevent a previous-account snapshot rendering. No partial financial history is published. Existing live-byPi precedence means a newly resolved confirmed fee wins over an older DB snapshot without a second fee deduction or changing fee math.
+- Home's own complete appointment + staff reads publish a fresh operational schedule/staff pair independently of the full transaction/revenue history. Financial appointment/transaction/revenue/staff values still publish atomically after all prerequisites succeed. Schedule failures have explicit retry guidance; a financial failure does not hide an independently successful fresh schedule. Scope guards and local appointment patches cover the new schedule state.
+- Controlled virtual-delay tests compile the ACTUAL old/current handlers. Under identical mocked delays, Payments exact-fee readiness improves 300 -> 200 ms (DB 100, summary 200); Home fresh usable schedule/staff improves 200 -> 60 ms (appointment 40, staff 60, finance 200). These are simulated dependency measurements, NOT measured iPhone speeds. Ordinary concurrent summary requests issue one call; changed-ledger overlap produces one coalesced trailing call. Actual rendered Payments regression confirms resolved summary fee versus null/zero older DB fee, exact $112 on $115 gross/$3 fee, and hidden mismatched-account results.
+- Final full flows/accounting/fee-cache regressions passed. Baseline-aware lint unchanged: Home 21 errors/2 warnings, Payments 8 errors/2 warnings (existing debt, not clean lint). Final real production build passed 202 pages with dummy credentials and the expected dummy plans-fetch warning.
+- Browser timing/API restrictions from diagnosis remain; no physical iPhone first/return page-switch timing or deployment-health test. No production repair endpoints, data mutations, messages, transactions, browser storage clearing or new dependencies/schema used. New comparison regression requires Git history containing baseline 724ec2c.
+
+Code commit `dd4c96c741824a426241add6db354caecc1a8215` pushed to main; exact remote SHA verified. No concurrent changes were missing after supported fetch. This report is a separate documentation-only follow-up. Remaining launch verification: deployment health and physical iPhone installed-PWA Home/Calendar/Payments first visit and revisit, fresh usable-content latency, intermittent/offline transitions and multi-location/account isolation. No native-instant speed claim.
+
 ## Lane and coordination
 
 This task owns bounded server notification/payment-result reliability. Software developer owns onboarding/setup UI. Shared test-runner changes and build/commit windows are coordinated; no concurrent edits are overwritten. Existing booking/Stripe/auth/schema architecture and monetary rules are preserved. No production-data mutations or real messages/transactions are used for tests.
