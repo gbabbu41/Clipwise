@@ -138,16 +138,16 @@ export function SetupSheet({ step, onClose }: { step: "location" | "hours"; onCl
               <Button className="w-full" size="lg" loading={saving} onClick={saveLocation}>Save location</Button>
             </div>
           ) : (
-            <div className="space-y-2.5">
+            <div data-hours-editor className="space-y-2.5">
               {DAYS.map((d, i) => (
-                <div key={d} className="flex items-center gap-3">
+                <div key={d} className="cw-hours-row">
                   <button type="button" role="switch" aria-checked={hours[i].open} aria-label={`${d} open for bookings`} onClick={() => setHours(h => h.map((x, idx) => idx === i ? { ...x, open: !x.open } : x))}
                     className={cn("w-11 h-6 rounded-full relative transition-colors flex-shrink-0", hours[i].open ? "bg-emerald-500" : "bg-surface-raised border border-border")}>
                     <span className={cn("absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all", hours[i].open ? "left-[22px]" : "left-0.5")} />
                   </button>
                   <span className="text-sm text-foreground w-20 flex-shrink-0">{d}</span>
                   {hours[i].open ? (
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <div className="cw-hours-times">
                       <input type="time" aria-label={`${d} opening time`} className={inputCls} value={hours[i].start} onChange={e => setHours(h => h.map((x, idx) => idx === i ? { ...x, start: e.target.value } : x))} />
                       <span className="text-grey text-xs flex-shrink-0">to</span>
                       <input type="time" aria-label={`${d} closing time`} className={inputCls} value={hours[i].end} onChange={e => setHours(h => h.map((x, idx) => idx === i ? { ...x, end: e.target.value } : x))} />

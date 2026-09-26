@@ -2,6 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Keep native time fields complete on narrow working-hours sheets. */
+.cw-hours-row { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 8px 12px; align-items: center; }
+.cw-hours-times { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 8px; align-items: center; }
+.cw-hours-times input { min-width: 0; padding-inline: 8px; }
+@media (min-width: 480px) {
+  .cw-hours-row { grid-template-columns: 44px 80px minmax(0, 1fr); }
+  .cw-hours-times { grid-column: auto; }
+}
+.portal [data-hours-editor], .portal .cw-calendar-native { color-scheme: dark; }
+html[data-theme="light"] .portal [data-hours-editor],
+html[data-theme="light"] .portal .cw-calendar-native { color-scheme: light; }
+
 /* Calendar timelines only: keep booking/status overlays and geometry intact. */
 .portal [data-calendar-time-grid] {
   --calendar-grid: #101113;
@@ -22,6 +34,10 @@ html[data-theme="light"] .portal [data-calendar-time-grid] {
 }
 .portal [data-calendar-time-grid] .cw-time-gutter { background-color: var(--calendar-gutter); }
 .portal [data-calendar-time-grid] .cw-time-label {
+  /* A partially scrolled hour keeps its label until the next hour pushes it out. */
+  position: sticky;
+  top: 0;
+  display: inline-block;
   color: var(--calendar-hour);
   font-size: 11px;
   font-weight: 500;

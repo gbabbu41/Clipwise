@@ -983,6 +983,13 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
   const [shown, setShown] = useState(false);
   useEffect(() => { const t = setTimeout(() => setShown(true), 10); return () => clearTimeout(t); }, []);
   const close = () => { if (editSavingRef.current) return; setShown(false); setTimeout(onClose, 280); };
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") close();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
   const sheetRef = useRef<HTMLDivElement | null>(null);
   const { dragY, dragging } = useSheetDrag(sheetRef, close);
 
@@ -1049,7 +1056,7 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
           <div className="px-[18px] pb-3.5 border-b border-border">
             <div className="flex items-start justify-between gap-2">
               <h3 className="text-base font-bold text-foreground truncate">{appt.client_name}</h3>
-              <button onClick={close} className="text-grey hover:text-foreground flex-shrink-0 -mr-1"><X size={18} /></button>
+              <button aria-label="Close appointment details" onClick={close} className="text-grey hover:text-foreground flex-shrink-0 -mr-1"><X size={18} /></button>
             </div>
             <p className="text-xs text-grey mt-1 leading-relaxed pr-6">{metaLine}</p>
             <span className={cn("inline-flex items-center mt-2.5 text-[11px] font-semibold px-2.5 py-1 rounded-full", badge.cls)}>{badge.text}</span>
@@ -1538,6 +1545,16 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   const [dateMenu, setDateMenu] = useState(false);
   const [viewMenu, setViewMenu] = useState(false);
   const [viewPicker, setViewPicker] = useState(false); // Day/Box/3-Day/Month dropdown
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setViewPicker(false);
+      setViewMenu(false);
+      if (addCtx && !savingAdd && !blockBusy) closeAdd();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [addCtx, savingAdd, blockBusy]);
   // Barber-column pagination for the all-barbers day view (arrows / swipe).
   const [colPage, setColPage] = useState(0);
   const [colWrapW, setColWrapW] = useState(0);
@@ -2419,7 +2436,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
       // ("17 – 19"); the month lives in the back button ("‹ Sep") to its left,
       // in a quieter grey. Cross-month spells out both ("Sep 30 – Oct 2") since
       // the back button only carries the first one.
-      const count = isMobile ? 3 : 5;
+      const count = 3; // Match the three columns shown on every viewport.
       const first = currentDate, last = addDays(currentDate, count - 1);
       const sameMonth = first.getMonth() === last.getMonth() && first.getFullYear() === last.getFullYear();
       if (sameMonth) return `${first.getDate()} – ${last.getDate()}`;
@@ -3087,7 +3104,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
               return (
                 <button key={ds} onClick={() => openDay(day)}
                   className={cn("py-2 text-center border-l border-border hover:bg-card-raised transition-colors min-w-0")}>
-                  <p className={cn("text-[10px] uppercase tracking-wider truncate px-0.5", today ? "text-foreground" : "text-grey-muted")}>{label}</p>
+                  <p className={cn("text-[10px] uppercase tracking-wider truncate px-0.5", today ? "text-foreground" : "text-grey")}>{label}</p>
                   <p className={cn("text-base font-bold mt-0.5 inline-flex items-center justify-center w-8 h-8 rounded-full", today ? "bg-accent text-foreground" : "text-foreground")}>{day.getDate()}</p>
                   {n > 0 && <p className="text-[10px] text-grey-muted leading-none">{n}</p>}
                 </button>
@@ -3099,8 +3116,10 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
           <div className="relative" data-calendar-time-grid data-start-hour={winStart} data-end-hour={winEnd} data-landing-hour={landingFor(dayStrs, [barber.id])} data-landing-align={anyToday ? "center" : "start"}>
             {hours.map(hour => (
               <div key={hour} className="cw-time-row grid border-b border-border" style={{ gridTemplateColumns: gridCols, height: `${ROW_PX}px` }}>
-                <div className="cw-time-gutter cw-time-label text-[10px] text-grey text-right pr-2 pt-1">
+                <div className="cw-time-gutter text-right pr-2 pt-1">
+                  <span className="cw-time-label text-[10px] text-grey">
                   {hour === 0 ? "12 AM" : hour < 12 ? `${hour} AM` : hour === 12 ? "12 PM" : `${hour - 12} PM`}
+                  </span>
                 </div>
                 {multiDays.map(day => (
                   <div key={formatDateForDb(day)} className="border-l border-border" />
@@ -3693,7 +3712,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
             const CurrentIcon = current.Icon;
             return (
               <div className="relative">
-                <button onClick={() => setViewPicker(o => !o)} aria-label={`Calendar view: ${current.label}`} aria-expanded={viewPicker}
+                <button onClick={() => setViewPicker(o => !o)} aria-label={`Calendar view: ${view === "year" ? "Year" : current.label}`} aria-expanded={viewPicker}
                   className="flex items-center gap-0.5 p-2 rounded-lg border border-border bg-card-raised text-[#ccc] hover:bg-surface-overlay hover:text-foreground transition-colors">
                   <CurrentIcon size={18} />
                   <ChevronDown size={13} className="hidden sm:block text-grey" />
@@ -3875,7 +3894,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                   <span className="inline-flex items-center gap-1.5 max-w-[8.5rem] bg-card border border-border text-grey text-xs font-semibold px-2.5 py-1 rounded-full">
                     <Scissors size={12} className="flex-none" /> <span className="truncate">{addCtx.barberName}</span>
                   </span>
-                  <button onClick={() => !savingAdd && !blockBusy && closeAdd()} className="text-grey hover:text-foreground"><X size={18} /></button>
+                  <button aria-label="Close add appointment" onClick={() => !savingAdd && !blockBusy && closeAdd()} className="text-grey hover:text-foreground"><X size={18} /></button>
                 </div>
               </div>
               {/* Appointment / Block toggle — only when the user can do both */}
@@ -4026,7 +4045,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                 <div>
                   <label className={ADD_LABEL}>Date</label>
                   <input type="date" value={addForm.date} min={formatDateForDb(new Date())}
-                    onChange={e => setAddForm(p => ({ ...p, date: e.target.value }))} className={cn(ADD_FIELD, "text-left [&::-webkit-date-and-time-value]:text-left")} />
+                    onChange={e => setAddForm(p => ({ ...p, date: e.target.value }))} className={cn(ADD_FIELD, "cw-calendar-native text-left [&::-webkit-date-and-time-value]:text-left")} />
                 </div>
                 <div>
                   <label className={ADD_LABEL}>Time</label>

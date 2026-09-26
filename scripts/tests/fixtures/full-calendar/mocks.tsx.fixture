@@ -1,0 +1,15 @@
+import React from 'react';
+const shop={id:'shop',name:'Visual Test Shop',timezone:'America/Halifax',owner_id:'owner',plan:'pro',subscription_status:'active',no_show_fee_percent:50};
+const auth={shop,user:{id:'owner',email:'mock@example.test'},profile:{id:'owner',name:'Owner',role:'shop_owner'},accessToken:'mock-only',refreshShop:async()=>{}};
+export function useAuth(){return auth}
+export function HeaderControls(){return null}
+export function useConfirm(){return {confirm:async()=>false,prompt:async()=>null}}
+export const sendApprovalNotifications=async()=>{},runCompletionEffects=async()=>{},notifyFreedSlot=async()=>{},sendRejectionEmail=async()=>{},sendNoShowFollowup=async()=>{};
+const barbers=[{id:'one',shop_id:'shop',name:'Alex',user_id:'owner',is_active:true},{id:'two',shop_id:'shop',name:'Morgan',user_id:'other',is_active:true}];
+const appointments=[{id:'appt',date:'2026-09-26',time_slot:'4:00 PM',barber_id:'one',shop_id:'shop',client_name:'Jamie Test',client_email:'mock@example.test',client_phone:'5555550100',status:'confirmed',payment_status:'paid',payment_method:'cash',total_amount:30,service_price:30,duration_minutes:60,services:{name:'Haircut',price:30,duration_minutes:60},service_id:'svc',barbers:barbers[0]}];
+const tables={barbers,appointments,services:[{id:'svc',name:'Haircut',price:30,duration_minutes:60,is_active:true,shop_id:'shop'}],clients:[{id:'client',shop_id:'shop',name:'Jamie Test',email:'mock@example.test',phone:'5555550100',total_visits:5}],time_slots:barbers.flatMap(b=>Array.from({length:7},(_,day_of_week)=>({barber_id:b.id,day_of_week,start_time:'09:00:00',end_time:'19:00:00',is_available:true}))),barber_breaks:[{barber_id:'one',day_of_week:6,start_time:'18:00:00',end_time:'19:00:00',label:'Break'}],time_off_requests:[{barber_id:'two',shop_id:'shop',start_date:'2026-09-26',end_date:'2026-09-26',type:'vacation',status:'approved'}]};
+function query(table){let rows=[...(window.fixtureEmpty?[]:tables[table]||[])],single=false;const q=new Proxy({}, {get(_,key){if(key==='then')return (ok,bad)=>Promise.resolve({data:single?rows[0]||null:rows,error:null}).then(ok,bad);if(['insert','update','delete','upsert'].includes(key))return()=>{throw Error('Fixture prohibits writes')};return(...args)=>{if(key==='eq')rows=rows.filter(r=>r[args[0]]===args[1]);if(key==='in')rows=rows.filter(r=>args[1].includes(r[args[0]]));if(key==='gte')rows=rows.filter(r=>r[args[0]]>=args[1]);if(key==='lte')rows=rows.filter(r=>r[args[0]]<=args[1]);if(key==='single'||key==='maybeSingle')single=true;return q}}});return q}
+const channel={on(){return this},subscribe(){return this}};
+export const supabase={from:query,channel:()=>channel,removeChannel:()=>{}};
+window.fetch=async(url,init)=>{window.fixtureRequests.push({url,method:init?.method||'GET'});if(String(url).includes('reconcile-payments'))return {ok:true,json:async()=>({updated:0})};if(String(url).includes('availability'))return {ok:true,json:async()=>({available:[],slots:[],appointments:[],timeOff:[]})};return {ok:false,status:403,json:async()=>({error:'Fixture does not execute writes'})}};
+window.fixtureRequests=[];
