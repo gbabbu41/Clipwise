@@ -195,6 +195,24 @@ export function AddAppointmentModal({
   // Swipe-down-to-dismiss (touch), same hook the calendar sheet uses.
   const { dragY, dragging } = useSheetDrag(sheetRef, close, { enabled: open && shown && !saving });
 
+  // Keyboard-aware sizing. dvh/vh don't shrink for the on-screen keyboard, so the
+  // sheet was sized to the FULL screen and its top clipped under the status bar.
+  // visualViewport reports the REAL visible area above the keyboard: park the sheet
+  // above the keyboard (bottom = keyboard inset) and cap its height with a top gap
+  // so it clears the notch and always leaves a strip of backdrop above it.
+  const [vv, setVv] = useState<{ h: number; bottom: number } | null>(null);
+  useEffect(() => {
+    if (!open || typeof window === "undefined" || !window.visualViewport) return;
+    const view = window.visualViewport;
+    const update = () => setVv({ h: view.height, bottom: Math.max(0, window.innerHeight - view.height - view.offsetTop) });
+    update();
+    view.addEventListener("resize", update);
+    view.addEventListener("scroll", update);
+    return () => { view.removeEventListener("resize", update); view.removeEventListener("scroll", update); };
+  }, [open]);
+  // Leave room for the notch/status bar (+ a visible gap) at the top.
+  const sheetMaxH = vv ? `${Math.max(260, vv.h - 56)}px` : undefined;
+
   // Load barbers + services + clients when the sheet opens.
   useEffect(() => {
     if (!open) return;
@@ -467,12 +485,13 @@ export function AddAppointmentModal({
             style={{ background: "rgba(0,0,0,0.6)", opacity: shown ? 1 : 0 }}
             onClick={() => !saving && close()}
           />
-          <div className="fixed inset-x-0 bottom-0 sm:inset-0 z-[80] flex justify-center sm:items-center pointer-events-none sm:p-4">
+          <div style={{ bottom: vv ? vv.bottom : undefined }} className="fixed inset-x-0 bottom-0 sm:inset-0 z-[80] flex justify-center sm:items-center pointer-events-none sm:p-4">
             <div
               ref={sheetRef}
               style={{
                 transform: shown ? `translate3d(0, ${dragY}px, 0)` : "translate3d(0, 100%, 0)",
                 transition: dragging ? "none" : "transform .26s cubic-bezier(.32,.72,0,1)",
+                maxHeight: sheetMaxH,
               }}
               className="pointer-events-auto w-full sm:max-w-md bg-card border-t sm:border border-border rounded-t-2xl sm:rounded-2xl shadow-2xl max-h-[90dvh] overflow-y-auto overscroll-contain px-5 pt-0 pb-[max(1rem,env(safe-area-inset-bottom))]"
             >
