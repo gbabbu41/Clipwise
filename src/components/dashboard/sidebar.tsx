@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -191,6 +191,32 @@ const accountItems: NavItem[] = [
   { href: "/dashboard/billing", label: "Plan & Billing", icon: Wallet, ownerOnly: true, nativeHidden: true },
 ];
 
+// The ONE nav-gating rule the sidebar AND the mobile bottom nav both use, so a tab
+// appears in the exact same plans/roles in both places. We HIDE (never lock) what a
+// plan/role can't use: cleaner, and it keeps the iOS app free of any "upgrade"
+// affordance (Apple's IAP billing-surface rule). `plan` is the already-resolved
+// effectivePlan (expired paid → starter); `native` is isNativeApp().
+function passesNav(item: NavItem, ctx: { plan: string; native: boolean; role?: string }): boolean {
+  if (item.hidden) return false;
+  if (item.nativeHidden && ctx.native) return false;
+  if (item.ownerOnly && ctx.role === "barber") return false;
+  if (item.paidOnly && !isPaidPlan(ctx.plan)) return false;
+  if (item.feature) return planHasFeature(ctx.plan, item.feature);
+  return true;
+}
+
+// Bottom nav (mobile) — the six primary destinations, in order. Gated by the SAME
+// passesNav rule as the sidebar, so a free Starter owner sees the ones they can use
+// (Home · Calendar · Clients) and a Pro+ owner sees all six. "More" (the drawer) is
+// appended in the component after these. Replaces the old 4-tab + center FAB layout.
+const MOBILE_NAV_ITEMS: NavItem[] = [
+  { href: "/dashboard", label: "Home", icon: LayoutDashboard },
+  { href: "/dashboard/calendar", label: "Calendar", icon: CalendarDays },
+  { href: "/dashboard/pos", label: "Checkout", icon: Receipt, feature: "pos" },
+  { href: "/dashboard/payments", label: "Payments", icon: CreditCard, ownerOnly: true, feature: "payments" },
+  { href: "/dashboard/clients", label: "Clients", icon: Users, ownerOnly: true },
+];
+
 
 // Mobile top-bar titles. Explicit labels for routes whose auto-derived name would
 // be wrong/ugly; every other page falls back to a title-cased route segment (see
@@ -217,7 +243,6 @@ function barTitleFor(pathname: string): string {
 
 export function Sidebar() {
   const pathname = usePathname();
-  const router = useRouter();
   const { user, profile, shop, shops, setActiveShop, signOut, accessToken } = useAuth();
   const { confirm } = useConfirm();
   // Confirm before signing out — the icon sits next to the theme toggle, so a
@@ -237,19 +262,6 @@ export function Sidebar() {
     try { localStorage.setItem("cw_nav_sections", JSON.stringify(next)); } catch { /* storage unavailable */ }
     return next;
   });
-  // Remembers where the owner was before opening Clients so the toggle can return
-  // there — never router.back(), which would leave the app entirely if Clients was
-  // the first page (deep link / refresh / no in-app history).
-  const clientsReturnRef = useRef<string>("/dashboard");
-  const isBarber = profile?.role === "barber";
-  const toggleClients = () => {
-    if (pathname === "/dashboard/clients") {
-      router.push(clientsReturnRef.current || "/dashboard");
-    } else {
-      clientsReturnRef.current = pathname;
-      router.push("/dashboard/clients");
-    }
-  };
   const [isAlsoBarber, setIsAlsoBarber] = useState(false);
   const [ownerPhoto, setOwnerPhoto] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -426,12 +438,6 @@ export function Sidebar() {
       .then(({ data }) => { setIsAlsoBarber(!!data); setOwnerPhoto((data as { photo?: string | null } | null)?.photo ?? null); });
   }, [user, shop, profile]);
 
-  // The Clients top-bar button uses router.push (a toggle), which — unlike a
-  // <Link> — doesn't auto-prefetch. Warm the route once on mount so the tap is
-  // instant, matching the prefetch the bottom-nav Link tabs get for free. Skip
-  // for barbers, who don't see the Clients shortcut.
-  useEffect(() => { if (!isBarber) router.prefetch("/dashboard/clients"); }, [router, isBarber]);
-
   useEffect(() => {
     if (!user) return;
 
@@ -473,26 +479,19 @@ export function Sidebar() {
             every other page — where this is the only heading on mobile — uses a small
             but SOLID dark title so the page never reads headless. */}
         <h1 className="flex-1 min-w-0 truncate text-[22px] font-extrabold tracking-[-0.02em] text-foreground">{barTitleFor(pathname)}</h1>
-        {/* Clients shortcut — toggles like the bell: tap to open Clients, tap
-            again (while on it) to return where you were. Owner-only, matching the
-            sidebar's ownerOnly Clients item. Highlights while active. */}
-        {!isBarber && (() => {
-          const onClients = pathname === "/dashboard/clients";
-          return (
-            <button
-              type="button"
-              onClick={toggleClients}
-              aria-label="Clients"
-              aria-pressed={onClients}
-              className={cn(
-                "w-9 h-9 rounded-full flex items-center justify-center transition-colors flex-shrink-0",
-                onClients ? "bg-white/10 text-foreground" : "text-foreground hover:bg-white/5",
-              )}
-            >
-              <Users size={19} />
-            </button>
-          );
-        })()}
+        {/* Quick-add appointment/walk-in — moved here from the old bottom-nav FAB
+            so "add" stays one tap on every screen while the bottom bar is pure
+            navigation. Opens the shared add-appointment modal (mounted in the
+            dashboard layout) via the cw-open-newappt event. Clients now lives as a
+            bottom-nav tab, so the old top-bar Clients shortcut was retired here. */}
+        <button
+          type="button"
+          onClick={() => window.dispatchEvent(new Event("cw-open-newappt"))}
+          aria-label="New appointment"
+          className="w-9 h-9 rounded-full flex items-center justify-center text-foreground hover:bg-white/5 transition-colors flex-shrink-0"
+        >
+          <Plus size={20} strokeWidth={2.5} />
+        </button>
         <button
           type="button"
           onClick={() => setNotifOpen(o => !o)}
@@ -716,14 +715,7 @@ export function Sidebar() {
         {(() => {
           const plan = effectivePlan(shop?.subscription_plan, shop?.subscription_status);
           const native = isNativeApp();
-          const passes = (item: NavItem) => {
-            if (item.hidden) return false;
-            if (item.nativeHidden && native) return false;
-            if (item.ownerOnly && profile?.role === "barber") return false;
-            if (item.paidOnly && !isPaidPlan(plan)) return false;
-            if (item.feature) return planHasFeature(plan, item.feature);
-            return true;
-          };
+          const passes = (item: NavItem) => passesNav(item, { plan, native, role: profile?.role });
           const renderItem = (item: NavItem) => {
             const Icon = item.icon;
             // Light the row for its own page AND any nested route (e.g. standing on
@@ -858,15 +850,24 @@ export function Sidebar() {
 
 export function MobileNav() {
   const pathname = usePathname();
+  const { shop, profile } = useAuth();
   const toggleDrawer = () => window.dispatchEvent(new Event("cw-toggle-sidebar"));
 
-  // Two tabs flank the center + ; the last tab + More sit on the right. Schedule
-  // moved into the More drawer and Clients moved to the top bar to make room, so
-  // the four tabs stay balanced around the raised quick-add button.
-  const navLink = (href: string, label: string, Icon: typeof LayoutDashboard) => {
-    const isActive = pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
+  // The FAB is gone: quick-add moved to the top-bar +, so the bottom bar is pure
+  // navigation. Six primary tabs, each gated by the SAME rule as the sidebar — a
+  // Starter owner sees the free ones, Pro+ sees all six. "More" opens the drawer
+  // for everything else (Schedule, Staff, Payroll, Settings…).
+  const plan = effectivePlan(shop?.subscription_plan, shop?.subscription_status);
+  const native = isNativeApp();
+  const tabs = MOBILE_NAV_ITEMS.filter((item) => passesNav(item, { plan, native, role: profile?.role }));
+
+  const navLink = (item: NavItem) => {
+    const { href, label, icon: Icon } = item;
+    // Light the tab for its own page and any nested route, with a "/" boundary so
+    // e.g. /dashboard/payments never lights on a sibling like /dashboard/payroll.
+    const isActive = pathname === href || (href !== "/dashboard" && pathname.startsWith(href + "/"));
     return (
-      <Link href={href} className={cn("cw-ni", isActive && "active")}>
+      <Link key={href} href={href} className={cn("cw-ni", isActive && "active")}>
         <div className="cw-ni-icon"><Icon size={20} /></div>
         <div className="cw-ni-label">{label}</div>
         {isActive && <div className="cw-ni-line" />}
@@ -874,27 +875,11 @@ export function MobileNav() {
     );
   };
 
-  // Center + → open the global add-appointment modal INSTANTLY over the current
-  // page (mounted in the dashboard layout). No navigation to the calendar, no
-  // background swap — the modal posts to the same /api/book/in-person the calendar
-  // uses, so it's one shared booking path.
-  const newAppointment = () => {
-    window.dispatchEvent(new Event("cw-open-newappt"));
-  };
-
   return (
     <nav className="cw-bnav lg:hidden">
-      {navLink("/dashboard", "Home", LayoutDashboard)}
-      {navLink("/dashboard/calendar", "Calendar", CalendarDays)}
-      {/* Center hero — opens the add-appointment banner. */}
-      <button type="button" onClick={newAppointment} className="cw-fab" aria-label="New appointment">
-        <Plus size={26} strokeWidth={2.6} />
-      </button>
-      {/* Checkout (the till) is the most-repeated at-the-chair action, so it gets
-          the permanent tab; Payments (a reporting screen) lives in the More drawer. */}
-      {navLink("/dashboard/pos", "Checkout", Receipt)}
-      {/* 'More' opens the sidebar drawer (Schedule, Clients, Staff, Payments…). */}
-      <button type="button" onClick={toggleDrawer} className="cw-ni" aria-label="Toggle menu">
+      {tabs.map(navLink)}
+      {/* 'More' opens the sidebar drawer (Schedule, Staff, Payroll, Settings…). */}
+      <button type="button" onClick={toggleDrawer} className="cw-ni" aria-label="More">
         <div className="cw-ni-icon"><Menu size={20} /></div>
         <div className="cw-ni-label">More</div>
       </button>

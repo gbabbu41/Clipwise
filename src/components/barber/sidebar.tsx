@@ -231,6 +231,18 @@ export function BarberSidebar() {
       >
         {/* Page title (left) — calm 22px sentence-case, matching the shop portal header. */}
         <h1 className="flex-1 min-w-0 text-[22px] font-extrabold tracking-[-0.02em] text-foreground truncate">{BAR_TITLE[pathname] ?? ""}</h1>
+        {/* Quick-add appointment — moved here from the old bottom-nav FAB so "add"
+            stays one tap on every screen. Opens the shared add-appointment modal
+            (mounted in the barber layout); it shows a "contact your shop" note if
+            this barber lacks the manage_appointments permission. */}
+        <button
+          type="button"
+          onClick={() => window.dispatchEvent(new Event("cw-open-newappt"))}
+          aria-label="New appointment"
+          className="w-9 h-9 rounded-full flex items-center justify-center text-foreground hover:bg-white/5 transition-colors relative flex-shrink-0"
+        >
+          <Plus size={20} strokeWidth={2.5} />
+        </button>
         {/* Notifications bell — same control as the owner mobile header,
             scoped to this barber. Red dot when there's anything unread. */}
         <button
@@ -469,15 +481,12 @@ export function BarberMobileNav() {
   const { barber } = useBarber();
   const perms = barber?.permissions ?? DEFAULT_BARBER_PERMISSIONS;
   const toggleDrawer = () => window.dispatchEvent(new Event("cw-toggle-sidebar"));
-  // Center + → open the global add-appointment modal instantly over the current
-  // page (the modal, mounted in the barber layout, is fixed to this barber and
-  // shows a "contact your shop" message if they lack the permission).
-  const newAppointment = () => window.dispatchEvent(new Event("cw-open-newappt"));
 
   const navLink = (href: string, label: string, Icon: typeof LayoutDashboard) => {
-    const isActive = pathname === href || (href !== "/barber-dashboard" && pathname.startsWith(href));
+    // "/" boundary on the prefix so a tab never lights on a sibling route.
+    const isActive = pathname === href || (href !== "/barber-dashboard" && pathname.startsWith(href + "/"));
     return (
-      <Link href={href} className={cn("cw-ni", isActive && "active")}>
+      <Link key={href} href={href} className={cn("cw-ni", isActive && "active")}>
         <div className="cw-ni-icon"><Icon size={20} /></div>
         <div className="cw-ni-label">{label}</div>
         {isActive && <div className="cw-ni-line" />}
@@ -485,18 +494,17 @@ export function BarberMobileNav() {
     );
   };
 
-  // Home · Calendar · [+] · Payments · More — matches the owner portal. Schedule
-  // moved into the More drawer to make room for the center quick-add.
+  // Home · Calendar · Payments · Clients · More — mirrors the owner portal's tab
+  // bar. The FAB is gone (quick-add moved to the top-bar +); My Clients shows only
+  // when this barber has the view_clients permission.
   return (
     <nav className="cw-bnav lg:hidden">
       {navLink("/barber-dashboard", "Home", LayoutDashboard)}
       {navLink("/barber-dashboard/calendar", "Calendar", CalendarDays)}
-      <button type="button" onClick={newAppointment} className="cw-fab" aria-label="New appointment">
-        <Plus size={26} strokeWidth={2.6} />
-      </button>
       {navLink("/barber-dashboard/earnings", "Payments", DollarSign)}
+      {perms.view_clients !== false && navLink("/barber-dashboard/clients", "Clients", Users)}
       {/* 'More' opens the sidebar drawer (Schedule, Profile, Time Off, etc.). */}
-      <button type="button" onClick={toggleDrawer} className="cw-ni" aria-label="Toggle menu">
+      <button type="button" onClick={toggleDrawer} className="cw-ni" aria-label="More">
         <div className="cw-ni-icon"><Menu size={20} /></div>
         <div className="cw-ni-label">More</div>
       </button>

@@ -1392,9 +1392,9 @@ textarea.form-control { min-height: 5rem; resize: vertical; }
 .cw-b-pend  { background: rgba(245,158,11,0.10); color: var(--amber); }
 .cw-b-bad   { background: rgba(239,68,68,0.10);  color: var(--red); }
 
-/* (Removed the old fixed bottom-right .cw-fab — the bottom-nav center hero
-   .cw-fab below is the only quick-add button now; the stale fixed rule was
-   pinning it to the corner instead of the middle.) */
+/* (The bottom-nav center-hero .cw-fab has been retired — quick-add now lives as a
+   + in the mobile top bar, so the bottom bar is pure navigation with evenly-spaced
+   tabs.) */
 
 /* Bottom nav bar (mobile) — floating frosted glass, matching the marketing nav.
    Base is an OPAQUE --surface fallback; the @supports block below swaps in the
@@ -1423,26 +1423,10 @@ textarea.form-control { min-height: 5rem; resize: vertical; }
 /* While a modal is open, hide the bottom nav so cards never overlap it. */
 .cw-modal-open .cw-bnav { display: none; }
 .cw-ni-icon  { font-size: 20px; color: var(--grey-2); transition: color 0.15s; }
-.cw-ni-label { font-size: 10px; color: var(--grey-2); font-weight: 600; transition: color 0.15s; }
+.cw-ni-label { font-size: 10px; color: var(--grey-2); font-weight: 600; transition: color 0.15s; white-space: nowrap; }
 .cw-ni.active .cw-ni-icon,
 .cw-ni.active .cw-ni-label { color: var(--foreground); }
 .cw-ni-line  { width: 18px; height: 2px; background: var(--foreground); border-radius: 2px; margin-top: 2px; }
-/* Center hero "quick add" button in the bottom nav — a raised solid button
-   (foreground = near-black in light, white in dark), notched into the bar via a
-   bar-coloured border so it reads as elevated. Sits between the two left tabs and
-   the right tab + More. */
-.cw-fab {
-  flex: 0 0 auto; width: 54px; height: 54px; margin: 0 8px;
-  border-radius: 18px; background: var(--foreground); color: var(--background);
-  display: flex; align-items: center; justify-content: center;
-  transform: translateY(-12px);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.28);
-  border: 4px solid var(--surface);
-  -webkit-tap-highlight-color: transparent;
-  transition: transform 0.12s ease;
-}
-.cw-fab:active { transform: translateY(-12px) scale(0.94); }
-
 /* Fade-up entrance animation used by stat cards and appt rows */
 @keyframes cw-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 .cw-anim-up { animation: cw-up 0.35s ease both; }
