@@ -3090,7 +3090,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
       <div className="flex flex-col h-full min-h-0">
           {/* Day headers — tap a day to open it in your day-level view (re-anchors
               the 3-Day window to start on that day). */}
-          <div className="grid shrink-0 z-10 bg-background border-b border-border" style={{ gridTemplateColumns: gridCols }}>
+          <div className="grid shrink-0 z-10 bg-card border-b border-border" style={{ gridTemplateColumns: gridCols }}>
             <div />
             {multiDays.map(day => {
               const ds = formatDateForDb(day);
@@ -3660,7 +3660,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
           {loading && <span className="text-xs text-grey-muted animate-pulse flex-shrink-0">…</span>}
         </div>
 
-        <div className="flex items-center gap-0.5 sm:gap-3 flex-shrink-0 whitespace-nowrap">
+        <div data-calendar-controls className="flex items-center gap-0.5 sm:gap-3 flex-shrink-0 whitespace-nowrap">
           {/* Barber picker (avatar + caret → menu). Phone day view uses it; the
               multi-day view is always single-barber, so it shows there on every
               screen size (that's how you choose whose 3/5 days you're seeing). */}

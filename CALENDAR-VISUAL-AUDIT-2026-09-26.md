@@ -75,3 +75,19 @@ Important limitation: the exact original past-date Sep23–25 iPhone state did n
 reproduce; those transitions landed at0 in Chromium. This fixes the observed
 initial partial-row positioning without claiming verified Safari root cause.
 Parent reviewed the after screenshot before authorizing push.
+
+## Clarified UI request: heading strip and toolbar spacing
+
+The3-Day heading strip used the darker page background while Day used the card
+surface. It now uses the same existing card token in both themes; timeline colors
+and availability meanings are untouched. Right toolbar controls now have44×44px
+minimum targets and8px gaps. Content-driven wrapping preserves the complete date,
+navigation and staff picker when necessary at320px; representative390px states
+remain a single row. No scrolling, dates or booking behavior changed in this batch.
+
+Full-component checks compare computed Day/3-Day strip backgrounds. Toolbar tests
+cover320–1280px, both themes, Today+Now and staff controls, minimum targets/gaps,
+complete date and no clipped buttons (at most two rows). Full calendar interaction,
+entry alignment and workflow/autofocus checks remain required. Parent visually
+reviewed390 dark Day/3-Day and320/390 light screenshots before authorizing push.
+Local screenshots: `.playwright-mcp/full-calendar/toolbar-after*-*.png`.

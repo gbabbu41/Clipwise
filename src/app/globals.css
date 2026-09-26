@@ -2,6 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Calendar controls wrap only when their complete labels and touch areas need it. */
+.portal [data-calendar-toolbar] { flex-wrap: wrap; gap: 8px; }
+.portal [data-calendar-toolbar] > :first-child { flex: 1 0 auto; }
+.portal [data-calendar-toolbar] h2 { min-width: max-content; }
+.portal [data-calendar-controls] { gap: 8px; margin-left: auto; }
+.portal [data-calendar-controls] > button,
+.portal [data-calendar-controls] > div > button { min-width: 44px; min-height: 44px; justify-content: center; }
+
 /* Keep native time fields complete on narrow working-hours sheets. */
 .cw-hours-row { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 8px 12px; align-items: center; }
 .cw-hours-times { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 8px; align-items: center; }

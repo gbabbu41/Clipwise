@@ -26,7 +26,7 @@ const scrollClasses = [...source.matchAll(/ref=\{attachScroll\} data-focus-key=\
     find(ast);
     const compiled = ts.transpileModule(`const render = () => (${toolbar.getText(ast)});`, { compilerOptions: { jsx: ts.JsxEmit.React, target: ts.ScriptTarget.ES2022 } }).outputText;
     for (const width of [320, 375, 390, 430, 768, 1024, 1280]) for (const both of [false, true]) for (const theme of ['light', 'dark']) for (const mode of ['day', 'multiday']) {
-      const env = new Proxy({ React, ...icons, backLabel: width < 768 ? 'Sep' : 'September', titleText: mode === 'day' ? 'Sat 26' : 'September 28–30, 2026', view: mode, dayLayout: 'timeline', canManage: false, isMobile: width < 768, profile: { role: 'shop_owner' }, barbers: mode === 'day' ? [{ id: 'one' }] : [{ id: 'one' }, { id: 'two' }], dayBarberId: 'one', viewMenu: false, viewPicker: false, multiDayCount: 3, multiDays: [new Date('2026-09-28T12:00:00')], currentDate: new Date('2026-09-27T12:00:00'), shopToday: both ? '2026-09-28' : '2026-09-30', onToday: false, pageTitle: 'Calendar', formatDateForDb: d => d.toISOString().slice(0, 10), cn: (...args) => args.filter(x => typeof x === 'string').join(' '), BarberAvatar: () => React.createElement('span', { style: { display: 'block', width: 28, height: 28 } }), HeaderControls: () => React.createElement(React.Fragment, null, React.createElement('button', { className: 'cwd-icobtn max-lg:hidden' }, 'B'), React.createElement('button', { className: 'cwd-avatar max-lg:hidden' }, 'P')) }, { has: () => true, get: (target, key) => target[key] });
+      const env = new Proxy({ React, ...icons, backLabel: width < 768 ? 'Sep' : 'September', titleText: mode === 'day' ? 'Sat 26' : width < 768 ? 'Sep 30 – Oct 2' : 'September 28–30, 2026', view: mode, dayLayout: 'timeline', canManage: false, isMobile: width < 768, profile: { role: 'shop_owner' }, barbers: mode === 'day' ? [{ id: 'one' }] : [{ id: 'one' }, { id: 'two' }], dayBarberId: 'one', viewMenu: false, viewPicker: false, multiDayCount: 3, multiDays: [new Date('2026-09-28T12:00:00')], currentDate: new Date('2026-09-27T12:00:00'), shopToday: both ? '2026-09-28' : '2026-09-30', onToday: false, pageTitle: 'Calendar', formatDateForDb: d => d.toISOString().slice(0, 10), cn: (...args) => args.filter(x => typeof x === 'string').join(' '), BarberAvatar: () => React.createElement('span', { style: { display: 'block', width: 28, height: 28 } }), HeaderControls: () => React.createElement(React.Fragment, null, React.createElement('button', { className: 'cwd-icobtn max-lg:hidden' }, 'B'), React.createElement('button', { className: 'cwd-avatar max-lg:hidden' }, 'P')) }, { has: () => true, get: (target, key) => target[key] });
       const Toolbar = new Function('env', `with (env) { ${compiled}; return render; }`)(env);
       const html = renderToStaticMarkup(React.createElement(Toolbar));
       const page = await browser.newPage({ viewport: { width, height: 844 } });
@@ -39,10 +39,11 @@ const scrollClasses = [...source.matchAll(/ref=\{attachScroll\} data-focus-key=\
         return { titleGap: heading.getBoundingClientRect().left - back.getBoundingClientRect().right, height: r.height, right: r.right, buttons, titleWidth: bar.querySelector('h2').getBoundingClientRect().width };
       });
       assert(bounds.titleGap >= 6, `month/date visually joined at ${width}px (${bounds.titleGap}px)`);
-      assert(bounds.height < 70, `toolbar wrapped at ${width}px`);
+      assert(bounds.height <= 120, `toolbar exceeds two usable rows at ${width}px`);
       assert(bounds.titleWidth > 20, `date squeezed out at ${width}px`);
       for (const button of bounds.buttons) assert(button.right <= bounds.right + 1, `control clipped at ${width}px`);
-      assert(Math.max(...bounds.buttons.map(b => b.top)) < Math.min(...bounds.buttons.map(b => b.bottom)), `controls not on one line at ${width}px`);
+      const controls = await page.locator('[data-calendar-controls]').evaluate(el => [...el.children].map(child => child.matches('button') ? child : child.querySelector('button')).filter(b => b && b.getBoundingClientRect().width).map(b => {const r=b.getBoundingClientRect();return {left:r.left,right:r.right,width:r.width,height:r.height};}));
+      for(let i=0;i<controls.length;i++){assert(controls[i].width>=44&&controls[i].height>=44,'right controls have44px touch targets');if(i)assert(controls[i].left-controls[i-1].right>=7,'right controls separated by8px');}
       for (const name of ['Previous', 'Next']) {
         const target = await page.getByRole('button', { name, exact: true }).boundingBox();
         assert(target.width >= 28 && target.height >= 28, `navigation touch target shrunk at ${width}px`);
@@ -54,7 +55,7 @@ const scrollClasses = [...source.matchAll(/ref=\{attachScroll\} data-focus-key=\
       }
       await page.close();
     }
-    console.log('PASS actual calendar toolbar JSX: 320–1280px, Today alone and Today + Now, day/multiday, light/dark, app font, month/date gap >=6px, all controls fit one row');
+    console.log('PASS actual calendar toolbar JSX: 320–1280px, Today alone and Today + Now, day/multiday, light/dark, app font, month/date gap >=6px, controls fit within two rows when needed,44px right targets and8px gaps');
     for (const portal of ['dashboard/layout-client.tsx', 'barber-dashboard/layout.tsx']) {
       const template = read(`src/app/${portal}`).match(/<main className=\{`([^`]+)`\}/)[1];
       const shellClass = new Function('isCalendar', `return \`${template}\`;`)(true);
