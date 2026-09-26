@@ -856,12 +856,13 @@ h1, h2, h3, h4 {
   line-height: 1.2;
   border-radius: 0.5rem;
   background: transparent;
-  color: #495057;
+  color: var(--foreground);
   border: 1px solid transparent;
   cursor: pointer;
   transition: background-color 0.15s ease, color 0.15s ease;
 }
-.btn-ghost:hover { background: #f1f3f5; color: #000; }
+.btn-ghost:hover { background: var(--surface-overlay); color: var(--foreground); }
+.btn-ghost:focus-visible { outline: 2px solid var(--foreground); outline-offset: 2px; }
 .btn-ghost:disabled { opacity: 0.55; cursor: not-allowed; }
 
 /* Icon-only button — square aspect, no horizontal padding. Pair with `.btn`
@@ -904,7 +905,7 @@ h1, h2, h3, h4 {
   transition: border-color 0.15s ease-in-out, background-color 0.15s ease-in-out;
   appearance: none;
 }
-.form-control::placeholder { color: var(--grey-2); opacity: 1; }
+.form-control::placeholder { color: var(--grey); opacity: 1; }
 .form-control:focus,
 .form-select:focus {
   color: var(--foreground);
@@ -946,7 +947,7 @@ h1, h2, h3, h4 {
 
 textarea.form-control { min-height: 5rem; resize: vertical; }
 
-.form-text { margin-top: 0.25rem; font-size: 0.8125rem; color: #6c757d; }
+.form-text { margin-top: 0.25rem; font-size: 0.8125rem; color: var(--grey); }
 
 /* Validation states */
 .is-invalid {

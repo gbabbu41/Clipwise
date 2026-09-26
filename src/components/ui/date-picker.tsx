@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { CalendarIcon, X } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { cn, formatFriendlyDate, formatDateForDb } from "@/lib/utils";
@@ -19,6 +19,8 @@ interface DatePickerProps {
  */
 export function DatePicker({ label, value, onChange, minDate, placeholder = "Pick a date", className }: DatePickerProps) {
   const [open, setOpen] = useState(false);
+  const triggerId = useId();
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const popRef = useRef<HTMLDivElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
 
@@ -28,8 +30,15 @@ export function DatePicker({ label, value, onChange, minDate, placeholder = "Pic
     const onDoc = (e: MouseEvent) => {
       if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
     };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { setOpen(false); triggerRef.current?.focus(); }
+    };
     document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
   }, [open]);
 
   const displayLabel = value ? formatFriendlyDate(value) : placeholder;
@@ -37,9 +46,13 @@ export function DatePicker({ label, value, onChange, minDate, placeholder = "Pic
 
   return (
     <div className={cn("space-y-1.5", className)} ref={wrapRef}>
-      {label && <label className="text-sm font-medium text-grey">{label}</label>}
+      {label && <label htmlFor={triggerId} className="text-sm font-medium text-grey">{label}</label>}
       <button
+        id={triggerId}
+        ref={triggerRef}
         type="button"
+        aria-label={`${label || "Date"}: ${displayLabel}`}
+        aria-expanded={open}
         onClick={() => setOpen(o => !o)}
         className={cn(
           "w-full flex items-center gap-3 rounded-xl border border-border-strong bg-surface-sunken px-4 py-2.5 text-sm text-left transition-all",
@@ -60,7 +73,7 @@ export function DatePicker({ label, value, onChange, minDate, placeholder = "Pic
             <div className="fixed left-0 right-0 bottom-0 z-[61] bg-surface border-t border-border rounded-t-2xl p-4 animate-fade-in">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-semibold text-foreground">Pick a date</span>
-                <button type="button" onClick={() => setOpen(false)} className="text-grey hover:text-foreground">
+                <button type="button" aria-label="Close date picker" onClick={() => setOpen(false)} className="text-grey hover:text-foreground">
                   <X size={18} />
                 </button>
               </div>
