@@ -494,7 +494,7 @@ export function AddAppointmentModal({
                 transition: dragging ? "none" : "transform .26s cubic-bezier(.32,.72,0,1)",
                 maxHeight: sheetMaxH,
               }}
-              className="pointer-events-auto w-full sm:max-w-md bg-card border-t sm:border border-border rounded-t-2xl sm:rounded-2xl shadow-2xl max-h-[90dvh] overflow-y-auto overscroll-contain px-5 pt-0 pb-[max(1rem,env(safe-area-inset-bottom))]"
+              className="pointer-events-auto w-full sm:max-w-md bg-card border-t sm:border border-border rounded-t-2xl sm:rounded-2xl shadow-2xl max-h-[90dvh] overflow-y-auto overscroll-contain px-5 pt-0 pb-0"
             >
               {/* Grab handle — swipe the sheet down to dismiss */}
               <div className="flex justify-center pt-2.5 pb-1.5 -mx-5 cursor-grab active:cursor-grabbing" onClick={() => !saving && close()}>
@@ -651,7 +651,7 @@ export function AddAppointmentModal({
 
               </fieldset>)}
               {/* Sticky action bar */}
-              <div className="sticky bottom-0 -mx-5 px-5 pt-3 mt-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] bg-card border-t border-border flex gap-3">
+              <div className="sticky bottom-0 -mx-5 px-5 pt-3 mt-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] bg-card border-t border-border sm:rounded-b-2xl flex gap-3">
                 <Button variant="outline" className="flex-1" disabled={saving} onClick={close}>{submitUncertain ? "Close" : "Cancel"}</Button>
                 <Button className="flex-1" loading={saving} disabled={!resourcesReady || submitUncertain} onClick={submit}>Add</Button>
               </div>
