@@ -12,6 +12,14 @@ Full-stack barbershop SaaS. **Next.js 14 (App Router) + TypeScript + Tailwind**,
 (email), **Twilio** (SMS). Live at **clipwise.ca** (Vercel, **Hobby** plan).
 Owner/barber/customer portals under `src/app/{dashboard,barber-dashboard,book}`.
 
+## 🎨 Design — read `DESIGN.md` before touching any UI
+`DESIGN.md` at the repo root is the design system: tokens for all three surfaces
+(customer / portal / marketing), typography, measured contrast rules, the glass-bar
+pattern, and the brand wordmark + mark. **It outranks the design skills in
+`.claude/skills/`** — if a skill suggests a different palette, font or component library,
+follow `DESIGN.md`. Verify visual changes with the Playwright MCP (`.mcp.json`) at
+390×844, 1440×900 and 2048×695.
+
 ## 🧭 Operating mode (DEFAULT — read before doing anything)
 The app is **production-quality and about to bill real customers.** The owner trusts Claude
 (who knows the whole codebase) to **act with senior-engineer authority**: when you're
