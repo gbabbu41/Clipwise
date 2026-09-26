@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Manrope, DM_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
 import { PWARegister } from "@/components/pwa-register";
@@ -9,19 +9,23 @@ import { ErrorLogger } from "@/components/error-logger";
 // Manrope — primary UI face, matching the marketing site so the portals and the
 // front page read as one premium brand. Geometric, tight at display sizes, clean
 // at body sizes. Used everywhere except numerics (DM Mono). (Was Sora.)
-const manrope = Manrope({
-  weight: ["400", "500", "600", "700", "800"],
-  subsets: ["latin"],
+// SELF-HOSTED (next/font/local) — the woff2 lives in the repo, so a build never
+// depends on Google Fonts being reachable (a Google Fonts hiccup used to fail CI
+// and could fail a real deploy). One variable file covers weights 200–800.
+const manrope = localFont({
+  src: [{ path: "./fonts/manrope-latin-variable.woff2", weight: "200 800", style: "normal" }],
   variable: "--font-body",
   display: "swap",
 });
 
 // DM Mono — applied via `font-mono` / `.font-numeric` for prices, stats,
 // times. Slightly heavier than the default `font-mono` stack so dollar
-// amounts read as deliberate UI elements, not afterthoughts.
-const dmMono = DM_Mono({
-  weight: ["400", "500"],
-  subsets: ["latin"],
+// amounts read as deliberate UI elements, not afterthoughts. Self-hosted too.
+const dmMono = localFont({
+  src: [
+    { path: "./fonts/dm-mono-latin-400.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/dm-mono-latin-500.woff2", weight: "500", style: "normal" },
+  ],
   variable: "--font-mono",
   display: "swap",
 });
