@@ -20,6 +20,14 @@ pattern, and the brand wordmark + mark. **It outranks the design skills in
 follow `DESIGN.md`. Verify visual changes with the Playwright MCP (`.mcp.json`) at
 390×844, 1440×900 and 2048×695.
 
+### Framework compatibility
+Before applying any imported skill example, check `package.json` and the lockfile
+for the project's framework versions. This app currently uses Next.js 14 and
+React 18. Skip guidance requiring newer APIs, including Next.js `after()`, React
+`Activity`, and `useEffectEvent`; retain React 18-compatible patterns such as
+`forwardRef`. This compatibility rule overrides imported skill advice. Do not
+upgrade frameworks or add dependencies just to follow a skill example.
+
 ## 🧭 Operating mode (DEFAULT — read before doing anything)
 The app is **production-quality and about to bill real customers.** The owner trusts Claude
 (who knows the whole codebase) to **act with senior-engineer authority**: when you're
