@@ -59,6 +59,9 @@ export default function BarberPaymentsPage() {
   const [customTo, setCustomTo] = useState("");
   // Statement filter — All / Card / Cash / Unpaid (Unpaid = collectable appts).
   const [txFilter, setTxFilter] = useState<"all" | "card" | "cash" | "unpaid">("all");
+  // Statement shows 10 rows, +20 per "Load more"; resets on card/filter change.
+  const [visibleTx, setVisibleTx] = useState(10);
+  useEffect(() => { setVisibleTx(10); }, [slide, txFilter]);
 
   // ── All-time transactions in one call; the window is applied client-side ──
   const loadEarnings = useCallback(async () => {
@@ -125,8 +128,9 @@ export default function BarberPaymentsPage() {
 
   const fmtShort = (s: string) => new Date(s + "T00:00:00").toLocaleDateString("en-CA", { month: "short", day: "numeric" });
   const nowTs = Date.now();
-  // Carousel windows: this week → this month → all time (+ a Custom card).
+  // Carousel windows: today → this week → this month → all time (+ a Custom card).
   const basePeriods = [
+    { label: "Today", range: new Date(nowTs).toLocaleDateString("en-CA", { month: "short", day: "numeric" }), from: startOf("today"), to: nowTs, monthly: false },
     { label: "This week", range: rangeFor("week"), from: startOf("week"), to: nowTs, monthly: false },
     { label: "This month", range: rangeFor("month"), from: startOf("month"), to: nowTs, monthly: false },
     { label: "All time", range: "", from: 0, to: Infinity, monthly: true },
@@ -142,10 +146,11 @@ export default function BarberPaymentsPage() {
   const customSummary = summarize(customFromTs, customToTs, customMonthly);
 
   // Window currently shown (last slide = custom) — also drives the statement.
-  const activePeriod = slide >= 3
+  const lastBase = basePeriods.length - 1;
+  const activePeriod = slide > lastBase
     ? { from: customFromTs, to: customToTs, label: hasCustom ? customLabel : "Custom" }
-    : basePeriods[Math.min(slide, 2)];
-  const activeSummary = slide >= 3 ? customSummary : baseSummaries[Math.min(slide, 2)];
+    : basePeriods[Math.min(slide, lastBase)];
+  const activeSummary = slide > lastBase ? customSummary : baseSummaries[Math.min(slide, lastBase)];
 
   // ── Outstanding (unpaid) appointments — chargeable here if permitted ──
   const [unpaid, setUnpaid] = useState<AppointmentWithDetails[]>([]);
@@ -229,8 +234,7 @@ export default function BarberPaymentsPage() {
   // unpaid appointments (Unpaid), grouped by calendar day like the owner page. ─
   const inWindow = (t: Tx) => { const ms = new Date(t.created_at).getTime(); return ms >= activePeriod.from && ms <= activePeriod.to; };
   const windowTxs = [...txs].filter(inWindow).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-  const recent = windowTxs.slice(0, activePeriod.to === Infinity ? 50 : 300);
-  const feedTxs = recent.filter(t =>
+  const feedTxs = windowTxs.filter(t =>
     txFilter === "all" ? true : txFilter === "card" ? t.payment_method !== "cash" : txFilter === "cash" ? t.payment_method === "cash" : false);
 
   const dayStart = (ts: number) => { const d = new Date(ts); d.setHours(0, 0, 0, 0); return d.getTime(); };
@@ -251,6 +255,13 @@ export default function BarberPaymentsPage() {
       return { key: k, label: dayLabel(k), total, items };
     });
   })();
+  // Day totals use every row; only the first `visibleTx` rows are drawn.
+  const shownTxGroups = (() => {
+    let left = visibleTx;
+    return txGroups.map(g => { const items = g.items.slice(0, Math.max(0, left)); left -= items.length; return { ...g, items }; })
+      .filter(g => g.items.length > 0);
+  })();
+  const hiddenTx = Math.max(0, feedTxs.length - visibleTx);
   const unpaidGroups = (() => {
     const m = new Map<number, AppointmentWithDetails[]>();
     visibleUnpaid.forEach(a => { const k = dayStart(new Date(a.date + "T00:00:00").getTime()); const arr = m.get(k) ?? []; arr.push(a); m.set(k, arr); });
@@ -360,7 +371,7 @@ export default function BarberPaymentsPage() {
       </div>
 
       {/* ── Statement ──────────────────────────────────────────────────────── */}
-      <div className="cwp-txhead"><h2>Transactions</h2></div>
+      <div className="cwp-txhead"><h2>Transactions{txFilter !== "unpaid" ? <span className="font-normal text-grey"> · {activePeriod.label}</span> : null}</h2></div>
       <div className="cwp-seg">
         {(["all", "card", "cash", "unpaid"] as const).map(f => (
           <button key={f} className={cn(txFilter === f && "cwp-on")} onClick={() => setTxFilter(f)}>
@@ -405,7 +416,7 @@ export default function BarberPaymentsPage() {
         </div>
       ) : (
         <div className="cwp-statement">
-          {txGroups.map(g => (
+          {shownTxGroups.map(g => (
             <div key={g.key} className="cwp-daygroup">
               <div className="cwp-day">
                 <span className="cwp-dlabel">{g.label}</span>
@@ -434,6 +445,12 @@ export default function BarberPaymentsPage() {
             </div>
           ))}
         </div>
+      )}
+      {!loading && !showUnpaid && hiddenTx > 0 && (
+        <button type="button" onClick={() => setVisibleTx(n => n + 20)}
+          className="w-full mt-3 py-2.5 rounded-xl border border-border text-sm font-medium text-grey hover:text-foreground hover:bg-white/5 transition-colors">
+          Load {Math.min(20, hiddenTx)} more · {hiddenTx} left
+        </button>
       )}
 
       {selectedAppt && (
