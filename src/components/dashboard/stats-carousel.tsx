@@ -274,10 +274,11 @@ export function StatsCarousel({
     </div>,
   ];
 
+  // Desktop-only prev/next, sitting beside the page dots UNDER the card so they
+  // never cover slide content. Faded (not removed) at the ends so dots don't shift.
   const arrowBtn =
-    "hidden md:flex absolute top-1/2 -translate-y-1/2 z-10 w-8 h-8 items-center justify-center " +
-    "rounded-full bg-card border border-border text-foreground shadow-sm transition-all " +
-    "hover:bg-surface-overlay disabled:opacity-0 disabled:pointer-events-none";
+    "hidden md:flex w-8 h-8 items-center justify-center rounded-full bg-card border border-border " +
+    "text-foreground shadow-sm transition-all hover:bg-surface-overlay disabled:opacity-30 disabled:pointer-events-none";
 
   return (
     <div className="mb-3">
@@ -302,15 +303,6 @@ export function StatsCarousel({
         </div>
         {/* Announce the current slide to screen readers as it changes. */}
         <div className="sr-only" aria-live="polite">{SLIDE_NAMES[idx]}</div>
-        {/* Desktop-only prev/next — mobile navigates by swipe. Hidden at the ends. */}
-        <button type="button" aria-label="Previous" onClick={() => goTo(idx - 1)} disabled={idx === 0}
-          className={cn(arrowBtn, "left-1.5")}>
-          <ChevronLeft size={18} />
-        </button>
-        <button type="button" aria-label="Next" onClick={() => goTo(idx + 1)} disabled={idx >= slides.length - 1}
-          className={cn(arrowBtn, "right-1.5")}>
-          <ChevronRight size={18} />
-        </button>
         {/* Date filter (Today ▾) overlaid at the first card's top-right — rendered
             OUTSIDE the scroll container so its dropdown/date-picker aren't clipped
             by the carousel's overflow. Last child so it paints above the slides. */}
@@ -318,13 +310,19 @@ export function StatsCarousel({
           <div className="absolute right-[18px] top-[13px]">{filterControl}</div>
         )}
       </div>
-      <div className="flex justify-center gap-1 mt-2">
+      <div className="flex items-center justify-center gap-1 mt-2">
+        <button type="button" aria-label="Previous" onClick={() => goTo(idx - 1)} disabled={idx === 0} className={cn(arrowBtn, "mr-2")}>
+          <ChevronLeft size={16} />
+        </button>
         {slides.map((_, i) => (
           <button key={i} type="button" onClick={() => goTo(i)} aria-label={SLIDE_NAMES[i] ?? `Slide ${i + 1}`} aria-current={i === idx ? "true" : undefined}
             className="h-8 w-8 flex items-center justify-center rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2">
             <span className={cn("h-1.5 rounded-full transition-all", i === idx ? "w-4 bg-accent" : "w-1.5 bg-border-strong")} />
           </button>
         ))}
+        <button type="button" aria-label="Next" onClick={() => goTo(idx + 1)} disabled={idx >= slides.length - 1} className={cn(arrowBtn, "ml-2")}>
+          <ChevronRight size={16} />
+        </button>
       </div>
       <details className="text-xs text-grey mt-1">
         <summary className="cursor-pointer py-2 w-fit">Chart data</summary>

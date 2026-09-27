@@ -994,13 +994,13 @@ export default function PaymentsPage() {
           </div>
         )}
         </div>
-        <button type="button" aria-label="Previous period" className="cwp-arrow cwp-arrow--prev" onClick={() => goToNet(netSlide - 1)} disabled={netSlide === 0}><ChevronLeft size={18} /></button>
-        <button type="button" aria-label="Next period" className="cwp-arrow cwp-arrow--next" onClick={() => goToNet(netSlide + 1)} disabled={netSlide >= periodCards.length}><ChevronRight size={18} /></button>
       </div>
       <div className="cwp-dots">
+        <button type="button" aria-label="Previous period" className="cwp-arrow cwp-arrow--prev" onClick={() => goToNet(netSlide - 1)} disabled={netSlide === 0}><ChevronLeft size={16} /></button>
         {Array.from({ length: periodCards.length + 1 }).map((_, i) => (
           <i key={i} className={cn(i === netSlide && "cwp-on")} />
         ))}
+        <button type="button" aria-label="Next period" className="cwp-arrow cwp-arrow--next" onClick={() => goToNet(netSlide + 1)} disabled={netSlide >= periodCards.length}><ChevronRight size={16} /></button>
       </div>
       {/* Payout balance is shop-level (funds settle to the shop's account, not a
           single barber) — hide it under a per-barber filter to avoid implying it's

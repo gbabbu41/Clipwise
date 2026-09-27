@@ -353,13 +353,13 @@ export default function BarberPaymentsPage() {
           </div>
         )}
         </div>
-        <button type="button" aria-label="Previous period" className="cwp-arrow cwp-arrow--prev" onClick={() => goToRail(slide - 1)} disabled={slide === 0}><ChevronLeft size={18} /></button>
-        <button type="button" aria-label="Next period" className="cwp-arrow cwp-arrow--next" onClick={() => goToRail(slide + 1)} disabled={slide >= basePeriods.length}><ChevronRight size={18} /></button>
       </div>
       <div className="cwp-dots">
+        <button type="button" aria-label="Previous period" className="cwp-arrow cwp-arrow--prev" onClick={() => goToRail(slide - 1)} disabled={slide === 0}><ChevronLeft size={16} /></button>
         {Array.from({ length: basePeriods.length + 1 }).map((_, i) => (
           <i key={i} className={cn(i === slide && "cwp-on")} />
         ))}
+        <button type="button" aria-label="Next period" className="cwp-arrow cwp-arrow--next" onClick={() => goToRail(slide + 1)} disabled={slide >= basePeriods.length}><ChevronRight size={16} /></button>
       </div>
 
       {/* ── Two summary tiles ──────────────────────────────────────────────── */}
