@@ -819,17 +819,13 @@ export default function DashboardPage() {
           uncluttered. */}
 
       {/* Header — the mobile top bar already carries the page title ("Home") and the
-          sidebar carries the shop identity, so the body just shows the day + today's
-          count. No shop-name line here — it used to stack directly under "Home" and
-          read as a duplicate. Bell + profile are desktop-only; the top bar carries
-          them on mobile. */}
-      <div className="cwd-hdr">
-        <div className="min-w-0">
-          <p className="cwd-sub truncate">
-            {new Date().toLocaleDateString("en-CA", { weekday: "long", month: "short", day: "numeric" })} · {todayAppts.length} appointment{todayAppts.length !== 1 ? "s" : ""} today
-          </p>
-        </div>
-        <div className="cwd-cluster max-lg:hidden">
+          sidebar carries the shop identity. No day/"N appointments today" line: the
+          period date under the filter pills and Today's Schedule already say it, so
+          the header is just bell + profile on desktop and hidden on mobile (the top
+          bar carries them there). */}
+      <div className="cwd-hdr max-lg:hidden">
+        <div className="min-w-0" />
+        <div className="cwd-cluster">
           {/* On mobile the bell opens the notification popover (same as every
               other page); on desktop it navigates to the notifications page. */}
           <Link

@@ -36,10 +36,10 @@ const props = { revenue: 115, taxCollected: 15, cashIncluded: 0, feesPaid: 0, ti
   renderer.act(() => view.update(React.createElement(StatsCarousel, { ...props, feesLoading: true })));
   text = JSON.stringify(view.toJSON()); assert(text.includes('Checking processing fees')); assert(!text.includes('$50.00'));
   renderer.act(() => view.update(React.createElement(StatsCarousel, { ...props, feesUnavailable: false, revenue: 111, feesPaid: 4, netRevenue: 46 })));
-  // Collapsed: headline + Net revenue only; Gross and the Stripe fee sit behind "Show breakdown".
-  text = JSON.stringify(view.toJSON()); assert(text.includes('$111.00')); assert(!text.includes('$115.00')); assert(!text.includes('Stripe fees')); assert(text.includes('$46.00'));
+  // Collapsed: Collected headline only; Gross, the Stripe fee and Net revenue sit behind "Show breakdown".
+  text = JSON.stringify(view.toJSON()); assert(text.includes('$111.00')); assert(!text.includes('$115.00')); assert(!text.includes('Stripe fees')); assert(!text.includes('Net revenue')); assert(!text.includes('$46.00'));
   renderer.act(() => view.root.find(n => n.type === 'button' && n.props['aria-expanded'] === false).props.onClick());
-  text = JSON.stringify(view.toJSON()); assert(text.includes('$115.00')); assert(text.includes('Stripe fees')); assert(text.includes('$4.00'));
+  text = JSON.stringify(view.toJSON()); assert(text.includes('$115.00')); assert(text.includes('Stripe fees')); assert(text.includes('$4.00')); assert(text.includes('$46.00'));
   assert(text.includes('2026-09-14')); assert(text.includes('2026-09-17'));
   renderer.act(() => view.unmount());
   console.log('PASS dashboard carousel missing/loading/recovered fees and zero-day tables; pagination small server cap and failures reject partial reports');

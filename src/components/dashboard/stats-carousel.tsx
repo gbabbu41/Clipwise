@@ -54,10 +54,9 @@ export function StatsCarousel({
       return next;
     });
   };
-  // Revenue card keeps a CALM default — Collected headline → Net revenue — and tucks
-  // the full breakdown (Gross, Stripe fees, cash, tax, tips, commission) behind a tap.
+  // Revenue card keeps a CALM default — just the Collected headline — and tucks the
+  // full receipt (Gross, Stripe fees, cash, tax, tips, commission, Net) behind a tap.
   const [showBreakdown, setShowBreakdown] = useState(false);
-  const hasBreakdown = feesLoading || feesPaid > 0 || cashIncluded > 0 || taxCollected > 0 || tips > 0 || commission > 0;
   const ref = useRef<HTMLDivElement>(null);
 
   // On mount, jump straight to the restored slide (no animation, before paint)
@@ -150,10 +149,10 @@ export function StatsCarousel({
           a solo/cash shop's receipt stays clean. */}
       {feesUnavailable && <p className="text-xs text-grey mt-3">{feesLoading ? "Checking processing fees…" : "Processing fees unavailable."} Net revenue is not calculated until fees are verified.</p>}
       {!feesUnavailable && revenue + feesPaid > 0 && (
-        <div className="mt-3 border-t border-border pt-2.5 flex flex-col gap-1.5">
-          {/* Everything but the bottom line — Gross, − Stripe fees, Collected, cash,
-              tax, tips, commission — stays behind "Show breakdown" so the calm
-              default is just the Collected headline → Net revenue. Gross + fees
+        <div className={cn("mt-3 flex flex-col gap-1.5", showBreakdown && "border-t border-border pt-2.5")}>
+          {/* The whole receipt — Gross, − Stripe fees, Collected, cash, tax, tips,
+              commission → Net revenue — stays behind "Show breakdown" so the calm
+              default is just the Collected headline. Gross + fees
               skeleton until the live fee data resolves, and hide on a no-fee day. */}
           {showBreakdown && (
             <>
@@ -173,16 +172,14 @@ export function StatsCarousel({
               {taxCollected > 0 && <div className="flex justify-between text-[12px]"><span className="text-grey">− Sales tax</span><span className="font-mono tabular-nums text-foreground">−{formatCurrency(taxCollected)}</span></div>}
               {tips > 0 && <div className="flex justify-between text-[12px]"><span className="text-grey">− Tips</span><span className="font-mono tabular-nums text-foreground">−{formatCurrency(tips)}</span></div>}
               {commission > 0 && <div className="flex justify-between text-[12px]"><span className="text-grey">− Barber commission</span><span className="font-mono tabular-nums text-foreground">−{formatCurrency(commission)}</span></div>}
+              <div className="flex justify-between text-[12px] border-t border-border pt-2"><span className="text-foreground font-semibold">Net revenue</span><span className={cn("font-mono tabular-nums font-bold text-[14px]", netRev < 0 ? "text-red-400" : "text-foreground")}>{formatCurrency(netRev)}</span></div>
             </>
           )}
-          <div className={cn("flex justify-between text-[12px]", showBreakdown && "border-t border-border pt-2")}><span className="text-foreground font-semibold">Net revenue</span><span className={cn("font-mono tabular-nums font-bold text-[14px]", netRev < 0 ? "text-red-400" : "text-foreground")}>{formatCurrency(netRev)}</span></div>
-          {hasBreakdown && (
-            <button type="button" aria-expanded={showBreakdown} onClick={() => setShowBreakdown(v => !v)}
-              className="mt-1 self-center inline-flex items-center gap-1 text-[11px] text-grey hover:text-foreground transition-colors">
-              {showBreakdown ? "Hide breakdown" : "Show breakdown"}
-              <ChevronDown size={12} className={cn("transition-transform", showBreakdown && "rotate-180")} />
-            </button>
-          )}
+          <button type="button" aria-expanded={showBreakdown} onClick={() => setShowBreakdown(v => !v)}
+            className="mt-1 self-center inline-flex items-center gap-1 text-[11px] text-grey hover:text-foreground transition-colors">
+            {showBreakdown ? "Hide breakdown" : "Show breakdown"}
+            <ChevronDown size={12} className={cn("transition-transform", showBreakdown && "rotate-180")} />
+          </button>
         </div>
       )}
     </div>,
