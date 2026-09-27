@@ -1,0 +1,18 @@
+const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript');
+const code = ts.transpileModule(fs.readFileSync('src/lib/shop-public-links.ts','utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+const mod={exports:{}};new Function('exports',code)(mod.exports);
+const {publicWebsite,shopSocialLinks,shopDirections}=mod.exports;
+for(const value of ['javascript:alert(1)','data:text/html,test','https://user:pass@example.com','https://bad host.test','\\evil.test',null,'']) assert.equal(publicWebsite(value),null);
+assert.equal(publicWebsite('studio.example/contact'),'https://studio.example/contact');
+assert.equal(shopSocialLinks({}).length,0);
+assert.deepEqual(shopSocialLinks({instagram:'@real_shop',tiktok:'@realshop',youtube:'https://youtube.com/@realshop',facebook:'https://facebook.com/realshop',website:'https://studio.example'}).map(x=>x.label),['Instagram','Facebook','TikTok','YouTube','Website']);
+assert.equal(shopSocialLinks({instagram:'https://instagram.com.evil.test/shop'}).length,0);
+assert.equal(shopSocialLinks({instagram:'https://instagram.com'}).length,0);
+assert.equal(shopSocialLinks({instagram:'javascript:alert(1)'}).length,0);
+assert.equal(shopDirections({name:'Unknown'}),null);
+const url=new URL(shopDirections({name:'A & B',address:'123 Main St #2',city:'Halifax',google_place_id:'saved?place&value'}));
+assert.equal(url.origin,'https://www.google.com');assert.equal(url.searchParams.get('query'),'A & B, 123 Main St #2, Halifax');assert.equal(url.searchParams.get('query_place_id'),'saved?place&value');
+const landing=fs.readFileSync('src/app/shop-preview/[shopslug]/luxury-landing.tsx','utf8');
+assert.doesNotMatch(landing,/Photo coming soon|Good cuts\. Quiet confidence|Sample hours|Your portfolio goes here|Design preview/);
+assert.match(landing,/shop\.description/);assert.match(landing,/Get directions/);
+console.log('PASS saved shop contact links: safe protocols/platforms, handles, absent data, encoded saved destination, and no placeholder claims');
