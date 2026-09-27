@@ -322,7 +322,7 @@ export default function DashboardPage() {
       ? Promise.resolve([] as RevTx[])
       : readAllRows((from, to) => supabase
           .from("transactions")
-          .select("client_name, service_name, amount, tip, tax, payment_method, payment_intent_id, created_at, stripe_session_id, source, refunded, barber_id, commission_amount")
+          .select("client_name, service_name, amount, tip, tax, payment_method, payment_intent_id, created_at, stripe_session_id, source, refunded, barber_id, commission_amount, appointment_id")
           .eq("shop_id", shop.id)
           .gte("created_at", new Date(`${start}T00:00:00`).toISOString())
           .lte("created_at", new Date(`${end}T23:59:59.999`).toISOString())
@@ -333,7 +333,7 @@ export default function DashboardPage() {
     // it to the period by paid_at at compute time. Barber sees only their own.
     let revQ = supabase
       .from("appointments")
-      .select("client_name, total_amount, tax_amount, tip_amount, gift_applied, balance_due, payment_status, payment_method, payment_intent_id, status, barber_id, paid_at, created_at")
+      .select("id, client_name, total_amount, tax_amount, tip_amount, gift_applied, balance_due, payment_status, payment_method, payment_intent_id, status, barber_id, paid_at, created_at")
       .eq("shop_id", shop.id)
       .in("payment_status", ["paid", "captured"])
       .order("created_at", { ascending: false }).order("id");

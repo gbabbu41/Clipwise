@@ -11,6 +11,7 @@
 // never touches Stripe, so it carries no fee (net === gross for cash).
 
 export type RevAppt = {
+  id?: string;                    // links separately-paid tips / collected balances
   client_name: string | null;
   total_amount: number | null;   // service + tax (NOT tip — tip is its own column)
   tax_amount?: number | null;
@@ -36,6 +37,7 @@ export type RevTx = {
   stripe_session_id?: string | null;
   source?: string | null;
   refunded?: boolean | null;
+  appointment_id?: string | null; // the booking a completion/balance row belongs to
   // Barber attribution + stored cut — used by shopBarberCommission so the owner
   // screens read commission from the same ledger the barber portal does.
   barber_id?: string | null;
@@ -44,6 +46,38 @@ export type RevTx = {
 
 // paymentIntent id -> exact figures from Stripe balance transactions.
 export type ByPi = Record<string, { gross: number; fee: number; net: number }>;
+
+/** Saved gross per PaymentIntent: the first non-refunded card ledger row for that
+ * intent (amount + tax + tip). Charge rows are written from what Stripe actually
+ * took (capture rows use amount_received), so this — not the booking total — is
+ * the reliable "Gross collected" for the charge, whether its fee is confirmed or
+ * still estimated. */
+export function savedChargeGross(txs: RevTx[]): Map<string, number> {
+  const saved = new Map<string, number>();
+  for (const t of txs) {
+    const pi = t.payment_intent_id;
+    if (!pi || saved.has(pi) || t.payment_method !== "card" || t.refunded || t.source === "refund") continue;
+    const g = transactionCollectedAmount(t);
+    if (g > 0) saved.set(pi, g);
+  }
+  return saved;
+}
+
+/** Bookings whose tip was paid on its OWN charge (post-visit tip link: a
+ * completion row for the booking on a different intent). Older code also copied
+ * that tip into the booking's tip_amount, so counting it on the booking as well
+ * would count it twice — callers treat these bookings' tip_amount as 0. */
+export function separatelyTippedAppts(appts: RevAppt[], txs: RevTx[]): Set<string> {
+  const piById = new Map<string, string | null>();
+  for (const a of appts) if (a.id) piById.set(a.id, a.payment_intent_id ?? null);
+  const ids = new Set<string>();
+  for (const t of txs) {
+    const id = t.appointment_id;
+    if (!id || t.source !== "completion" || t.refunded || !((t.tip ?? 0) > 0) || !piById.has(id)) continue;
+    if (t.payment_intent_id && t.payment_intent_id !== piById.get(id)) ids.add(id);
+  }
+  return ids;
+}
 
 export const isPaid = (s: string | null | undefined) => s === "paid" || s === "captured";
 export const isNoShowTx = (t: RevTx) => t.source === "no_show" || (t.service_name ?? "").startsWith("No-show fee");
@@ -140,6 +174,12 @@ export function collectedTotals(appts: RevAppt[], txs: RevTx[], byPi?: ByPi, own
   // PaymentIntents accounted for by the appointment loop — a post-visit tip on
   // one of these intents is already inside the appointment, so it's skipped below.
   const apptPis = new Set<string>();
+  // Gross = what each charge actually took (confirmed Stripe gross, else the saved
+  // ledger amount), never the booking total: an uncaptured remainder isn't
+  // collected, and a tip paid on its own charge is counted once (its own line).
+  const saved = savedChargeGross(txs);
+  const sepTipped = separatelyTippedAppts(appts, txs);
+  const chargeGrossAppts = new Set<string>(); // bookings whose gross came from their charge
 
   // Settled appointments — exclude paid no-shows (represented by a tx row so it
   // isn't double-counted).
@@ -162,10 +202,16 @@ export function collectedTotals(appts: RevAppt[], txs: RevTx[], byPi?: ByPi, own
     const bal = Math.min(Math.max(0, a.balance_due ?? 0), total);
     const collectedSvcTax = Math.max(0, total - bal);
     const svcTax = Math.max(0, collectedSvcTax - (a.gift_applied ?? 0));
-    const apptTip = Math.max(0, a.tip_amount ?? 0);
-    const lineGross = svcTax + apptTip;
-    const { net: n, fee: f } = lineNetFee(a.payment_intent_id, lineGross, byPi);
+    const apptTip = a.id && sepTipped.has(a.id) ? 0 : Math.max(0, a.tip_amount ?? 0);
+    const pi = a.payment_intent_id;
+    // Needs the booking id to link a later-collected balance back (else: old rule).
+    const charged = a.id && pi && a.payment_method !== "cash" ? (byPi?.[pi]?.gross ?? saved.get(pi)) : undefined;
+    const lineGross = charged ?? svcTax + apptTip;
+    if (charged !== undefined && a.id) chargeGrossAppts.add(a.id);
+    const { net: n, fee: f } = lineNetFee(pi, lineGross, byPi);
     gross += lineGross; net += n; fees += f;
+    // Tax keeps its existing rule (booking tax scaled by recorded balance_due) —
+    // it feeds "tax to remit" + Net revenue, so the Gross fix doesn't change it.
     tax += total > 0 ? (a.tax_amount ?? 0) * (collectedSvcTax / total) : (a.tax_amount ?? 0);
     tips += apptTip;
     if (isOwnerBarber(a.barber_id)) ownerTips += apptTip;
@@ -218,6 +264,8 @@ export function collectedTotals(appts: RevAppt[], txs: RevTx[], byPi?: ByPi, own
     if (amt <= 0) continue;
     const { net: n, fee: f } = lineNetFee(t.payment_intent_id ?? null, amt, byPi);
     net += n; fees += f;
+    // Its booking counted only its own charge above → the balance adds its gross.
+    if (t.appointment_id && chargeGrossAppts.has(t.appointment_id)) gross += amt;
     if (t.payment_method === "cash") cash += amt;
   }
 

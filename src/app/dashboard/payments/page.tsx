@@ -8,7 +8,7 @@ import { DashboardHeader } from "@/components/dashboard/page-header";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { supabase } from "@/lib/supabase";
 import { formatCurrency, cn, timeToMinutes, timeAgo } from "@/lib/utils";
-import { countablePosTxs, estimateStripeFee, isNoShowTx, isPaid, lineNetFee, transactionCollectedAmount, type CardFeeEstimate } from "@/lib/revenue";
+import { countablePosTxs, estimateStripeFee, isNoShowTx, isPaid, lineNetFee, savedChargeGross, separatelyTippedAppts, transactionCollectedAmount, type CardFeeEstimate, type RevAppt } from "@/lib/revenue";
 import { computeBarberEarnings, barberRowCut } from "@/lib/barber-earnings";
 import { readAllRows } from "@/lib/read-all-rows";
 import { cacheGet, cacheSet } from "@/lib/view-cache";
@@ -374,6 +374,11 @@ export default function PaymentsPage() {
   // (the fee lives on the tx, not the appointment row). Lets an online-booking
   // line get its fee from the ledger when the live Stripe fetch lags.
   const feeByAppt = new Map<string, number>();
+  // What each charge actually took (saved ledger row per PaymentIntent) and the
+  // bookings whose tip was paid on its own charge — shared with the Dashboard
+  // (src/lib/revenue.ts) so both read Gross the same way.
+  const savedGross = savedChargeGross(txs);
+  const sepTipped = separatelyTippedAppts(appts as RevAppt[], txs);
   const appointmentPi = new Map(appts.map(a => [a.id, a.payment_intent_id]));
   for (const t of txs) {
     if (t.refunded || t.stripe_fee == null || !Number.isFinite(t.stripe_fee) || !t.appointment_id) continue;
@@ -426,7 +431,7 @@ export default function PaymentsPage() {
           sub: `${a.services?.name ?? "Service"}${a.barbers?.name ? ` · ${a.barbers.name}` : ""}`,
           amount: a.total_amount ?? 0, tax: a.tax_amount ?? 0,
           giftApplied: (a as { gift_applied?: number }).gift_applied ?? 0,
-          tipExtra: (a as { tip_amount?: number }).tip_amount ?? 0,
+          tipExtra: sepTipped.has(a.id) ? 0 : (a as { tip_amount?: number }).tip_amount ?? 0, // a separately-paid tip is its own line
           statusLabel: noCharge ? "No charge" : info.label,
           tone: noCharge ? "muted" : info.tone,
           settled: paid, tsIso,
@@ -524,7 +529,16 @@ export default function PaymentsPage() {
   const hasLedgerFee = (i: FeedItem) => i.ledgerFee != null && Number.isFinite(i.ledgerFee) && (i.ledgerFee as number) > 0;
   // Is this line's fee settled EXACTLY (live Stripe, a real recorded fee, cash, or
   // a $0-value line)? If not, we fall back to an estimate below — never "unknown".
-  const feeExact = (i: FeedItem) => i.earn || i.method === "cash" || counted(i) === 0 || liveFee(i) || hasLedgerFee(i);
+  // Gross for a line = what its charge actually took — the confirmed Stripe gross,
+  // else the saved ledger amount — never the booking total, whether the fee is
+  // confirmed or estimated. So an uncaptured remainder isn't "collected" and the
+  // displayed gross − fee = net for every line and every total.
+  const lineGross = (i: FeedItem) => {
+    if (i.earn || i.method === "cash" || !i.pi) return counted(i);
+    if (liveFee(i)) return stripeNet!.byPi[i.pi].gross;
+    return savedGross.get(i.pi) ?? counted(i);
+  };
+  const feeExact = (i: FeedItem) => i.earn || i.method === "cash" || lineGross(i) === 0 || liveFee(i) || hasLedgerFee(i);
   // Fee: exact when we have it (live → recorded), else a slightly-HIGH estimate so
   // Net is ALWAYS a number (never "Unavailable") and only ticks UP when the real
   // fee lands. Cash / $0 / barber-earnings lines carry no fee.
@@ -532,12 +546,12 @@ export default function PaymentsPage() {
     ? lineNetFee(i.pi, counted(i), stripeNet!.byPi).fee
     : hasLedgerFee(i)
       ? (i.ledgerFee as number)
-      : (i.earn || i.method === "cash" || counted(i) === 0)
+      : (i.earn || i.method === "cash" || lineGross(i) === 0)
         ? 0
-        : estimateStripeFee(counted(i), stripeNet?.feeEstimate); // platform ESTIMATE rate — unconfirmed fees only
+        : estimateStripeFee(lineGross(i), stripeNet?.feeEstimate); // platform ESTIMATE rate — unconfirmed fees only
   const netOf = (i: FeedItem) => liveFee(i)
     ? lineNetFee(i.pi, counted(i), stripeNet!.byPi).net
-    : Math.max(0, counted(i) - feeOf(i));
+    : Math.max(0, lineGross(i) - feeOf(i));
   const statementAmount = (i: FeedItem) => i.earn ? i.amount : netOf(i);
 
   // Barber name — used to scope the appointment-based bits still shown in barber
@@ -631,7 +645,7 @@ export default function PaymentsPage() {
     const feesKnown = cardIn.every(feeExact);
     const net = cardIn.reduce((s, i) => s + netOf(i), 0);
     const cash = cashIn.reduce((s, i) => s + counted(i), 0);
-    const gross = cardIn.reduce((s, i) => s + counted(i), 0);
+    const gross = cardIn.reduce((s, i) => s + lineGross(i), 0);
     const fees = cardIn.reduce((s, i) => s + feeOf(i), 0);
     const tax = [...cardIn, ...cashIn].reduce((s, i) => s + (i.tax ?? 0), 0);
     const count = cardIn.length + cashIn.length;
@@ -1160,7 +1174,7 @@ export default function PaymentsPage() {
                     <div className="flex justify-between"><span className="text-grey">Earned</span><span className="text-foreground font-semibold">{formatCurrency(i.amount)}</span></div>
                   ) : i.settled && i.method !== "cash" && feeOf(i) > 0 ? (
                     <>
-                      <div className="flex justify-between"><span className="text-grey">Gross (paid)</span><span className="text-foreground">{formatCurrency(counted(i))}</span></div>
+                      <div className="flex justify-between"><span className="text-grey">Gross (paid)</span><span className="text-foreground">{formatCurrency(lineGross(i))}</span></div>
                       {i.tax > 0 && <div className="flex justify-between"><span className="text-grey">Sales tax (incl.)</span><span className="text-grey">{formatCurrency(i.tax)}</span></div>}
                       <div className="flex justify-between"><span className="text-grey">Stripe fee{feeExact(i) ? "" : " (est.)"}</span><span className="text-grey">−{formatCurrency(feeOf(i))}</span></div>
                       <div className="flex justify-between"><span className="text-grey">Net (you keep)</span><span className="text-foreground font-bold">{feeExact(i) ? "" : "≈ "}{formatCurrency(netOf(i))}</span></div>
