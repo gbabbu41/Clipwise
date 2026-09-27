@@ -2119,8 +2119,8 @@ html[data-theme="light"] .portal .cwp-review{--rev:#a5710f}
 @media (max-width: 1023px) {
   [data-calendar-canvas]:not(:has([data-calendar-scroll])) { padding-bottom: calc(4.25rem + env(safe-area-inset-bottom)); }
   [data-calendar-canvas] [data-calendar-scroll]::after { content: ""; display: block; height: calc(60px + max(8px, env(safe-area-inset-bottom) - 16px) + 8px); }
-  .cw-bnav[data-calendar-nav-hidden] { opacity: 0; translate: 0 calc(100% + 2rem + env(safe-area-inset-bottom)); pointer-events: none; }
+  .cw-bnav[data-scroll-nav-hidden] { opacity: 0; translate: 0 calc(100% + 2rem + env(safe-area-inset-bottom)); pointer-events: none; }
 }
 
-.cw-bnav[data-calendar-nav] { transition: opacity 160ms ease, translate 160ms ease; }
-@media (prefers-reduced-motion: reduce) { .cw-bnav[data-calendar-nav] { transition: none; } }
+.cw-bnav[data-scroll-nav] { transition: opacity 160ms ease, translate 160ms ease; }
+@media (prefers-reduced-motion: reduce) { .cw-bnav[data-scroll-nav] { transition: none; } }

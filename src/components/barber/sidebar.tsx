@@ -1,4 +1,5 @@
 "use client";
+import { useMobileNavVisibility } from "@/lib/use-calendar-nav-visibility";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
@@ -478,6 +479,7 @@ export function BarberSidebar() {
 
 export function BarberMobileNav() {
   const pathname = usePathname();
+  const { navRef, hidden } = useMobileNavVisibility(pathname);
   const { barber } = useBarber();
   const perms = barber?.permissions ?? DEFAULT_BARBER_PERMISSIONS;
   const toggleDrawer = () => window.dispatchEvent(new Event("cw-toggle-sidebar"));
@@ -496,7 +498,7 @@ export function BarberMobileNav() {
   // bar. The FAB is gone (quick-add moved to the top-bar +); My Clients shows only
   // when this barber has the view_clients permission.
   return (
-    <nav className="cw-bnav lg:hidden">
+    <nav ref={navRef} data-scroll-nav data-scroll-nav-hidden={hidden || undefined} aria-hidden={hidden || undefined} className="cw-bnav lg:hidden">
       {navLink("/barber-dashboard", "Home", LayoutDashboard)}
       {navLink("/barber-dashboard/calendar", "Calendar", CalendarDays)}
       {navLink("/barber-dashboard/earnings", "Payments", DollarSign)}
