@@ -47,3 +47,25 @@ export function missingFeeIntents(
   for (const pi of appointmentIntents) add(pi);
   return result;
 }
+
+export type ApptFeeRow = {
+  payment_intent_id: string | null;
+  stripe_fee: number | null;
+  stripe_gross: number | null;
+};
+
+/** Online-booking charges live on the appointment (no ledger row), so their
+ * exact balance-transaction values are cached there (phase66). The column is
+ * NULL until confirmed — unlike the legacy transactions default of 0 — so a
+ * stored 0 is a real, verified zero fee. */
+export function confirmedFeesFromAppts(rows: ApptFeeRow[]): ByPi {
+  const byPi: ByPi = {};
+  for (const row of rows) {
+    const pi = row.payment_intent_id;
+    if (!pi || byPi[pi] || row.stripe_fee == null || row.stripe_gross == null) continue;
+    const fee = Number(row.stripe_fee), gross = Number(row.stripe_gross);
+    if (!Number.isFinite(fee) || !Number.isFinite(gross) || fee < 0 || gross <= 0) continue;
+    byPi[pi] = { gross, fee, net: Math.round((gross - fee) * 100) / 100 };
+  }
+  return byPi;
+}

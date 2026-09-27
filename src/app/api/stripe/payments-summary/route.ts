@@ -3,7 +3,7 @@ import { confirmedStripeFee, stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { authorizeShop } from "@/lib/api-auth";
 import { readAllRows } from "@/lib/read-all-rows";
-import { confirmedFeesFromRows, missingFeeIntents, type FeeRow } from "@/lib/confirmed-fees";
+import { confirmedFeesFromAppts, confirmedFeesFromRows, missingFeeIntents, type ApptFeeRow, type FeeRow } from "@/lib/confirmed-fees";
 import type { ByPi } from "@/lib/revenue";
 
 const FEE_RETRY_MS = 10 * 60_000;
@@ -78,25 +78,42 @@ export async function POST(req: NextRequest) {
       .eq("shop_id", auth.shop.id).gt("stripe_fee", 0).not("payment_intent_id", "is", null)
       .order("id").range(from, to));
     byPi = confirmedFeesFromRows(savedRows);
+    // Online-booking charges have no ledger row — their confirmed fee is cached on
+    // the appointment (phase66). Optional: until that migration runs the read
+    // fails and we fall back to live lookups exactly as before.
+    const savedAppts = await readAllRows<ApptFeeRow>((from, to) => supabaseAdmin.from("appointments")
+      .select("payment_intent_id, stripe_fee, stripe_gross")
+      .eq("shop_id", auth.shop.id).not("stripe_fee", "is", null).not("payment_intent_id", "is", null)
+      .order("id").range(from, to)).catch(() => [] as ApptFeeRow[]);
+    for (const [pi, v] of Object.entries(confirmedFeesFromAppts(savedAppts))) if (!byPi[pi]) byPi[pi] = v;
 
     // Recent unresolved rows and appointments without a ledger fee get a small,
     // deduplicated, account-scoped exact lookup. Fresh charges can post their
     // balance transaction later; estimates are never written to the ledger.
     const cutoff = new Date(Date.now() - 400 * 86_400_000).toISOString();
-    const [missingRowsResult, apptResult] = await Promise.all([
+    // Paid appointments still missing a cached fee. Prefer the phase66 filter so
+    // the window only holds UNRESOLVED charges; retry without it pre-migration.
+    const paidAppts = (onlyUncached: boolean) => {
+      const q = supabaseAdmin.from("appointments")
+        .select("payment_intent_id").eq("shop_id", auth.shop.id)
+        .in("payment_status", ["paid", "captured"]).not("payment_intent_id", "is", null)
+        .gte("created_at", cutoff);
+      return (onlyUncached ? q.is("stripe_fee", null) : q).order("created_at", { ascending: false }).limit(150);
+    };
+    const [missingRowsResult, firstApptResult] = await Promise.all([
       supabaseAdmin.from("transactions")
         .select("id, payment_intent_id, stripe_fee, amount, tax, tip, payment_method, refunded, source")
         .eq("shop_id", auth.shop.id).eq("payment_method", "card")
         .not("payment_intent_id", "is", null).or("stripe_fee.is.null,stripe_fee.eq.0")
         .gte("created_at", cutoff).order("created_at", { ascending: false }).limit(150),
-      supabaseAdmin.from("appointments")
-        .select("payment_intent_id").eq("shop_id", auth.shop.id)
-        .in("payment_status", ["paid", "captured"]).not("payment_intent_id", "is", null)
-        .gte("created_at", cutoff).order("created_at", { ascending: false }).limit(150),
+      paidAppts(true),
     ]);
+    const apptResult = firstApptResult.error ? await paidAppts(false) : firstApptResult;
     if (missingRowsResult.error || apptResult.error) throw new Error("Could not verify missing fees.");
     const missingRows = (missingRowsResult.data ?? []) as FeeRow[];
-    const candidates = missingFeeIntents(missingRows, (apptResult.data ?? []).map(a => a.payment_intent_id), byPi, 300);
+    const apptIntents = (apptResult.data ?? []).map(a => a.payment_intent_id);
+    const apptPis = new Set(apptIntents);
+    const candidates = missingFeeIntents(missingRows, apptIntents, byPi, 300);
     const now = Date.now();
     const due: string[] = [];
     for (const pi of candidates) {
@@ -115,6 +132,14 @@ export async function POST(req: NextRequest) {
       if (!exact) return;
       byPi[pi] = exact;
       recentFeeLookups.set(key, { at: now, value: exact });
+      // Cache it on the appointment so it's never looked up again (phase66). A
+      // charge's balance transaction never changes; only fills an empty cache.
+      if (apptPis.has(pi)) {
+        await supabaseAdmin.from("appointments")
+          .update({ stripe_fee: exact.fee, stripe_gross: exact.gross })
+          .eq("shop_id", auth.shop.id).eq("payment_intent_id", pi).is("stripe_fee", null)
+          .then(null, () => null);
+      }
       const row = missingRows.find(r => r.payment_intent_id === pi && !r.refunded && r.source !== "refund");
       // Legacy schema defaults to 0: it cannot distinguish confirmed zero from
       // pending. Return a real zero now, but do not pretend it is durable cache.

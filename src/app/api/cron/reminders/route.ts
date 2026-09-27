@@ -11,7 +11,7 @@ import { collectedTotals, type RevAppt, type RevTx } from "@/lib/revenue";
 import { sendAppEmail } from "@/lib/emailer";
 import { processTrials } from "@/lib/process-trials";
 import { reconcileSubscriptions } from "@/lib/reconcile-subscriptions";
-import { backfillMissingStripeFees } from "@/lib/backfill-fees";
+import { backfillAppointmentStripeFees, backfillMissingStripeFees } from "@/lib/backfill-fees";
 import { backfillTerminalLocations } from "@/lib/terminal";
 
 /**
@@ -420,6 +420,7 @@ export async function POST(req: NextRequest) {
   await backfillMissingStripeFees().catch(() => null);    // fill stripe_fee that wasn't ready at charge time
   await backfillTerminalLocations().catch(() => null);    // ensure a Terminal Location for already-onboarded shops
   const result = await run();
+  await backfillAppointmentStripeFees().catch(() => null); // cache exact fees on online bookings (after reminders, never delays them)
   return lifecycleOk ? result : NextResponse.json({ error: "Reminders processed, but subscription maintenance needs retry." }, { status: 503 });
 }
 export async function GET(req: NextRequest) {
@@ -427,6 +428,7 @@ export async function GET(req: NextRequest) {
   const lifecycleOk = await runSubscriptionMaintenance();
   await backfillMissingStripeFees().catch(() => null);    // Vercel's scheduled GET needs the same fee repair as manual POST
   const result = await run();
+  await backfillAppointmentStripeFees().catch(() => null); // cache exact fees on online bookings (after reminders, never delays them)
   return lifecycleOk ? result : NextResponse.json({ error: "Reminders processed, but subscription maintenance needs retry." }, { status: 503 });
 }
 

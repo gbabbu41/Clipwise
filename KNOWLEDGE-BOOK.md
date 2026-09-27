@@ -508,6 +508,16 @@ not `shop_id`, so the page's `filter: shop_id=eq.X` drops the event. Foreground/
 remount → **log out / back in** (or hard reload) to refetch. Normal create/update flows are
 unaffected (their realtime events carry `shop_id`).
 
+**Online-booking fee cache (2026-09-27, phase66):** a charge taken at booking (Checkout / saved
+card) lives on the **appointment** — no `transactions` row — so its fee had nowhere to be stored and
+`payments-summary` re-looked it up live every load (max 8/request, in-memory cache only). A shop with
+many online bookings therefore showed "≈" on All time. Fix: `appointments.stripe_fee` +
+`stripe_gross` (NULL = unconfirmed) filled once from the charge's balance transaction (immutable —
+refunds post separately) by the `payment_intent.succeeded` webhook, by `payments-summary` after any
+live lookup, and by `backfillAppointmentStripeFees` (daily cron, newest first, 30/run, no cutoff).
+`payments-summary` merges them into `byPi` via `confirmedFeesFromAppts`, so Payments AND the Dashboard
+read them with no page changes. All paths tolerate the columns being absent (pre-migration).
+
 **Approved go-forward design (owner sign-off 2026-09-22) — "ledger is the source of truth":**
 - **Pull each fee from Stripe ONCE, store it, read locally forever.** A Stripe fee never changes
   once posted, so re-fetching is pure waste and the source of the fragility. The **amount** is

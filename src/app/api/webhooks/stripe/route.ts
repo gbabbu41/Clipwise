@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
-import { stripe, stripeFeeCents } from "@/lib/stripe";
+import { confirmedStripeFee, stripe, stripeFeeCents } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { sendPaymentReceipt, notifyNoShowCharged, notifyDuplicatePayment, notifyRefundIssued, notifyBalancePaid, notifyDispute } from "@/lib/payment-notify";
 import { recordOnlinePaymentTx } from "@/lib/finalize-appointment-payment";
@@ -561,13 +561,24 @@ export async function POST(request: NextRequest) {
         // 0/null fee (never overwrites a real one) and never blocks the webhook.
         // The daily backfill is the safety net for fees still not ready here.
         // See KNOWLEDGE-BOOK §3.8.
+        // One lookup also caches the exact fee on the booking itself (phase66):
+        // online-booking charges have no ledger row, so without this their fee was
+        // only ever fetched live and Payments could fall back to a "≈" estimate.
         try {
-          const feeCents = await stripeFeeCents(pi.id, (event.account as string | undefined) ?? null);
+          const acct = (event.account as string | undefined) ?? null;
+          const exact = acct ? await confirmedStripeFee(pi.id, acct) : null;
+          const feeCents = exact ? Math.round(exact.fee * 100) : await stripeFeeCents(pi.id, acct);
           if (feeCents > 0) {
             await supabaseAdmin.from("transactions")
               .update({ stripe_fee: feeCents / 100 })
               .eq("payment_intent_id", pi.id)
               .or("stripe_fee.is.null,stripe_fee.eq.0")
+              .then(null, () => null);
+          }
+          if (exact) {
+            await supabaseAdmin.from("appointments")
+              .update({ stripe_fee: exact.fee, stripe_gross: exact.gross })
+              .eq("payment_intent_id", pi.id).is("stripe_fee", null)
               .then(null, () => null);
           }
         } catch { /* fee not settled yet — daily backfill will fill it */ }

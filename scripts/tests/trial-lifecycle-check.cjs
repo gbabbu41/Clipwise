@@ -43,6 +43,7 @@ const run = () => m.exports.processTrials(now);
     const processTrials=async()=>{if(fail)throw Error('Unavailable')};
     const reconcileSubscriptions=async()=>{reconciled++};
     const backfillMissingStripeFees=async()=>{};
+    const backfillAppointmentStripeFees=async()=>{};
     const backfillTerminalLocations=async()=>{};
     const run=async()=>{runs++;return NextResponse.json({ok:true})};
     export const controls={set:(p,f)=>{permitted=p;fail=f},get:()=>({runs,reconciled})};

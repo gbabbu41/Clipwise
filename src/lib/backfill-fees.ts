@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { stripeFeeCents } from "@/lib/stripe";
+import { confirmedStripeFee, stripeFeeCents } from "@/lib/stripe";
 
 /**
  * Fill in Stripe fees that weren't ready at charge time.
@@ -58,6 +58,51 @@ export async function backfillMissingStripeFees(): Promise<{ scanned: number; fi
       if (saveError) throw new Error("Could not save a confirmed Stripe fee.");
       if (saved?.length === 1) filled++;
     }
+  }
+  return { scanned: rows.length, filled };
+}
+
+/**
+ * Cache the exact Stripe fee on paid online bookings (phase66) that the webhook
+ * and the Payments fee check haven't filled yet — mainly OLDER charges outside the
+ * Payments lookup window. No date cutoff: newest first, a small batch per run, so
+ * a shop's whole history fills in over a few days without slowing the cron.
+ * Pre-migration the read errors and this quietly does nothing.
+ */
+export async function backfillAppointmentStripeFees(limit = 30): Promise<{ scanned: number; filled: number }> {
+  const settled = new Date(Date.now() - 15 * 60_000).toISOString();
+  const { data: rows, error } = await supabaseAdmin
+    .from("appointments")
+    .select("id, shop_id, payment_intent_id")
+    .in("payment_status", ["paid", "captured"])
+    .not("payment_intent_id", "is", null)
+    .is("stripe_fee", null)
+    .lte("created_at", settled)
+    .order("created_at", { ascending: false }).order("id")
+    .limit(limit);
+  if (error || !rows || rows.length === 0) return { scanned: 0, filled: 0 };
+
+  const shopIds = Array.from(new Set(rows.map(r => r.shop_id).filter(Boolean))) as string[];
+  const { data: shops, error: shopsError } = await supabaseAdmin
+    .from("shops").select("id, stripe_account_id, stripe_connected").in("id", shopIds);
+  if (shopsError) return { scanned: rows.length, filled: 0 };
+  const acctByShop = new Map<string, string | null>();
+  for (const s of shops ?? []) acctByShop.set(s.id, (s.stripe_account_id && s.stripe_connected) ? s.stripe_account_id : null);
+
+  let filled = 0;
+  // Small parallel batches keep the daily cron fast.
+  for (let i = 0; i < rows.length; i += 5) {
+    await Promise.all(rows.slice(i, i + 5).map(async r => {
+      const acct = r.shop_id ? acctByShop.get(r.shop_id) ?? null : null;
+      if (!acct) return;
+      const exact = await confirmedStripeFee(r.payment_intent_id as string, acct);
+      if (!exact) return;
+      const { data: saved } = await supabaseAdmin.from("appointments")
+        .update({ stripe_fee: exact.fee, stripe_gross: exact.gross })
+        .eq("id", r.id).eq("shop_id", r.shop_id).eq("payment_intent_id", r.payment_intent_id)
+        .is("stripe_fee", null).select("id");
+      if (saved?.length === 1) filled++;
+    }));
   }
   return { scanned: rows.length, filled };
 }
