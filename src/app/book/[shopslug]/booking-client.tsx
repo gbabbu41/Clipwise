@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, type ComponentProps, type ComponentType } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight, Star, Clock, Check, Calendar, Share2, User, Tag, X, Phone, Mail } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
@@ -152,7 +152,7 @@ function Skeleton({ className }: { className?: string }) {
   return <div className={cn("animate-pulse bg-[#141414] rounded-xl", className)} />;
 }
 
-export default function BookingClient() {
+export default function BookingClient({ Landing = ShopLanding, presentation }: { Landing?: ComponentType<ComponentProps<typeof ShopLanding>>; presentation?: "luxury" } = {}) {
   const params = useParams();
   const searchParams = useSearchParams();
   const shopslug = params?.shopslug as string;
@@ -943,6 +943,7 @@ export default function BookingClient() {
           body: JSON.stringify({
             shop_id: shop.id,
             shop_slug: shop.slug,
+            ...(presentation === "luxury" ? { presentation: "luxury" } : {}),
             barber_id: finalBarberId,
             service_id: selectedService,
             service_ids: selectedServices,
@@ -1333,6 +1334,9 @@ export default function BookingClient() {
     return () => window.removeEventListener("popstate", onPop);
   }, [lockedBarber, STEPS.length]);
 
+  // The preview success screen must not retain a previous failed-attempt toast.
+  useEffect(() => { if (presentation === "luxury" && confirmed) setToast(null); }, [presentation, confirmed]);
+
   // ── Loading screen ─────────────────────────────────────────────────────────
   if (pageLoading || (shop && shop.slug !== shopslug)) {
     return (
@@ -1434,7 +1438,7 @@ export default function BookingClient() {
           <p className="text-[#8f8f8f] mt-3 text-sm">If you were charged, your appointment is most likely booked — please contact the shop to confirm, or try booking again.</p>
           {shop.phone && <a href={`tel:${shop.phone}`} className="inline-block mt-4 text-white font-semibold">Call {shop.phone}</a>}
           <div className="mt-5">
-            <a href={`/book/${shop.slug}`} className="text-sm text-[#8f8f8f] hover:text-white transition-colors">← Back to booking</a>
+            <a href={`${presentation === "luxury" ? "/shop-preview" : "/book"}/${shop.slug}`} className="text-sm text-[#8f8f8f] hover:text-white transition-colors">← Back to booking</a>
           </div>
         </div>
       </div>
@@ -1534,7 +1538,7 @@ export default function BookingClient() {
               <Share2 size={16} /> Share
             </Button>
           </div>
-          <Button className="w-full mt-3 !bg-black !text-white hover:!bg-white/10" onClick={() => { setFreshStart(true); if (typeof window !== "undefined") window.history.replaceState({}, "", `/book/${shop.slug}`); setConfirmed(false); setPaidThankYou(false); setBookingPending(false); setConfirmedSummary(null); setStep(0); setSelectedBarber(null); setBarberFilter(null); setSelectedService(null); setSelectedDate(null); setSelectedTime(null); setPayMethodChoice(null); setTipPercent(0); }}>
+          <Button className="w-full mt-3 !bg-black !text-white hover:!bg-white/10" onClick={() => { setFreshStart(true); if (typeof window !== "undefined") window.history.replaceState({}, "", `${presentation === "luxury" ? "/shop-preview" : "/book"}/${shop.slug}`); setConfirmed(false); setPaidThankYou(false); setBookingPending(false); setConfirmedSummary(null); setStep(0); setSelectedBarber(null); setBarberFilter(null); setSelectedService(null); setSelectedDate(null); setSelectedTime(null); setPayMethodChoice(null); setTipPercent(0); }}>
             Book Another Appointment
           </Button>
         </div>
@@ -1585,7 +1589,7 @@ export default function BookingClient() {
   // brand moment). Book Now hands off to the existing booking wizard below.
   if (view === "landing") {
     return (
-      <ShopLanding
+      <Landing
         shop={shop}
         services={services}
         barbers={barbers}
