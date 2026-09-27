@@ -156,7 +156,6 @@ export default function BarberPaymentsPage() {
   const activePeriod = slide > lastBase
     ? { from: customFromTs, to: customToTs, label: hasCustom ? customLabel : "Custom" }
     : basePeriods[Math.min(slide, lastBase)];
-  const activeSummary = slide > lastBase ? customSummary : baseSummaries[Math.min(slide, lastBase)];
 
   // ── Outstanding (unpaid) appointments — chargeable here if permitted ──
   const [unpaid, setUnpaid] = useState<AppointmentWithDetails[]>([]);
@@ -310,7 +309,6 @@ export default function BarberPaymentsPage() {
       {/* ── Earnings — the period filters live in the carousel ─────────────── */}
       <div className="cwp-earn-head">
         <span className="cwp-lbl">You earned</span>
-        <span className="cwp-hint">‹ swipe periods ›</span>
       </div>
       <div className="cwp-railwrap">
       <div ref={railRef}
@@ -362,20 +360,6 @@ export default function BarberPaymentsPage() {
         <button type="button" aria-label="Next period" className="cwp-arrow cwp-arrow--next" onClick={() => goToRail(slide + 1)} disabled={slide >= basePeriods.length}><ChevronRight size={16} /></button>
       </div>
 
-      {/* ── Two summary tiles ──────────────────────────────────────────────── */}
-      <div className="cwp-tiles">
-        <button className="cwp-tile cwp-warn" onClick={() => setTxFilter(txFilter === "unpaid" ? "all" : "unpaid")}>
-          <div className="cwp-lbl">Outstanding</div>
-          <div className="cwp-tv">{formatCurrency(outstandingTotal)}</div>
-          <div className="cwp-tn">{visibleUnpaid.length} unpaid{visibleUnpaid.length > 0 ? (canManage ? " · tap to collect" : " · tap to view") : ""}</div>
-        </button>
-        <div className="cwp-tile">
-          <div className="cwp-lbl">Tips</div>
-          <div className="cwp-tv">{formatCurrency(activeSummary.tips)}</div>
-          <div className="cwp-tn">{activePeriod.label}</div>
-        </div>
-      </div>
-
       {/* ── Statement ──────────────────────────────────────────────────────── */}
       <div className="cwp-txhead"><h2>Transactions{txFilter !== "unpaid" ? <span className="font-normal text-grey"> · {activePeriod.label}</span> : null}</h2></div>
       <div className="cwp-seg">
@@ -385,6 +369,11 @@ export default function BarberPaymentsPage() {
           </button>
         ))}
       </div>
+      {/* Outstanding total — a small pill that only appears on the Unpaid view,
+          right above the rows it sums. */}
+      {txFilter === "unpaid" && outstandingTotal > 0 && (
+        <div className="cwp-owed">Outstanding · <b>{formatCurrency(outstandingTotal)}</b></div>
+      )}
 
       {loading ? (
         <div className="py-16 text-center text-grey-muted text-sm">Loading payments…</div>

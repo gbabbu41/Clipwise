@@ -9,7 +9,7 @@ import {
   BarChart3, Scissors, Star, Bell, CreditCard, Settings,
   Gift, ChevronRight, LogOut, Package, ClipboardList, CalendarDays, Ticket, Banknote, Share2, Megaphone, UmbrellaOff, Tablet, MessageSquare,
   Menu, BellRing, AlertTriangle, CalendarX2, Info, Clock, CheckCircle2, RefreshCcw, Check, X,
-  PanelLeft, PanelLeftClose, Plus, Wallet, Phone, CalendarCheck, ChevronDown, Store, TrendingUp,
+  PanelLeft, PanelLeftClose, Plus, Wallet, Phone, CalendarCheck, ChevronDown, Store, TrendingUp, Landmark,
 } from "lucide-react";
 // Logo component no longer used — sidebar wordmark is an inline div now.
 import { cn, timeAgo, formatRole } from "@/lib/utils";
@@ -139,6 +139,7 @@ const todayItems: NavItem[] = [
 // MONEY — cash in, cash out. Reconciling, paying staff, selling gift cards.
 const moneyItems: NavItem[] = [
   { href: "/dashboard/payments", label: "Payments", icon: CreditCard, ownerOnly: true, feature: "payments" },
+  { href: "/dashboard/payments/tax", label: "Tax", icon: Landmark, ownerOnly: true, feature: "payments" },
   { href: "/dashboard/payroll", label: "Payroll", icon: Banknote, ownerOnly: true, feature: "commission" },
   { href: "/dashboard/gift-cards", label: "Gift Cards", icon: Ticket, ownerOnly: true, feature: "loyalty" },
 ];
@@ -191,6 +192,10 @@ const accountItems: NavItem[] = [
   // app (Apple IAP). Barbers manage their plan on clipwise.ca.
   { href: "/dashboard/billing", label: "Plan & Billing", icon: Wallet, ownerOnly: true, nativeHidden: true },
 ];
+
+// Every page that has its own nav row — so a nested route with its own row (Tax
+// under Payments) doesn't also light its parent.
+const NAV_HREFS = new Set([...todayItems, ...moneyItems, ...shopItems, ...growItems, ...accountItems].map(i => i.href));
 
 // The ONE nav-gating rule the sidebar AND the mobile bottom nav both use, so a tab
 // appears in the exact same plans/roles in both places. We HIDE (never lock) what a
@@ -723,7 +728,9 @@ export function Sidebar() {
             // /dashboard/payments/tax lights Payments). The "/" boundary prevents a
             // prefix collision — /dashboard/waitlist must NOT light on
             // /dashboard/waitlist-requests.
-            const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href + "/"));
+            // A nested route that has its OWN nav row (/dashboard/payments/tax → Tax)
+            // lights only that row, not its parent too.
+            const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href + "/") && !NAV_HREFS.has(pathname));
             return (
               <Link
                 key={item.href}

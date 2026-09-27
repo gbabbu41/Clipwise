@@ -32,4 +32,5 @@ assert(!html.includes('Client40_99'), 'older sale hidden on Today');
 assert(html.includes('Load 3 more · 3 left'), 'load more button');
 html = render({ slide: 3, visibleTx: 50 });
 assert(html.includes('Client40_99'), 'All time shows older sale'); assert(!html.includes(' more · '), 'no button when all shown');
+{ const h = render(); assert(!h.includes('cwp-tile') && !h.includes('swipe periods')); }
 console.log('PASS barber Payments: Today first, scoped list, 10 rows + load more, All time shows older');

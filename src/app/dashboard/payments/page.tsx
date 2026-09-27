@@ -684,15 +684,11 @@ export default function PaymentsPage() {
   ];
   const scopedAppts = appts.filter(a => !barberName || a.barbers?.name === barberName);
   const outstandingAppts = scopedAppts.filter(a => a.payment_status === "unpaid" || a.payment_status === "failed" || !a.payment_status);
-  const pendingAppts = scopedAppts.filter(a => a.payment_status === "held" || a.payment_status === "saved");
   // Money still owed on SETTLED appointments (a price raised above the held card
   // left an uncollected balance) — count it as outstanding alongside unpaid ones.
   const partialBalances = scopedAppts.filter(a => isPaid(a.payment_status) && ((a as { balance_due?: number | null }).balance_due ?? 0) > 0);
   const partialBalanceTotal = partialBalances.reduce((s, a) => s + Math.max(0, (a as { balance_due?: number | null }).balance_due ?? 0), 0);
   const outstanding = outstandingAppts.reduce((s, a) => s + (a.total_amount ?? 0), 0) + partialBalanceTotal;
-  const pending = pendingAppts.reduce((s, a) => s + (a.total_amount ?? 0), 0);
-  const outstandingCount = outstandingAppts.length + partialBalances.length;
-  const pendingCount = pendingAppts.length;
   // Unrecorded Stripe payments the owner hasn't acknowledged yet (per-browser).
   const visibleUnrecorded = unrecorded.filter(u => !unrecDismissed.has(u.id));
 
@@ -925,32 +921,31 @@ export default function PaymentsPage() {
         subtitle={barberName ? `${barberFirst} · take-home${selDisplayPct ? ` · ${selDisplayPct}%` : ""}` : undefined}
       />
 
-      {/* Barber chip — only when more than one barber (solo shops stay clean) */}
-      {barbers.length > 1 && (
-        <div className="cwp-barberbar">
-          <button className="cwp-bchip" onClick={() => setShowBarberPicker(v => !v)}>
-            {selectedBarberLabel} <ChevronDown size={13} />
-          </button>
-          {showBarberPicker && (
-            <>
-              <div className="fixed inset-0 z-[50]" onClick={() => setShowBarberPicker(false)} />
-              <div className="cwp-bmenu">
-                {["all", ...barbers.map(b => b.id)].map(id => (
-                  <button key={id} className={cn(selectedBarber === id && "cwp-on")}
-                    onClick={() => { setSelectedBarber(id); setShowBarberPicker(false); }}>
-                    {id === "all" ? "Shop (all barbers)" : barbers.find(b => b.id === id)?.name}
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
       {/* ── Earnings — the period filters live in the carousel ─────────────── */}
+      {/* Earnings label + (multi-barber shops) the Shop/barber picker on one row —
+          the dots + arrows already say the cards swipe, so no hint text. */}
       <div className="cwp-earn-head">
-        <span className="cwp-lbl">Earnings{barberFirst ? ` · ${barberFirst}` : ""}</span>
-        <span className="cwp-hint" role="status">{refreshing ? "Updating…" : "‹ swipe periods ›"}</span>
+        <span className="cwp-lbl">Earnings{barberFirst ? ` · ${barberFirst}` : ""}{refreshing && <span className="cwp-hint normal-case tracking-normal font-normal" role="status"> · Updating…</span>}</span>
+        {barbers.length > 1 && (
+          <div className="cwp-barberbar">
+            <button className="cwp-bchip" onClick={() => setShowBarberPicker(v => !v)}>
+              {selectedBarberLabel} <ChevronDown size={13} />
+            </button>
+            {showBarberPicker && (
+              <>
+                <div className="fixed inset-0 z-[50]" onClick={() => setShowBarberPicker(false)} />
+                <div className="cwp-bmenu">
+                  {["all", ...barbers.map(b => b.id)].map(id => (
+                    <button key={id} className={cn(selectedBarber === id && "cwp-on")}
+                      onClick={() => { setSelectedBarber(id); setShowBarberPicker(false); }}>
+                      {id === "all" ? "Shop (all barbers)" : barbers.find(b => b.id === id)?.name}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
       <div className="cwp-railwrap">
       <div ref={netRef}
@@ -1022,18 +1017,6 @@ export default function PaymentsPage() {
         </div>
       )}
 
-      {/* ── Two summary tiles ──────────────────────────────────────────────── */}
-      <div className="cwp-tiles">
-        <button className="cwp-tile cwp-warn" onClick={() => setTxFilter(txFilter === "unpaid" ? "all" : "unpaid")}>
-          <div className="cwp-lbl">Outstanding</div>
-          <div className="cwp-tv">{formatCurrency(outstanding)}</div>
-        </button>
-        <div className="cwp-tile">
-          <div className="cwp-lbl">On file</div>
-          <div className="cwp-tv">{formatCurrency(pending)}</div>
-        </div>
-      </div>
-
       {/* ── Needs review: money in Stripe not recorded in ClipWise (owner only) ──
           Read-only safety net. Appears ONLY when there's a confirmed unmatched
           Stripe payment — nothing on a normal day. Never counted in any total;
@@ -1068,15 +1051,6 @@ export default function PaymentsPage() {
         </div>
       )}
 
-      {/* ── Tax collected (own page) — shop-level (tax is remitted by the shop,
-          not a barber), so hide it under a per-barber filter. ────────────────── */}
-      {!barberMode && (
-        <a href="/dashboard/payments/tax" className="cwp-payout" style={{ textDecoration: "none", marginTop: 10 }}>
-          <span className="cwp-next">🏛️ Tax collected · this year</span>
-          <span className="cwp-stripe">View →</span>
-        </a>
-      )}
-
       {/* ── Statement ──────────────────────────────────────────────────────── */}
       <div className="cwp-txhead"><h2>Transactions{periodScoped && activeWindow ? <span className="font-normal text-grey"> · {activeWindow.label}</span> : null}</h2></div>
       <div className="cwp-seg">
@@ -1084,6 +1058,11 @@ export default function PaymentsPage() {
           <button key={f} className={cn(txFilter === f && "cwp-on")} onClick={() => setTxFilter(f)}>{filterLabels[f]}</button>
         ))}
       </div>
+      {/* Outstanding total — a small pill that only appears on the Unpaid view,
+          right above the rows it sums. */}
+      {txFilter === "unpaid" && outstanding > 0 && (
+        <div className="cwp-owed">Outstanding · <b>{formatCurrency(outstanding)}</b></div>
+      )}
       {loading && !fromCache ? (
         <div className="py-16 text-center text-grey-muted text-sm">Loading payments…</div>
       ) : txGroups.length === 0 ? (

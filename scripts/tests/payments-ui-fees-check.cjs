@@ -25,6 +25,8 @@ function render(overrides = {}) { cursor = 0; states = { loading: false, loadedS
 const collapsed = render({ showDetails: false });
 assert(collapsed.includes('aria-expanded="false"'));
 assert(collapsed.includes('More'));
+// Decluttered: no On-file / Outstanding tiles, no tax link, no swipe hint.
+assert(!collapsed.includes('On file') && !collapsed.includes('cwp-tile') && !collapsed.includes('Tax collected') && !collapsed.includes('swipe periods'));
 let html = render({ stripeNet: { connected: true, byPi: {}, available: 0, pending: 0 } });
 // No live fee AND no recorded fee → the card fee is ESTIMATED (2.9% + 30¢, rounded
 // up), never "Unavailable". Gross stays $115.00; Net is the ≈-marked estimate
