@@ -103,7 +103,7 @@ export default function PaymentsPage() {
   const [txs, setTxs] = useState<TxRow[]>([]);
   const [stripeNet, setStripeNet] = useState<{ connected: boolean; byPi: Record<string, { gross: number; fee: number; net: number }>; available: number; pending: number; inTransit?: number; nextPayoutDate?: number | null; nextPayoutAmount?: number | null; lastPayout?: { amount: number; date: number } | null } | null>(null);
   // Fee coverage is checked for each period and charge, even after Stripe loads.
-  const [feesStatus, setFeesStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [, setFeesStatus] = useState<"loading" | "ready" | "error">("loading");
   const [netSlide, setNetSlide] = useState(0);
   const netRef = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -113,6 +113,7 @@ export default function PaymentsPage() {
   const [barbers, setBarbers] = useState<{ id: string; name: string; commission_percent?: number; user_id?: string | null; email?: string | null }[]>([]);
   const [selectedBarber, setSelectedBarber] = useState("all");
   const [showBarberPicker, setShowBarberPicker] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
 
   // Row expand + tx filter
   const [detailItem, setDetailItem] = useState<FeedItem | null>(null);
@@ -837,22 +838,35 @@ export default function PaymentsPage() {
   // One receipt-ledger renderer for both modes. Barber: Commission + Tips =
   // Take-home (no card fee — the shop bears processing). Shop: Gross − tax − fees
   // = You keep (the full card fee lives here, on the shop layer).
-  const renderLedger = (p: PeriodCard) => (
-    p.mode === "barber" ? (
+  // Collapsed, a card shows only the headline + the Stripe fee line; "More"
+  // reveals the full receipt (avg, cash, gross, tax, net / commission, tips).
+  const renderLedger = (p: PeriodCard) => {
+    const stripeRow = p.fees > 0 && <div className="cwp-lrow"><span className="cwp-lk">Stripe fees{p.feesKnown ? "" : " (est.)"}</span><span className="cwp-lv">−{formatCurrency(p.fees)}</span></div>;
+    const extras = (
+      <div className="cwp-lrow"><span className="cwp-lk">{p.cash > 0 ? "Average · cash" : "Average"}</span><span className="cwp-lv">{formatCurrency(p.avg)}{p.cash > 0 ? ` · ${formatCurrency(p.cash)}` : ""}</span></div>
+    );
+    return (
       <div className="cwp-ledger">
-        <div className="cwp-lrow"><span className="cwp-lk">{selIsOwner ? "Your cuts (100%)" : `Commission${selDisplayPct ? ` (${selDisplayPct}%)` : ""}`}</span><span className="cwp-lv">{formatCurrency(p.commission)}</span></div>
-        {p.tips > 0 && <div className="cwp-lrow"><span className="cwp-lk">Tips</span><span className="cwp-lv">{formatCurrency(p.tips)}</span></div>}
-        <div className="cwp-lrow cwp-ltotal"><span className="cwp-lk">Take-home</span><span className="cwp-lv">{formatCurrency(p.headline)}</span></div>
+        {p.mode === "barber" ? (
+          showDetails && <>
+            {extras}
+            <div className="cwp-lrow"><span className="cwp-lk">{selIsOwner ? "Your cuts (100%)" : `Commission${selDisplayPct ? ` (${selDisplayPct}%)` : ""}`}</span><span className="cwp-lv">{formatCurrency(p.commission)}</span></div>
+            {p.tips > 0 && <div className="cwp-lrow"><span className="cwp-lk">Tips</span><span className="cwp-lv">{formatCurrency(p.tips)}</span></div>}
+            <div className="cwp-lrow cwp-ltotal"><span className="cwp-lk">Take-home</span><span className="cwp-lv">{formatCurrency(p.headline)}</span></div>
+          </>
+        ) : showDetails ? <>
+          {extras}
+          <div className="cwp-lrow"><span className="cwp-lk">Gross taken in</span><span className="cwp-lv">{formatCurrency(p.gross)}</span></div>
+          {p.tax > 0 && <div className="cwp-lrow"><span className="cwp-lk">Sales tax</span><span className="cwp-lv">{formatCurrency(p.tax)}</span></div>}
+          {stripeRow}
+          <div className="cwp-lrow cwp-ltotal"><span className="cwp-lk">Net collected</span><span className="cwp-lv">{p.feesKnown ? "" : "≈ "}{formatCurrency(p.headline)}</span></div>
+        </> : stripeRow}
+        <button type="button" className="cwp-more" aria-expanded={showDetails} onClick={() => setShowDetails(v => !v)}>
+          {showDetails ? "Less" : "More"} <ChevronDown size={12} className={cn("transition-transform", showDetails && "rotate-180")} />
+        </button>
       </div>
-    ) : (
-      <div className="cwp-ledger">
-        <div className="cwp-lrow"><span className="cwp-lk">Gross taken in</span><span className="cwp-lv">{formatCurrency(p.gross)}</span></div>
-        {p.tax > 0 && <div className="cwp-lrow"><span className="cwp-lk">Sales tax</span><span className="cwp-lv">{formatCurrency(p.tax)}</span></div>}
-        {p.fees > 0 && <div className="cwp-lrow"><span className="cwp-lk">Stripe fees{p.feesKnown ? "" : " (est.)"}</span><span className="cwp-lv">−{formatCurrency(p.fees)}</span></div>}
-        <div className="cwp-lrow cwp-ltotal"><span className="cwp-lk">Net collected</span><span className="cwp-lv">{p.feesKnown ? "" : "≈ "}{formatCurrency(p.headline)}</span></div>
-      </div>
-    )
-  );
+    );
+  };
   const cardCapLabel = barberMode ? "Take-home" : "Net collected";
 
   return (
@@ -910,9 +924,7 @@ export default function PaymentsPage() {
             <div className="cwp-caplbl">{cardCapLabel}</div>
             <div className="cwp-amt">{p.feesKnown ? "" : "≈ "}{formatCurrency(p.headline)}</div>
             <div className={cn("cwp-sub", p.count === 0 && "cwp-flat")}>
-              {p.count > 0
-                ? <>{p.count} cut{p.count !== 1 ? "s" : ""} · {formatCurrency(p.avg)} avg{p.cash > 0 ? ` · incl. ${formatCurrency(p.cash)} cash` : ""}</>
-                : "No cuts in this period"}
+              {p.count > 0 ? `${p.count} cut${p.count !== 1 ? "s" : ""}` : "No cuts in this period"}
             </div>
             {p.count > 0 && renderLedger(p)}
           </div>
@@ -928,7 +940,7 @@ export default function PaymentsPage() {
             <div className="cwp-amt">{customCard.feesKnown ? "" : "≈ "}{formatCurrency(customCard.headline)}</div>
             <div className={cn("cwp-sub", customCard.count === 0 && "cwp-flat")}>
               {customCard.count > 0
-                ? <>{customLabel} · {customCard.count} cut{customCard.count !== 1 ? "s" : ""}{customCard.cash > 0 ? ` · incl. ${formatCurrency(customCard.cash)} cash` : ""}</>
+                ? `${customLabel} · ${customCard.count} cut${customCard.count !== 1 ? "s" : ""}`
                 : customLabel}
             </div>
             {customCard.count > 0 && renderLedger(customCard)}
@@ -966,18 +978,6 @@ export default function PaymentsPage() {
           <button className="cwp-stripe" onClick={openStripeDashboard} disabled={busy === "stripe"}>
             {busy === "stripe" ? "Opening…" : "Stripe"} <ExternalLink size={12} />
           </button>
-        </div>
-      )}
-
-      {/* Only nag when a total is ACTUALLY unresolved (a line with no recorded
-          fee AND no live fee) — not merely because the live fetch errored, since
-          the ledger fee now fills Net in that case. */}
-      {!barberMode && (feesStatus === "loading" || periodCards.some(p => !p.feesKnown)) && (
-        <div className="cwp-feesnote">
-          {feesStatus === "loading"
-            ? "Loading exact Stripe fees…"
-            : "A few fees are still settling — Net shown with an estimate (≈); it firms up automatically."}
-          <button className="ml-2 underline" onClick={() => void syncStripe()}>Refresh fees</button>
         </div>
       )}
 
