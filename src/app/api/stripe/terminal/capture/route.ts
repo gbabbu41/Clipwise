@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe, stripeFeeCents } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { insertLedgerRow } from "@/lib/ledger-insert";
 import { authorizeShop } from "@/lib/api-auth";
 import { insertNotifications } from "@/lib/notify-server";
 import { posCommissionFor } from "@/lib/commission-server";
@@ -88,18 +89,11 @@ export async function POST(req: NextRequest) {
       source: "pos",
     };
 
-    // Insert; progressively drop columns prod may lag on (tax = phase30,
-    // stripe_fee = phase38, source) so a sale is never lost pre-migration.
-    const attempt = (row: Record<string, unknown>) => supabaseAdmin.from("transactions").insert(row).select("id").single();
-    let ins = await attempt(fullRow);
-    for (let i = 0; i < 4 && ins.error && /column|does not exist|schema cache/i.test(ins.error.message); i++) {
-      const trimmed = { ...fullRow };
-      if (/tax/.test(ins.error.message)) delete trimmed.tax;
-      if (/stripe_fee/.test(ins.error.message)) delete trimmed.stripe_fee;
-      if (/payment_intent_id/.test(ins.error.message)) delete trimmed.payment_intent_id;
-      if (/source/.test(ins.error.message)) delete trimmed.source;
-      ins = await attempt(trimmed);
-    }
+    // Insert; drop only optional columns prod may lag on (tax = phase30,
+    // stripe_fee = phase38, source). payment_intent_id is the idempotency key, so
+    // it's never dropped: a failed save returns 500 and retrying the same PI skips
+    // the (already done) capture and records the sale once.
+    const ins = await insertLedgerRow(fullRow, ["tax", "stripe_fee", "source"]);
     if (ins.error) return NextResponse.json({ error: ins.error.message }, { status: 500 });
 
     // Decrement inventory for any product line items in the sale.
