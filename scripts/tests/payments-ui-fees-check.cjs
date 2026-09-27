@@ -3,7 +3,7 @@ const root = path.resolve(__dirname, '../..'), req = Module.createRequire(path.j
 const ts = req('typescript'), React = req('react'), { renderToStaticMarkup } = req('react-dom/server');
 let states, cursor;
 const source = fs.readFileSync(path.join(root, 'src/app/dashboard/payments/page.tsx'), 'utf8');
-const stateNames = [...source.matchAll(/const \[([A-Za-z]\w*),[^\]]+\]\s*=\s*useState/g)].map(m => m[1]);
+const stateNames = [...source.matchAll(/const \[([A-Za-z]\w*)?,[^\]]+\]\s*=\s*useState/g)].map(m => m[1]);
 function load(file) {
   const filename = path.join(root, file), m = new Module(filename, module); m.filename = filename;
   m.require = id => {
@@ -20,7 +20,11 @@ function load(file) {
 }
 const Page = load('src/app/dashboard/payments/page.tsx').default;
 const tx = { id: 'tx', client_name: 'QA client', service_name: 'Service', amount: 100, tax: 15, tip: 0, source: 'pos', payment_method: 'card', payment_intent_id: 'pi_test', created_at: new Date().toISOString(), barber_id: 'barber', commission_amount: 50 };
-function render(overrides = {}) { cursor = 0; states = { loading: false, loadedShop: 'shop', loadedScope: JSON.stringify(['shop', 'owner', 'test']), feesStatus: 'ready', txs: [tx], ...overrides }; return renderToStaticMarkup(React.createElement(Page)); }
+function render(overrides = {}) { cursor = 0; states = { loading: false, loadedShop: 'shop', loadedScope: JSON.stringify(['shop', 'owner', 'test']), feesStatus: 'ready', showDetails: true, txs: [tx], ...overrides }; return renderToStaticMarkup(React.createElement(Page)); }
+// Financial assertions inspect the expanded receipt; More hides these rows by design.
+const collapsed = render({ showDetails: false });
+assert(collapsed.includes('aria-expanded="false"'));
+assert(collapsed.includes('More'));
 let html = render({ stripeNet: { connected: true, byPi: {}, available: 0, pending: 0 } });
 // No live fee AND no recorded fee → the card fee is ESTIMATED (2.9% + 30¢, rounded
 // up), never "Unavailable". Gross stays $115.00; Net is the ≈-marked estimate
