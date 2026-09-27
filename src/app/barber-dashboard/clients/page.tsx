@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useBarber } from "@/lib/barber-context";
 import { clientMatchesQuery } from "@/lib/client-search";
 import { cacheGet, cacheSet } from "@/lib/view-cache";
+import { useLiveRefresh } from "@/lib/use-live-refresh";
 
 interface ClientRow {
   client_name: string;
@@ -21,6 +22,7 @@ export default function BarberClientsPage() {
   const [clients, setClients] = useState<ClientRow[]>([]);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
+  const [liveTick, setLiveTick] = useState(0);
 
   // The owner can hide this page per-barber (view_clients). Undefined = allowed.
   const notPermitted = barber?.permissions?.view_clients === false;
@@ -64,7 +66,11 @@ export default function BarberClientsPage() {
       })
       .catch(() => { /* load failed — finally clears the spinner; list stays empty */ })
       .finally(() => setLoading(false));
-  }, [accessToken, shop?.id, barber?.id, notPermitted]);
+  }, [accessToken, shop?.id, barber?.id, notPermitted, liveTick]);
+  // Gmail-style: new/changed bookings update the client list in place.
+  useLiveRefresh(shop?.id && !notPermitted ? `barber-clients:${shop.id}:${barber?.id ?? ""}` : null,
+    shop?.id ? [{ table: "appointments", filter: `shop_id=eq.${shop.id}` }] : [],
+    () => setLiveTick(t => t + 1));
 
   const filtered = clients.filter(c => clientMatchesQuery(c, query));
 

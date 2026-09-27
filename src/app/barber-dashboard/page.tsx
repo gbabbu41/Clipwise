@@ -15,6 +15,7 @@ import { useShopUnreadCount } from "@/hooks/use-unread-count";
 import { shareLink } from "@/lib/share";
 import { barberRowCut } from "@/lib/barber-earnings";
 import { cacheGet, cacheSet } from "@/lib/view-cache";
+import { useLiveRefresh } from "@/lib/use-live-refresh";
 import type { AppointmentWithDetails } from "@/lib/database.types";
 import Link from "next/link";
 
@@ -93,6 +94,11 @@ export default function BarberOverviewPage() {
   // The whole current week's appointments (this barber) — for the compact
   // week calendar, independent of the "today" schedule below.
   const [weekAppts, setWeekAppts] = useState<AppointmentWithDetails[]>([]);
+  const [liveTick, setLiveTick] = useState(0);
+  // Gmail-style: a booking change refreshes today + the week strip in place.
+  useLiveRefresh(shop?.id && barber?.id ? `barber-home:${shop.id}:${barber.id}` : null,
+    shop?.id ? [{ table: "appointments", filter: `shop_id=eq.${shop.id}` }] : [],
+    () => { void loadAppointments(); setLiveTick(t => t + 1); });
   useEffect(() => {
     if (!shop?.id || !barber?.id) return;
     const days = currentWeekDays();
@@ -111,7 +117,7 @@ export default function BarberOverviewPage() {
       setWeekAppts(rows);
       cacheSet(ckey, rows);
     })();
-  }, [shop?.id, barber?.id]);
+  }, [shop?.id, barber?.id, liveTick]);
 
   const upcoming = appointments.filter(a => a.status !== "completed" && a.status !== "cancelled" && a.status !== "no-show");
   const completed = appointments.filter(a => a.status === "completed");

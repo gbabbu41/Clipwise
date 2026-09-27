@@ -337,7 +337,7 @@ export default function PaymentsPage() {
     // plus a ~9-call Stripe summary. Debounce to a single trailing reload.
     const debouncedReload = () => {
       if (reloadTimer.current) clearTimeout(reloadTimer.current);
-      reloadTimer.current = setTimeout(() => loadData(), 800);
+      reloadTimer.current = setTimeout(() => { setFromCache(true); void loadData(); }, 800);
     };
     const ch = supabase
       .channel(`payments:${shop.id}`)

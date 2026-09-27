@@ -20,6 +20,7 @@ import { ApptDetail, makeApptActions, Portal } from "@/components/calendar-view"
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { safeTz } from "@/lib/timezone";
 import { cacheGet, cacheSet } from "@/lib/view-cache";
+import { useLiveRefresh } from "@/lib/use-live-refresh";
 
 type CartItem = { id: string; name: string; price: number; qty: number; type: "service" | "product"; inventoryId?: string };
 type PM = "card" | "cash" | "online";
@@ -221,6 +222,9 @@ export default function POSPage() {
     if (!error) cacheSet(ck, data ?? []);
   }, [shop]);
   useEffect(() => { loadAppts(); }, [loadAppts]);
+  // Gmail-style: new/changed bookings and clients appear without a reload.
+  useLiveRefresh(shop?.id ? `pos-appts:${shop.id}` : null, shop?.id ? [{ table: "appointments", filter: `shop_id=eq.${shop.id}` }] : [], () => { void loadAppts(); });
+  useLiveRefresh(shop?.id ? `pos-clients:${shop.id}` : null, shop?.id ? [{ table: "clients", filter: `shop_id=eq.${shop.id}` }] : [], () => { void loadData(); });
 
   // Amount still to collect on an appointment: a leftover balance from a partial
   // capture, else the full owed amount when it isn't settled, else 0.

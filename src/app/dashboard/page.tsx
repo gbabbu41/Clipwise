@@ -22,6 +22,7 @@ const StatsCarousel = dynamic(
 );
 import { readAllRows } from "@/lib/read-all-rows";
 import { cacheGet, cacheSet } from "@/lib/view-cache";
+import { useLiveRefresh } from "@/lib/use-live-refresh";
 import { hasMissingCardFees } from "@/lib/analytics-period";
 import { useSheetDrag } from "@/hooks/use-sheet-drag";
 import { cn, formatCurrency, getDateRange, DATE_FILTER_LABELS, formatDateForDb, DateFilterKey, friendlyDate, timeToMinutes, timeAgo } from "@/lib/utils";
@@ -452,14 +453,26 @@ export default function DashboardPage() {
       .lte("date", formatDateForDb(days[6]))
       .order("time_slot", { ascending: true });
     if (profile?.role === "barber" && myBarberId) q = q.eq("barber_id", myBarberId);
-    const { data } = await q;
+    const ck = `home_week_${JSON.stringify([shop.id, profile?.id, myBarberId, formatDateForDb(days[0])])}`;
+    const snap = cacheGet<AppointmentWithDetails[]>(ck);
+    if (snap) setWeekAppts(snap);
+    const { data, error } = await q;
+    if (error) return; // keep what's shown
     setWeekAppts((data ?? []) as AppointmentWithDetails[]);
+    cacheSet(ck, data ?? []);
   }, [shop, profile, myBarberId, weekOffset]);
 
   // ── Load barbers & notifications ────────────────────────────────────────────
   const loadSideData = useCallback(async () => {
     const sequence = ++sideSequence.current;
     if (!shop || !profile) return;
+    type SideSnap = { clients: { id: string; created_at: string }[]; notifications: Notification[]; avgRating: number | null; totalReviews: number };
+    const ck = `home_side_${shop.id}_${profile.id}`;
+    const snap = cacheGet<SideSnap>(ck);
+    if (snap) {
+      setClients(snap.clients); setNotifications(snap.notifications);
+      if (snap.avgRating !== null) { setAvgRating(snap.avgRating); setTotalReviews(snap.totalReviews); }
+    }
     const [notifRes, { data: rev }, { data: cli }] = await Promise.all([
       // Scoped to the active shop so a multi-shop owner's alerts don't bleed in.
       fetchShopNotifications(supabase, { userId: profile.id, shopId: shop.id, limit: 5 }),
@@ -469,11 +482,14 @@ export default function DashboardPage() {
     if (sequence !== sideSequence.current) return;
     setClients((cli ?? []) as { id: string; created_at: string }[]);
     setNotifications((notifRes.data ?? []) as unknown as Notification[]);
+    let avgRating: number | null = null;
     if (rev && rev.length > 0) {
       const avg = rev.reduce((s: number, r: { rating: number }) => s + r.rating, 0) / rev.length;
-      setAvgRating(Math.round(avg * 10) / 10);
+      avgRating = Math.round(avg * 10) / 10;
+      setAvgRating(avgRating);
       setTotalReviews(rev.length);
     }
+    if (cli && !notifRes.error) cacheSet(ck, { clients: cli as SideSnap["clients"], notifications: (notifRes.data ?? []) as unknown as Notification[], avgRating, totalReviews: rev?.length ?? 0 } satisfies SideSnap);
   }, [shop, profile]);
 
   // ── Load calendar appointment counts for current month ─────────────────────
@@ -490,10 +506,15 @@ export default function DashboardPage() {
     if (profile?.role === "barber" && myBarberId) {
       calQ = calQ.eq("barber_id", myBarberId);
     }
-    const { data } = await calQ;
+    const ck = `home_cal_${JSON.stringify([shop.id, profile?.id, myBarberId, calYear, calMonth])}`;
+    const snap = cacheGet<Record<string, number>>(ck);
+    if (snap) setApptCounts(snap);
+    const { data, error } = await calQ;
+    if (error) return; // keep what's shown
     const counts: Record<string, number> = {};
     (data ?? []).forEach((a: { date: string }) => { counts[a.date] = (counts[a.date] ?? 0) + 1; });
     setApptCounts(counts);
+    cacheSet(ck, counts);
   }, [shop, calYear, calMonth, profile, myBarberId]);
 
   // Instant paint: show the last snapshot for this period / today's schedule
@@ -521,6 +542,14 @@ export default function DashboardPage() {
   }, [homeSchedKey]);
   useEffect(() => { loadAppointments(); return () => { loadSequence.current++; }; }, [loadAppointments]);
   useEffect(() => { loadSchedule(); return () => { scheduleSequence.current++; }; }, [loadSchedule]);
+  // Gmail-style: a new booking / payment / client refreshes Home in the
+  // background — current numbers stay on screen ("Updating…"), no skeleton.
+  useLiveRefresh(shop?.id ? `home:${shop.id}` : null,
+    shop?.id ? ["appointments", "transactions", "clients"].map(table => ({ table, filter: `shop_id=eq.${shop.id}` })) : [],
+    () => {
+      setRepFromCache(true); setSchedFromCache(true);
+      void loadAppointments(); void loadSchedule(); void loadWeekAppts(); void loadSideData(); void loadCalendarCounts();
+    });
   useEffect(() => {
     if (!homeRepKey || loadingAppts || loadError || loadedReportKey !== reportKey) return;
     cacheSet(homeRepKey, { appointments, txns, revenueAppts, financialBarbers } satisfies HomeRepSnap);
