@@ -651,6 +651,7 @@ export default function PaymentsPage() {
     return { mode: "shop", label, range, headline: s.net + s.cash, feesKnown: s.feesKnown, gross: s.gross + s.cash, commission: 0, tips: 0, fees: s.fees, tax: s.tax, cash: s.cash, count: s.count, avg: s.avg, data: s.data };
   };
   const carouselWindows = [
+    { label: "Today", range: fmtDay(nowTs), from: startOf("today"), to: nowTs, monthly: false },
     { label: "This week", range: rangeFor("week"), from: startOf("week"), to: nowTs, monthly: false },
     { label: "This month", range: rangeFor("month"), from: startOf("month"), to: nowTs, monthly: false },
     { label: "All time", range: "", from: 0, to: Infinity, monthly: true },
@@ -813,7 +814,15 @@ export default function PaymentsPage() {
       return true;
     })
     .sort((a, b) => b.ts - a.ts);
-  const stmtItems = barberMode ? barberStmt : (txFilter === "unpaid" ? unpaidRows : feed);
+  // The list follows the selected carousel card (Today by default). Unpaid is the
+  // exception — every outstanding appointment stays visible so nothing to chase
+  // hides behind a period. The empty Custom card (no dates yet) shows everything.
+  const activeWindow = netSlide < carouselWindows.length
+    ? carouselWindows[netSlide]
+    : hasCustom ? { label: customLabel || "Custom", from: customFromTs ?? 0, to: customToTs ?? nowTs } : null;
+  const periodScoped = !!activeWindow && !(txFilter === "unpaid" && !barberMode);
+  const inActiveWindow = (i: FeedItem) => !activeWindow || (i.ts >= activeWindow.from && (activeWindow.to >= nowTs || i.ts <= activeWindow.to));
+  const stmtItems = (barberMode ? barberStmt : (txFilter === "unpaid" ? unpaidRows : feed)).filter(i => !periodScoped || inActiveWindow(i));
   const dayStart = (ts: number) => { const d = new Date(ts); d.setHours(0, 0, 0, 0); return d.getTime(); };
   const todayStart = (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); })();
   const dayLabel = (k: number) => {
@@ -1036,7 +1045,7 @@ export default function PaymentsPage() {
       )}
 
       {/* ── Statement ──────────────────────────────────────────────────────── */}
-      <div className="cwp-txhead"><h2>Transactions</h2></div>
+      <div className="cwp-txhead"><h2>Transactions{periodScoped && activeWindow ? <span className="font-normal text-grey"> · {activeWindow.label}</span> : null}</h2></div>
       <div className="cwp-seg">
         {(["all", "card", "cash", "unpaid", "refunded"] as const).map(f => (
           <button key={f} className={cn(txFilter === f && "cwp-on")} onClick={() => setTxFilter(f)}>{filterLabels[f]}</button>
@@ -1045,7 +1054,7 @@ export default function PaymentsPage() {
       {loading ? (
         <div className="py-16 text-center text-grey-muted text-sm">Loading payments…</div>
       ) : txGroups.length === 0 ? (
-        <div className="py-16 text-center text-grey-muted text-sm">{txFilter === "unpaid" ? "Nothing outstanding — you're all caught up." : "No transactions here yet."}</div>
+        <div className="py-16 text-center text-grey-muted text-sm">{txFilter === "unpaid" ? "Nothing outstanding — you're all caught up." : periodScoped ? "No transactions in this period." : "No transactions here yet."}</div>
       ) : (
         <div className="cwp-statement">
           {txGroups.map(g => (

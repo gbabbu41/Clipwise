@@ -46,4 +46,11 @@ assert(html.includes('$50.00')); assert(!html.includes('Unavailable'));
 for (const state of [{ loading: true }, { loadedShop: 'previous-shop' }, { loadedScope: 'previous-account' }, { loadError: true }]) { html = render(state); assert(!html.includes('$115.00')); assert(!html.includes('$0.00')); }
 html = render({ txs: [{ ...tx, stripe_fee: 0 }], stripeNet: { connected: true, byPi: { pi_test: { gross: 115, fee: 3, net: 112 } }, available: 0, pending: 0 } });
 assert(html.includes('$112.00')); assert(!html.includes('$111.36')); assert(!html.includes('(est.)'), 'resolved summary fee wins over old DB snapshot and is deducted once');
+// Transaction list follows the selected carousel card: Today (default) hides an
+// older sale; the All time card (index 3) shows it.
+const old = { ...tx, id: 'old', client_name: 'Older client', created_at: new Date(Date.now() - 3 * 86400000).toISOString() };
+html = render({ txs: [tx, old] });
+assert(html.includes('QA client') && !html.includes('Older client'), 'Today card scopes the list to today');
+html = render({ txs: [tx, old], netSlide: 3 });
+assert(html.includes('QA client') && html.includes('Older client'), 'All time card shows every transaction');
 console.log('PASS Payments UI missing/known card fees, cash-only, barber take-home, loading/error/shop scope');
