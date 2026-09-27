@@ -580,7 +580,7 @@ export default function ClientsPage() {
                 <p className="text-[28px] font-extrabold text-foreground mt-2 font-mono tracking-tighter leading-none">{s.value}</p>
                 <p className={cn(
                   "text-[11px] mt-2 font-medium",
-                  s.tone === "up"    && "text-emerald-400",
+                  s.tone === "up"    && "text-grey",
                   s.tone === "down"  && "text-red-400",
                   s.tone === "muted" && "text-grey",
                 )}>{s.sub}</p>
@@ -647,7 +647,7 @@ export default function ClientsPage() {
                     href={`tel:${client.phone.replace(/\D/g, "")}`}
                     onClick={e => e.stopPropagation()}
                     aria-label={`Call ${client.name}`}
-                    className="w-12 h-12 shrink-0 rounded-full flex items-center justify-center bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 active:scale-95 transition-all"
+                    className="w-12 h-12 shrink-0 rounded-full flex items-center justify-center bg-card-raised border border-border text-foreground hover:bg-white/10 active:scale-95 transition-all"
                   >
                     <Phone size={20} />
                   </a>
@@ -844,7 +844,7 @@ export default function ClientsPage() {
                           </button>
                         ) : (
                           <button onClick={() => startEditField(field)}
-                            className="mt-0.5 text-sm text-emerald-400 hover:text-foreground text-left">
+                            className="mt-0.5 text-sm text-grey hover:text-foreground text-left">
                             + Add {label.toLowerCase()}
                           </button>
                         )}
@@ -929,7 +929,7 @@ export default function ClientsPage() {
                     <p className="text-xl font-bold text-foreground">{selectedClient.loyalty_points} pts</p>
                   </div>
                   <div className="w-full h-2 bg-card shadow-sm rounded-full overflow-hidden mb-3">
-                    <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.min(100, (selectedClient.loyalty_points / 500) * 100)}%` }} />
+                    <div className="h-full bg-foreground rounded-full" style={{ width: `${Math.min(100, (selectedClient.loyalty_points / 500) * 100)}%` }} />
                   </div>
                   <Button variant="outline" size="sm" className="w-full" onClick={() => setAddPointsClient(selectedClient)}>+ Add Points</Button>
                 </div>

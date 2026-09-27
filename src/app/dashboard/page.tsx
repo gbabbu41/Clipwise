@@ -107,7 +107,7 @@ function StatCard({ label, value, sub, icon: Icon, color = "gold", cta, prominen
           <p className={cn(
             "mt-2 font-medium",
             prominent ? "text-xs" : "text-[11px]",
-            tone === "up"   && "text-emerald-400",
+            tone === "up"   && "text-grey",
             tone === "down" && "text-red-400",
             tone === "muted" && "text-grey",
           )}>{sub}</p>

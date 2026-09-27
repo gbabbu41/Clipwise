@@ -1007,7 +1007,7 @@ export default function AppointmentsPage() {
                 )}>{s.value}</p>
                 <p className={cn(
                   "text-[11px] mt-2 font-medium",
-                  s.tone === "up"    && "text-emerald-400",
+                  s.tone === "up"    && "text-grey",
                   s.tone === "down"  && "text-red-400",
                   s.tone === "muted" && "text-grey",
                 )}>{s.sub}</p>
