@@ -105,7 +105,7 @@ html[data-theme="light"] .portal [data-calendar-time-grid] {
   /* Translucent fill for the floating bottom nav so its backdrop-blur actually
      reads as glass (the marketing nav's language). Used only where a blur is
      guaranteed via @supports; opaque --surface is the fallback everywhere else. */
-  --nav-glass:      rgba(16,17,20,0.72);
+  --nav-glass:      rgba(16,17,20,0.55);  /* frosted bottom nav — more see-through for the liquid-glass look */
   /* Neutral focus ring for inputs (replaces black rings that were invisible on
      the dark portal). Theme-scoped so it stays visible in light too. */
   --focus-ring:     rgba(237,237,238,0.30);
@@ -135,7 +135,7 @@ html[data-theme="light"] .portal {
                                  page base use --card/white, not this, so they lift.) */
   --surface:        #ffffff;
   --surface-raised: #f1f2f4;
-  --nav-glass:      rgba(255,255,255,0.72);  /* light-theme frosted bottom nav */
+  --nav-glass:      rgba(255,255,255,0.6);  /* light-theme frosted bottom nav — more see-through */
   --focus-ring:     rgba(26,26,26,0.22);     /* light-theme input focus ring */
   --surface-overlay:#eaebed;  /* hover fills / menus */
   --surface-sunken: #edeef0;  /* recessed (calendar canvas) */
@@ -1427,10 +1427,22 @@ textarea.form-control { min-height: 5rem; resize: vertical; }
    light like the modern glass tab bars. Only where the browser can actually blur. */
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .cw-bnav {
-    background: var(--nav-glass);
-    backdrop-filter: blur(30px) saturate(1.8);
-    -webkit-backdrop-filter: blur(30px) saturate(1.8);
-    box-shadow: 0 12px 34px rgba(0, 0, 0, 0.30), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    /* A faint top-down sheen layered OVER the translucent tint reads as light
+       travelling through the glass; the heavy blur + saturation keeps content
+       legible even though the tint is now quite see-through. */
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0) 45%),
+      var(--nav-glass);
+    backdrop-filter: blur(34px) saturate(1.9);
+    -webkit-backdrop-filter: blur(34px) saturate(1.9);
+    /* Refractive rim + depth: a bright top lip, a faint all-round inner edge and a
+       soft inner base shadow, on top of the outer float shadow — the glass "solidity"
+       that makes the transparency read as a pane, not just a faded bar. */
+    box-shadow:
+      0 14px 38px rgba(0, 0, 0, 0.32),
+      inset 0 1px 0 rgba(255, 255, 255, 0.20),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+      inset 0 -10px 20px rgba(0, 0, 0, 0.10);
   }
 }
 /* Each tab centers one icon; the icon wrapper is both the tap target and the pill. */
@@ -1445,10 +1457,17 @@ textarea.form-control { min-height: 5rem; resize: vertical; }
   display: flex; align-items: center; justify-content: center;
   padding: 7px 14px; border-radius: 999px;
   color: var(--grey-2);
-  transition: color 0.15s, background 0.15s;
+  transition: color 0.18s ease, background 0.22s ease, transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
-/* Active tab — a soft glass "lens" pill + full-strength icon (replaces the old underline). */
-.cw-ni.active .cw-ni-icon { background: var(--surface-overlay); color: var(--foreground); }
+/* Active tab — a translucent glass "lens": soft fill + a bright top lip and a faint
+   drop so it reads as a droplet of the same glass, not a flat chip. */
+.cw-ni.active .cw-ni-icon {
+  background: var(--surface-overlay);
+  color: var(--foreground);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 2px 8px rgba(0, 0, 0, 0.18);
+}
+/* Springy press — the glass "gives" a little when tapped, then settles back. */
+.cw-ni:active .cw-ni-icon { transform: scale(0.9); }
 /* Fade-up entrance animation used by stat cards and appt rows */
 @keyframes cw-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 .cw-anim-up { animation: cw-up 0.35s ease both; }
