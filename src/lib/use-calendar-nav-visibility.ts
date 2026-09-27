@@ -14,13 +14,14 @@ export function useCalendarNavVisibility(enabled: boolean) {
     let lastTarget: HTMLElement | null = null;
     let lastTop = 0;
     let downward = 0;
+    let upward = 0;
     const timeline = (target: EventTarget | null) => target instanceof Element
       ? target.closest<HTMLElement>("[data-calendar-canvas] [data-calendar-scroll]") : null;
     const intent = (event: Event) => {
       const target = timeline(event.target);
       if (!target) return;
       intentUntil = Date.now() + 1500;
-      if (lastTarget !== target) { lastTarget = target; lastTop = target.scrollTop; downward = 0; }
+      if (lastTarget !== target) { lastTarget = target; lastTop = target.scrollTop; downward = 0; upward = 0; }
     };
     const scroll = (event: Event) => {
       const target = timeline(event.target);
@@ -31,13 +32,17 @@ export function useCalendarNavVisibility(enabled: boolean) {
       lastTarget = target;
       if (Date.now() > intentUntil) return;
       intentUntil = Date.now() + 1500;
-      if (delta < 0 || top === 0) { downward = 0; setHidden(false); }
-      else {
+      if (delta < 0) {
+        downward = 0;
+        upward -= delta;
+        if (upward >= 12) setHidden(false);
+      } else if (delta > 0) {
+        upward = 0;
         downward += delta;
         if (downward >= 12 && !navRef.current?.contains(document.activeElement)) setHidden(true);
       }
       clearTimeout(idle);
-      idle = setTimeout(() => { downward = 0; setHidden(false); }, 700);
+      idle = setTimeout(() => { downward = 0; upward = 0; setHidden(false); }, 1200);
     };
     document.addEventListener("wheel", intent, { capture: true, passive: true });
     document.addEventListener("touchmove", intent, { capture: true, passive: true });
