@@ -508,10 +508,12 @@ not `shop_id`, so the page's `filter: shop_id=eq.X` drops the event. Foreground/
 remount → **log out / back in** (or hard reload) to refetch. Normal create/update flows are
 unaffected (their realtime events carry `shop_id`).
 
-**Online-booking fee cache (2026-09-27, phase66):** a charge taken at booking (Checkout / saved
-card) lives on the **appointment** — no `transactions` row — so its fee had nowhere to be stored and
-`payments-summary` re-looked it up live every load (max 8/request, in-memory cache only). A shop with
-many online bookings therefore showed "≈" on All time. Fix: `appointments.stripe_fee` +
+**Appointment-level fee cache (2026-09-27, phase66) — a BACKUP, not the primary path.** Correction
+(verified on prod the same day): paid bookings DO get a `completion` transactions row carrying the PI
+and fee (`recordOnlinePaymentTx` / `capture-appointment`); all 31 paid PI bookings on prod were covered
+by it and `paid_appt_without_tx` = 0. The cache only adds coverage if that ledger insert fails outright
+(it's best-effort), which has never happened. The "≈" seen then came from 16 legacy June card rows
+saved WITHOUT a PI by the old capture/no-show code — unrecoverable by id. Mechanism: `appointments.stripe_fee` +
 `stripe_gross` (NULL = unconfirmed) filled once from the charge's balance transaction (immutable —
 refunds post separately) by the `payment_intent.succeeded` webhook, by `payments-summary` after any
 live lookup, and by `backfillAppointmentStripeFees` (daily cron, newest first, 30/run, no cutoff).

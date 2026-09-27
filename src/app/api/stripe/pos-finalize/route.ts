@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe, stripeFeeCents } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { insertLedgerRow } from "@/lib/ledger-insert";
 import { insertNotifications } from "@/lib/notify-server";
 import { fetchValidPromo, consumePromo } from "@/lib/promo";
 import { redeemPointsForDiscount } from "@/lib/loyalty-redeem";
@@ -78,19 +79,10 @@ export async function POST(request: NextRequest) {
       payment_intent_id: piId,
       source: "pos",
     };
-    // Insert; progressively drop columns that don't exist yet (tax = phase30,
-    // payment_intent_id = phase16, stripe_fee = phase38) so a POS sale is never
-    // lost pre-migration.
-    const attempt = (row: Record<string, unknown>) => supabaseAdmin.from("transactions").insert(row).select("id").single();
-    let ins = await attempt(fullRow);
-    for (let i = 0; i < 3 && ins.error && /column|does not exist|schema cache/i.test(ins.error.message); i++) {
-      const trimmed = { ...fullRow };
-      if (/tax/.test(ins.error.message)) delete trimmed.tax;
-      if (/stripe_fee/.test(ins.error.message)) delete trimmed.stripe_fee;
-      if (/payment_intent_id/.test(ins.error.message)) delete trimmed.payment_intent_id;
-      if (/client_email/.test(ins.error.message)) delete trimmed.client_email;
-      ins = await attempt(trimmed);
-    }
+    // Insert; drop only optional columns prod may lag on (tax = phase30,
+    // stripe_fee = phase38, client_email). The Stripe ids are never dropped — a
+    // failed save returns 500 and the retry (same session) records it once.
+    const ins = await insertLedgerRow(fullRow, ["tax", "stripe_fee", "client_email"]);
     if (ins.error) {
       console.error("[pos-finalize] transaction insert failed:", ins.error.message);
       return NextResponse.json({ error: "Couldn't record the sale. Please try again." }, { status: 500 });
