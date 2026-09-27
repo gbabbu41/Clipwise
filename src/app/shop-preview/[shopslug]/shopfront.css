@@ -85,3 +85,5 @@
 .lux-template .contact-links{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}.lux-template .contact-links a{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:10px 14px;border:1px solid var(--line);font-size:12px}.lux-template .contact-links a:hover{background:var(--soft)}
 
 .lux-template .contact-links svg{flex-shrink:0}.lux-template .visit .note{margin:0 0 20px;line-height:1.6}
+
+.lux-template .contact-email{margin:12px 0 0;font-size:14px;line-height:1.5;overflow-wrap:anywhere;user-select:text}
