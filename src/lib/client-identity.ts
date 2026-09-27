@@ -1,15 +1,7 @@
 import type { Client } from "@/lib/database.types";
 
-// ── Client identity & de-duplication ────────────────────────────────────────
-// The rule: a person's identity is their EMAIL or PHONE. The name is only a
-// label. Two records are the same person if they share a strong identifier
-// (email or phone); name alone never merges (two people can share a name).
-//
-// This is solved as connected components (union-find) over the email/phone
-// tokens: a record that carries BOTH an email and a phone links them, so even a
-// record that only has the phone still joins the same person. That's what lets
-// an online booking (email+phone) and a phone-only walk-in for the same customer
-// group together — and keeps two different "ABC"s with different numbers apart.
+// Persisted client IDs are identity anchors. Historical contacts are aliases,
+// never instructions to merge two saved people or move their points.
 
 /** Lowercase + trim — so `ABC@x.com` and `abc@x.com ` are the same key. */
 export const normEmail = (e?: string | null): string => (e ?? "").trim().toLowerCase();
@@ -27,15 +19,16 @@ export const normName = (n?: string | null): string => (n ?? "").trim().replace(
 
 type IdRecord = { clientId?: string | null; email?: string | null; phone?: string | null; name?: string | null };
 
-/** The strong identity tokens a record carries (email/phone). Empty for a
- *  name-only walk-in. */
-function strongTokens(r: IdRecord): string[] {
-  const t: string[] = [];
-  const cid = (r.clientId ?? "").trim();
-  if (cid && !cid.startsWith("synthetic:")) t.push(`c:${cid}`); // the permanent link (phase 36)
-  const e = normEmail(r.email); if (e) t.push(`e:${e}`);
-  const p = normPhone(r.phone); if (p) t.push(`p:${p}`);
-  return t;
+/** Match current contact records without merging shared-family-phone identities. */
+export function identityCandidates<T extends { id: string; email?: string | null; phone?: string | null; name?: string | null }>(rows: T[], r: IdRecord): T[] {
+  const email = normEmail(r.email), phone = normPhone(r.phone), name = normName(r.name);
+  if (email) {
+    const exact = rows.filter(c => normEmail(c.email) === email);
+    if (exact.length) return exact;
+  }
+  if (phone) return rows.filter(c => normPhone(c.phone) === phone && (!email || !normEmail(c.email) || normEmail(c.email) === email));
+  if (!email && name) return rows.filter(c => !normEmail(c.email) && !normPhone(c.phone) && normName(c.name) === name);
+  return [];
 }
 
 /** Do two records belong to the same person? A shared client_id (the permanent
@@ -44,9 +37,9 @@ function strongTokens(r: IdRecord): string[] {
  *  anonymous walk-ins). A name-only record never merges into an id'd person. */
 export function sameIdentity(a: IdRecord, b: IdRecord): boolean {
   const ac = (a.clientId ?? "").trim(), bc = (b.clientId ?? "").trim();
-  if (ac && bc && !ac.startsWith("synthetic:") && ac === bc) return true;
+  if (ac && bc && !ac.startsWith("synthetic:") && !bc.startsWith("synthetic:")) return ac === bc;
   const ae = normEmail(a.email), be = normEmail(b.email);
-  if (ae && be && ae === be) return true;
+  if (ae && be) return ae === be;
   const ap = normPhone(a.phone), bp = normPhone(b.phone);
   if (ap && bp && ap === bp) return true;
   const aStrong = !!(ac || ae || ap), bStrong = !!(bc || be || bp);
@@ -54,7 +47,7 @@ export function sameIdentity(a: IdRecord, b: IdRecord): boolean {
   return false;
 }
 
-type ApptRow = { client_id?: string | null; client_name?: string | null; client_email?: string | null; client_phone?: string | null; date?: string | null; status?: string | null; total_amount?: number | null };
+type ApptRow = { shop_id?: string | null; client_id?: string | null; client_name?: string | null; client_email?: string | null; client_phone?: string | null; date?: string | null; status?: string | null; total_amount?: number | null };
 
 /** Appointments store contact info as client_* fields — map to the common shape. */
 export const apptToId = (a: ApptRow): IdRecord => ({ clientId: a.client_id, email: a.client_email, phone: a.client_phone, name: a.client_name });
@@ -64,7 +57,7 @@ export const apptToId = (a: ApptRow): IdRecord => ({ clientId: a.client_id, emai
 // product sales, not just booked appointments. Rows tied to an appointment
 // (completion / no-show / anything with an appointment_id) are SKIPPED here: the
 // appointment already counts them, so folding them again would double-count.
-type TxRow = { client_name?: string | null; client_email?: string | null; created_at?: string | null; amount?: number | null; source?: string | null; refunded?: boolean | null; appointment_id?: string | null };
+type TxRow = { shop_id?: string | null; client_name?: string | null; client_email?: string | null; created_at?: string | null; amount?: number | null; source?: string | null; refunded?: boolean | null; appointment_id?: string | null };
 export const txToId = (t: TxRow): IdRecord => ({ email: t.client_email, name: t.client_name });
 // A POS sale is only folded into a client when it carries an EMAIL — a strong id.
 // Attributing by name alone is unreliable (two different same-named walk-ins would
@@ -82,41 +75,28 @@ export const clientToId = (c: Client): IdRecord => ({ clientId: c.id, email: c.e
  * Build the de-duplicated client list with activity (visits/spend/last-visit)
  * attributed to the correct person by identity — not by name. Real client rows
  * carry loyalty/notes/etc.; customers who only exist in `appointments` become
- * synthetic rows (id `synthetic:…`). Within a person, the real row with the most
- * points is the representative (hidden duplicates get cleaned up by a merge tool
- * later). Pure function → easy to reason about and unit-test.
+ * synthetic rows (id `synthetic:…`). Saved rows remain separate; unlinked activity attaches only to a unique
+ * current-contact match. Linked historical contacts remain searchable aliases. Pure function → easy to reason about and unit-test.
  */
 export function groupClients(opts: { shopId: string; clientRows: Client[]; apptRows: ApptRow[]; txRows?: TxRow[] }): Client[] {
-  const { shopId, clientRows, apptRows } = opts;
-  const txRows = (opts.txRows ?? []).filter(countableTx);
-
-  // ── Union-find over strong tokens ──
-  const parent = new Map<string, string>();
-  const add = (x: string) => { if (!parent.has(x)) parent.set(x, x); };
-  const find = (x: string): string => {
-    add(x);
-    let r = x;
-    while (parent.get(r) !== r) r = parent.get(r)!;
-    let c = x;
-    while (parent.get(c) !== r) { const n = parent.get(c)!; parent.set(c, r); c = n; }
-    return r;
-  };
-  const union = (a: string, b: string) => { const ra = find(a), rb = find(b); if (ra !== rb) parent.set(ra, rb); };
-
-  for (const rec of [...clientRows.map(clientToId), ...apptRows.map(apptToId), ...txRows.map(txToId)]) {
-    const t = strongTokens(rec);
-    t.forEach(add);
-    for (let i = 1; i < t.length; i++) union(t[0], t[i]);
-  }
-
-  // A record's component key: its (rooted) strong token, else a name bucket, so
-  // two name-only "ABC"s group but a name-only never joins a strong-id person.
+  const { shopId } = opts;
+  const clientRows = opts.clientRows.filter(c => c.shop_id === shopId);
+  const apptRows = opts.apptRows.filter(a => !a.shop_id || a.shop_id === shopId);
+  const txRows = (opts.txRows ?? []).filter(t => (!t.shop_id || t.shop_id === shopId) && countableTx(t));
   const compOf = (r: IdRecord): string | null => {
-    const t = strongTokens(r);
-    if (t.length) return find(t[0]);
-    const nm = normName(r.name);
-    return nm ? `n:${nm}` : null;
+    const cid = r.clientId?.trim();
+    if (cid && !cid.startsWith("synthetic:")) return clientRows.some(c => c.id === cid) ? `c:${cid}` : null;
+    const matches = identityCandidates(clientRows, r);
+    if (matches.length === 1) return `c:${matches[0].id}`;
+    // Ambiguous/unlinked history stays separate, rather than choosing a balance.
+    const email = normEmail(r.email), phone = normPhone(r.phone), name = normName(r.name);
+    return email ? `e:${email}` : phone ? `p:${phone}` : name ? `n:${name}` : null;
   };
+  const aliases = new Map<string, IdRecord[]>();
+  for (const r of [...apptRows.map(apptToId), ...txRows.map(txToId)]) {
+    const key = compOf(r);
+    if (key) aliases.set(key, [...(aliases.get(key) ?? []), r]);
+  }
 
   // ── Activity per component (completed = a visit) ──
   const today = new Date().toISOString().slice(0, 10);
@@ -145,26 +125,13 @@ export function groupClients(opts: { shopId: string; clientRows: Client[]; apptR
     stats.set(key, g);
   }
 
-  // ── Representative real row per component (most points wins on dupes). Also keep
-  // the highest-priority TAG across duplicates, so a manually-set "VIP" isn't lost
-  // when a duplicate record with more loyalty points but a lesser tag wins the rep
-  // (that's why a VIP client was showing as "Returning" and the VIP count read 0). ──
-  const TAG_RANK: Record<string, number> = { VIP: 4, "At Risk": 3, Returning: 2, New: 1 };
-  const rep = new Map<string, Client>();
-  const bestTag = new Map<string, Client["tag"]>();
-  for (const row of clientRows) {
-    const key = compOf(clientToId(row)); if (!key) continue;
-    const cur = rep.get(key);
-    if (!cur || (row.loyalty_points ?? 0) > (cur.loyalty_points ?? 0)) rep.set(key, row);
-    const t: Client["tag"] = row.tag ?? "New";
-    const bt = bestTag.get(key);
-    if (!bt || (TAG_RANK[t] ?? 0) > (TAG_RANK[bt] ?? 0)) bestTag.set(key, t);
-  }
+  // Keep every saved identity, its own VIP tag, notes and balance visible.
+  const rep = new Map(clientRows.map(row => [`c:${row.id}`, row]));
 
   const out = new Map<string, Client>();
   for (const [key, row] of Array.from(rep)) {
     const g = stats.get(key) ?? { visits: 0, spent: 0, last: "" };
-    out.set(key, { ...row, tag: bestTag.get(key) ?? row.tag, total_visits: g.visits, total_spent: g.spent, last_visit: g.last || row.last_visit });
+    out.set(key, { ...row, total_visits: g.visits, total_spent: g.spent, last_visit: g.last || row.last_visit });
   }
 
   // Synthetic rows for people who only exist in appointments.
@@ -206,5 +173,5 @@ export function groupClients(opts: { shopId: string; clientRows: Client[]; apptR
     } as unknown as Client);
   }
 
-  return Array.from(out.values()).sort((a, b) => (b.total_visits ?? 0) - (a.total_visits ?? 0));
+  return Array.from(out.entries()).map(([key, row]) => ({ ...row, client_aliases: aliases.get(key) ?? [] })).sort((a, b) => (b.total_visits ?? 0) - (a.total_visits ?? 0));
 }

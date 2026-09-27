@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/card";
 import { Input, Textarea } from "@/components/ui/input";
 import { Phone, MessageSquare, Mail, Users, Building2, UserPlus, CalendarPlus } from "lucide-react";
 import type { NewAppointmentDetail } from "@/components/dashboard/add-appointment-modal";
-import { groupClients, sameIdentity, clientToId, apptToId } from "@/lib/client-identity";
+import { groupClients, sameIdentity, clientToId, apptToId, identityCandidates } from "@/lib/client-identity";
 import type { Client, Appointment } from "@/lib/database.types";
 import { DashboardHeader } from "@/components/dashboard/page-header";
 import { clientMatchesQuery } from "@/lib/client-search";
@@ -129,7 +129,7 @@ export default function ClientsPage() {
     // the background so it never blocks the first paint. ──
     type ApptLite = { client_id?: string | null; client_name?: string | null; client_email?: string | null; client_phone?: string | null; date?: string | null; status?: string | null; total_amount?: number | null };
     const [nsRes, withCid, txRes] = await Promise.all([
-      supabase.from("appointments").select("client_name, client_email, client_phone").eq("shop_id", shop.id).eq("status", "no-show"),
+      supabase.from("appointments").select("client_id, client_name, client_email, client_phone").eq("shop_id", shop.id).eq("status", "no-show"),
       // Appointments incl. the phase-36 client_id link. Fall back without it if the
       // migration hasn't been run yet, so the page never breaks in that window.
       supabase.from("appointments").select("client_id, client_name, client_email, client_phone, date, status, total_amount").eq("shop_id", shop.id).order("date", { ascending: false }),
@@ -166,8 +166,9 @@ export default function ClientsPage() {
       // Attribute each no-show to the right person by IDENTITY, keyed on the
       // grouped client's id — so a same-name stranger isn't blamed for it.
       const counts: Record<string, number> = {};
-      for (const r of nsData as { client_name?: string | null; client_email?: string | null; client_phone?: string | null }[]) {
-        const match = list.find(c => sameIdentity(c, { email: r.client_email, phone: r.client_phone, name: r.client_name }));
+      for (const r of nsData as { client_id?: string | null; client_name?: string | null; client_email?: string | null; client_phone?: string | null }[]) {
+        const matches = list.filter(c => sameIdentity(clientToId(c), apptToId(r)));
+        const match = matches.length === 1 ? matches[0] : null;
         if (match) counts[match.id] = (counts[match.id] ?? 0) + 1;
       }
       setNoShowCounts(counts);
@@ -248,7 +249,7 @@ export default function ClientsPage() {
     // phone), then keep only the ones that truly share their identity — so the
     // history matches the visit count exactly (and a same-name stranger's
     // appointments never leak in). See lib/client-identity.ts.
-    const FIELDS = "id, date, time_slot, total_amount, status, client_email, client_phone, client_name, barbers(name), services(name)";
+    const FIELDS = "id, client_id, date, time_slot, total_amount, status, client_email, client_phone, client_name, barbers(name), services(name)";
     const sid = shop!.id;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const queries: any[] = [
@@ -279,7 +280,11 @@ export default function ClientsPage() {
     }
     const me = clientToId(client);
     const rows = merged
-      .filter(a => sameIdentity(me, apptToId(a)))
+      .filter(a => {
+        if (a.client_id) return sameIdentity(me, apptToId(a));
+        const matches = identityCandidates(clients.filter(c => !c.id.startsWith("synthetic:")), apptToId(a));
+        return matches.length === 1 ? matches[0].id === client.id : client.id.startsWith("synthetic:") && sameIdentity(me, apptToId(a));
+      })
       .sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""))
       .slice(0, 50);
     setClientAppointments(rows as unknown as AppointmentRow[]);

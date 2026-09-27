@@ -5,7 +5,7 @@ import { effectivePlan, isPaidPlan } from "@/lib/validation";
 import { ensurePlansHydrated } from "@/lib/plans-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { canReceivePromos } from "@/lib/consent";
-import { normPhone } from "@/lib/client-identity";
+import { normPhone, identityCandidates } from "@/lib/client-identity";
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://clipwise.ca";
 // One campaign can reach at most this many recipients — protects the email
@@ -127,7 +127,7 @@ export async function POST(req: NextRequest) {
     // the unsubscribe link works and past/walk-in recipients join the client book.
     // `select("*")` (not the new columns by name) so this keeps working even if the
     // phase58 consent columns haven't been migrated on prod yet.
-    type PromoClient = { id: string; shop_id: string; email?: string | null; name?: string | null; promo_consent_status?: string | null; last_visit?: string | null };
+    type PromoClient = { id: string; shop_id: string; email?: string | null; phone?: string | null; name?: string | null; promo_consent_status?: string | null; last_visit?: string | null };
     let client: PromoClient | null = null;
     let clientId = (r.clientId ?? "").trim();
     if (clientId.startsWith("synthetic:")) clientId = "";
@@ -147,9 +147,11 @@ export async function POST(req: NextRequest) {
     }
     const np = normPhone(phone);
     if (!client && np) {
-      const { data, error }: { data: PromoClient[] | null; error: unknown } = await supabaseAdmin.from("clients").select("*").eq("shop_id", shop_id).eq("phone_normalized", np).limit(1);
+      const { data, error }: { data: PromoClient[] | null; error: unknown } = await supabaseAdmin.from("clients").select("*").eq("shop_id", shop_id).eq("phone_normalized", np);
       if (error) { skipped++; continue; }
-      client = (data?.[0] as PromoClient | null) ?? null;
+      const matches: PromoClient[] = identityCandidates<PromoClient>(data ?? [], { email, phone, name });
+      if (matches.length > 1 || ((data?.length ?? 0) > 0 && !matches.length)) { skipped++; continue; }
+      client = matches[0] ?? null;
     }
     if (!client) {
       // Unknown contact — add them to the book, but never email without consent.

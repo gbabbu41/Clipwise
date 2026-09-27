@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { normPhone } from "@/lib/client-identity";
+import { findExistingClient } from "@/lib/ensure-client";
 
 /**
  * Register a customer into a shop's `clients` book — SERVICE ROLE, deduped by
@@ -27,17 +27,12 @@ export async function upsertClient(
   const spend = Math.max(0, Number(amountDollars ?? 0));
   const nowIso = new Date().toISOString();
   try {
+    const existingId = await findExistingClient(shopId, { name: nm, email: e, phone: p });
     let existing: { id: string; total_visits: number | null; total_spent: number | null } | null = null;
-    if (e) {
-      const { data } = await supabaseAdmin
-        .from("clients").select("id, total_visits, total_spent").eq("shop_id", shopId).ilike("email", e).maybeSingle();
+    if (existingId) {
+      const { data, error } = await supabaseAdmin.from("clients").select("id, total_visits, total_spent").eq("shop_id", shopId).eq("id", existingId).single();
+      if (error || !data) throw new Error("Client lookup failed");
       existing = data;
-    }
-    const np = normPhone(p);
-    if (!existing && np) {
-      const { data } = await supabaseAdmin
-        .from("clients").select("id, total_visits, total_spent").eq("shop_id", shopId).eq("phone_normalized", np).limit(1);
-      existing = data?.[0] ?? null;
     }
     if (existing) {
       // On file already → count THIS POS sale as a visit + spend (mirrors what
@@ -47,7 +42,7 @@ export async function upsertClient(
         total_visits: (existing.total_visits ?? 0) + 1,
         total_spent: Number(existing.total_spent ?? 0) + spend,
         last_visit: nowIso,
-      }).eq("id", existing.id).then(null, () => null);
+      }).eq("shop_id", shopId).eq("id", existing.id).then(null, () => null);
       return;
     }
     // New client — this sale is their first visit.

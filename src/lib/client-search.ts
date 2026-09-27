@@ -8,6 +8,7 @@
 // caller decides whether to show all or nothing when the box is empty).
 
 type ClientLike = {
+  client_aliases?: { name?: string | null; email?: string | null; phone?: string | null }[];
   name?: string | null; client_name?: string | null;
   email?: string | null; client_email?: string | null;
   phone?: string | null; client_phone?: string | null;
@@ -27,5 +28,5 @@ export function clientMatchesQuery(c: ClientLike, query: string): boolean {
     const phoneDigits = phone.replace(/\D/g, "");
     if (phoneDigits && phoneDigits.includes(qDigits)) return true;
   }
-  return false;
+  return (c.client_aliases ?? []).some(alias => clientMatchesQuery(alias, query));
 }
