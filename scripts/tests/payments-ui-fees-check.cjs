@@ -53,4 +53,11 @@ html = render({ txs: [tx, old] });
 assert(html.includes('QA client') && !html.includes('Older client'), 'Today card scopes the list to today');
 html = render({ txs: [tx, old], netSlide: 3 });
 assert(html.includes('QA client') && html.includes('Older client'), 'All time card shows every transaction');
+// Long lists render 10 rows + a "Load more" button; totals still use every row.
+const many = Array.from({ length: 13 }, (_, n) => ({ ...tx, id: 'm' + n, client_name: 'Client ' + n }));
+html = render({ txs: many });
+assert(html.includes('Load 3 more · 3 left'), 'load-more button for rows beyond the first 10');
+assert.equal((html.match(/Client \d+/g) || []).length, 10, 'only 10 rows drawn');
+html = render({ txs: many, visibleTx: 30 });
+assert(!html.includes(' more · '), 'no button once every row is shown');
 console.log('PASS Payments UI missing/known card fees, cash-only, barber take-home, loading/error/shop scope');

@@ -105,6 +105,9 @@ export default function PaymentsPage() {
   // Fee coverage is checked for each period and charge, even after Stripe loads.
   const [feesStatus, setFeesStatus] = useState<"loading" | "ready" | "error">("loading");
   const [netSlide, setNetSlide] = useState(0);
+  // Transaction list shows 10 rows, +20 per "Load more" — keeps big month/all-time
+  // lists light to render. Resets whenever the card, filter or barber changes.
+  const [visibleTx, setVisibleTx] = useState(10);
   const netRef = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
@@ -119,6 +122,7 @@ export default function PaymentsPage() {
   const [detailItem, setDetailItem] = useState<FeedItem | null>(null);
   const [refunding, setRefunding] = useState(false);
   const [txFilter, setTxFilter] = useState<"all" | "card" | "cash" | "unpaid" | "refunded">("all");
+  useEffect(() => { setVisibleTx(10); }, [netSlide, txFilter, selectedBarber]);
   const [showFilterMenu, setShowFilterMenu] = useState(false);
 
   // Owner-only safety net: money that hit Stripe but isn't recorded in ClipWise
@@ -843,6 +847,13 @@ export default function PaymentsPage() {
       return { key: k, label: dayLabel(k), total, items, feesKnown };
     });
   })();
+  // Day totals above use every row; only the first `visibleTx` rows are drawn.
+  const shownGroups = (() => {
+    let left = visibleTx;
+    return txGroups.map(g => { const items = g.items.slice(0, Math.max(0, left)); left -= items.length; return { ...g, items }; })
+      .filter(g => g.items.length > 0);
+  })();
+  const hiddenTx = Math.max(0, stmtItems.length - visibleTx);
 
   // One receipt-ledger renderer for both modes. Barber: Commission + Tips =
   // Take-home (no card fee — the shop bears processing). Shop: Gross − tax − fees
@@ -1057,7 +1068,7 @@ export default function PaymentsPage() {
         <div className="py-16 text-center text-grey-muted text-sm">{txFilter === "unpaid" ? "Nothing outstanding — you're all caught up." : periodScoped ? "No transactions in this period." : "No transactions here yet."}</div>
       ) : (
         <div className="cwp-statement">
-          {txGroups.map(g => (
+          {shownGroups.map(g => (
             <div key={g.key} className="cwp-daygroup">
               <div className="cwp-day">
                 <span className="cwp-dlabel">{g.label}</span>
@@ -1098,6 +1109,12 @@ export default function PaymentsPage() {
             </div>
           ))}
         </div>
+      )}
+      {!loading && hiddenTx > 0 && (
+        <button type="button" onClick={() => setVisibleTx(n => n + 20)}
+          className="w-full mt-3 py-2.5 rounded-xl border border-border text-sm font-medium text-grey hover:text-foreground hover:bg-white/5 transition-colors">
+          Load {Math.min(20, hiddenTx)} more · {hiddenTx} left
+        </button>
       )}
 
       {/* Footer hint */}
