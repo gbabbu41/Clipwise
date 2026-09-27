@@ -8,7 +8,7 @@ import { DashboardHeader } from "@/components/dashboard/page-header";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { supabase } from "@/lib/supabase";
 import { formatCurrency, cn, timeToMinutes, timeAgo } from "@/lib/utils";
-import { countablePosTxs, estimateStripeFee, isNoShowTx, isPaid, lineNetFee, transactionCollectedAmount } from "@/lib/revenue";
+import { countablePosTxs, estimateStripeFee, isNoShowTx, isPaid, lineNetFee, transactionCollectedAmount, type CardFeeEstimate } from "@/lib/revenue";
 import { computeBarberEarnings, barberRowCut } from "@/lib/barber-earnings";
 import { readAllRows } from "@/lib/read-all-rows";
 import { cacheGet, cacheSet } from "@/lib/view-cache";
@@ -105,7 +105,7 @@ export default function PaymentsPage() {
   // True while the page shows its last snapshot (instant paint) and the fresh load
   // is still in flight — totals read "Updating…" and rows can't be opened yet.
   const [fromCache, setFromCache] = useState(false);
-  const [stripeNet, setStripeNet] = useState<{ connected: boolean; byPi: Record<string, { gross: number; fee: number; net: number }>; available: number; pending: number; inTransit?: number; nextPayoutDate?: number | null; nextPayoutAmount?: number | null; lastPayout?: { amount: number; date: number } | null } | null>(null);
+  const [stripeNet, setStripeNet] = useState<{ connected: boolean; byPi: Record<string, { gross: number; fee: number; net: number }>; available: number; pending: number; inTransit?: number; nextPayoutDate?: number | null; nextPayoutAmount?: number | null; lastPayout?: { amount: number; date: number } | null; feeEstimate?: CardFeeEstimate } | null>(null);
   // Fee coverage is checked for each period and charge, even after Stripe loads.
   const [feesStatus, setFeesStatus] = useState<"loading" | "ready" | "error">("loading");
   const [netSlide, setNetSlide] = useState(0);
@@ -534,7 +534,7 @@ export default function PaymentsPage() {
       ? (i.ledgerFee as number)
       : (i.earn || i.method === "cash" || counted(i) === 0)
         ? 0
-        : estimateStripeFee(counted(i));
+        : estimateStripeFee(counted(i), stripeNet?.feeEstimate); // platform ESTIMATE rate — unconfirmed fees only
   const netOf = (i: FeedItem) => liveFee(i)
     ? lineNetFee(i.pi, counted(i), stripeNet!.byPi).net
     : Math.max(0, counted(i) - feeOf(i));

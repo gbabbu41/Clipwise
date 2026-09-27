@@ -4,7 +4,7 @@ import { requireSuperAdmin } from "@/lib/admin-auth";
 import { logAdminAction } from "@/lib/admin-audit";
 import {
   getPlatformSettings, invalidatePlatformSettingsCache,
-  SETTINGS_STRING_KEYS, SETTINGS_BOOL_KEYS, type PlatformSettings,
+  SETTINGS_STRING_KEYS, SETTINGS_BOOL_KEYS, SETTINGS_NUMBER_KEYS, type PlatformSettings,
 } from "@/lib/platform-settings";
 
 // GET — current platform settings (super-admin only).
@@ -29,6 +29,16 @@ export async function PUT(req: NextRequest) {
   }
   for (const k of SETTINGS_BOOL_KEYS) {
     if (typeof body[k] === "boolean") next[k] = body[k] as boolean;
+  }
+  // Numbers (the fallback card-fee ESTIMATE): validated server-side; a bad value
+  // rejects the whole request so nothing is half-saved.
+  for (const [k, { min, max }] of Object.entries(SETTINGS_NUMBER_KEYS) as [keyof typeof SETTINGS_NUMBER_KEYS, { min: number; max: number }][]) {
+    if (body[k] === undefined) continue;
+    const v = body[k];
+    if (typeof v !== "number" || !Number.isFinite(v) || v < min || v > max) {
+      return NextResponse.json({ error: `${k === "est_card_fee_percent" ? "Estimated fee %" : "Estimated fixed fee"} must be a number from ${min} to ${max}.` }, { status: 400 });
+    }
+    next[k] = Math.round(v * 100) / 100;
   }
 
   const { error } = await supabaseAdmin.from("platform_settings").upsert(

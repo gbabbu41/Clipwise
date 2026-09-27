@@ -3,6 +3,7 @@
 // Degrades to safe defaults if the table doesn't exist yet (pre-migration) so
 // nothing ever breaks before phase27 runs.
 import { supabaseAdmin } from "./supabase-admin";
+import { DEFAULT_CARD_FEE_ESTIMATE } from "./revenue";
 
 export interface PlatformSettings {
   platform_name: string;
@@ -14,6 +15,11 @@ export interface PlatformSettings {
   maintenance_message: string;
   /** When true, a new free/unpaid shop is auto-approved instead of queued. */
   auto_approve_shops: boolean;
+  /** ESTIMATE ONLY — % used to estimate a card fee Stripe hasn't confirmed yet.
+   * Never applied to confirmed Stripe fees or to any customer charge. */
+  est_card_fee_percent: number;
+  /** ESTIMATE ONLY — fixed $ per card payment for the same fallback estimate. */
+  est_card_fee_fixed: number;
 }
 
 export const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
@@ -23,11 +29,47 @@ export const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
   maintenance_mode: false,
   maintenance_message: "",
   auto_approve_shops: false,
+  est_card_fee_percent: DEFAULT_CARD_FEE_ESTIMATE.percent,
+  est_card_fee_fixed: DEFAULT_CARD_FEE_ESTIMATE.fixed,
 };
 
 // Keys a PUT is allowed to change, split by type for whitelisting.
 export const SETTINGS_STRING_KEYS = ["platform_name", "support_email", "maintenance_message"] as const;
 export const SETTINGS_BOOL_KEYS = ["signups_enabled", "maintenance_mode", "auto_approve_shops"] as const;
+// Numeric keys with their allowed range (inclusive). Out-of-range or non-numeric
+// values are rejected by the PUT, never clamped silently.
+export const SETTINGS_NUMBER_KEYS = {
+  est_card_fee_percent: { min: 0, max: 10 },
+  est_card_fee_fixed: { min: 0, max: 2 },
+} as const;
+
+/** The fallback card-fee estimate rate, validated (a malformed stored value
+ * falls back to the default rather than producing a nonsense estimate). */
+export function cardFeeEstimateRate(s: PlatformSettings): { percent: number; fixed: number } {
+  const pick = (k: keyof typeof SETTINGS_NUMBER_KEYS) => {
+    const v = s[k], { min, max } = SETTINGS_NUMBER_KEYS[k];
+    return typeof v === "number" && Number.isFinite(v) && v >= min && v <= max ? v : DEFAULT_PLATFORM_SETTINGS[k];
+  };
+  return { percent: pick("est_card_fee_percent"), fixed: pick("est_card_fee_fixed") };
+}
+
+/** The estimate rate for callers that must never wait on (or fail because of)
+ * the settings read — e.g. confirmed payment figures. A failed or slow read
+ * (> timeoutMs) resolves to the default rate; this promise never rejects. */
+export async function cardFeeEstimateSafe(timeoutMs = 1500): Promise<{ percent: number; fixed: number }> {
+  const fallback = cardFeeEstimateRate(DEFAULT_PLATFORM_SETTINGS);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      getPlatformSettings().then(cardFeeEstimateRate),
+      new Promise<{ percent: number; fixed: number }>(resolve => { timer = setTimeout(() => resolve(fallback), timeoutMs); }),
+    ]);
+  } catch {
+    return fallback;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 let cache: { value: PlatformSettings; at: number } | null = null;
 const TTL_MS = 30_000;
