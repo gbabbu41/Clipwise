@@ -105,13 +105,9 @@ export function paymentTag(a: {
 }
 
 export function getTagColor(tag: string): string {
-  const map: Record<string, string> = {
-    VIP: "text-orange-400 bg-orange-500/20 border-orange-500/30",
-    New: "text-emerald-400 bg-emerald-500/20 border-emerald-500/30",
-    Returning: "text-blue-400 bg-blue-500/20 border-blue-500/30",
-    "At Risk": "text-red-400 bg-red-500/20 border-red-500/30",
-  };
-  return map[tag] ?? "text-[#8f8f8f] bg-gray-500/20 border-gray-500/30";
+  // Client segments are labels, not states — neutral per DESIGN.md §3 (status
+  // colours encode state only). VIP reads one step brighter.
+  return tag === "VIP" ? "text-foreground border-border-strong" : "text-grey border-border";
 }
 
 // ─── Time Utilities ────────────────────────────────────────────────────────────

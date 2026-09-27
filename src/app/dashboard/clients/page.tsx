@@ -7,7 +7,7 @@ import { formatPhone } from "@/lib/validation";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input, Textarea } from "@/components/ui/input";
-import { Phone, MessageSquare, Mail, Users, Building2, Ban, UserPlus, CalendarPlus } from "lucide-react";
+import { Phone, MessageSquare, Mail, Users, Building2, UserPlus, CalendarPlus } from "lucide-react";
 import type { NewAppointmentDetail } from "@/components/dashboard/add-appointment-modal";
 import { groupClients, sameIdentity, clientToId, apptToId } from "@/lib/client-identity";
 import type { Client, Appointment } from "@/lib/database.types";
@@ -28,6 +28,7 @@ type AppointmentRow = Pick<Appointment, "id" | "date" | "time_slot" | "total_amo
   services?: { name: string } | null;
 };
 
+const noShowLabel = (n: number) => `${n} no-show${n === 1 ? "" : "s"}`;
 type NewClient = { name: string; phone: string; email: string; notes: string; birthday: string };
 const BLANK_CLIENT: NewClient = { name: "", phone: "", email: "", notes: "", birthday: "" };
 
@@ -663,14 +664,12 @@ export default function ClientsPage() {
                     : <p className="text-sm text-grey-muted">No phone on file</p>}
                 </div>
                 <div className="flex flex-col items-end gap-1.5 shrink-0">
-                 <Ban size={11} /> {noShowCounts[client.id] > 0 && (
-                    <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium bg-red-500/15 border border-red-500/30 text-red-400">
-                      <Ban size={11} /> {noShowCounts[client.id]}
-                    </span>
-                  )}
                   <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border", getTagColor(client.tag))}>
                     {client.tag}
                   </span>
+                  {noShowCounts[client.id] > 0 && (
+                    <span className="text-xs text-amber-400">{noShowLabel(noShowCounts[client.id])}</span>
+                  )}
                 </div>
               </div>
               {/* Clean glanceable stats — full history lives in View Profile */}
@@ -713,10 +712,8 @@ export default function ClientsPage() {
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1.5">
                       <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium border", getTagColor(client.tag))}>{client.tag}</span>
-                     <Ban size={11} /> {noShowCounts[client.id] > 0 && (
-                        <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium bg-red-500/15 border border-red-500/30 text-red-400">
-                          <Ban size={11} /> {noShowCounts[client.id]}
-                        </span>
+                      {noShowCounts[client.id] > 0 && (
+                        <span className="text-xs text-amber-400 whitespace-nowrap">{noShowLabel(noShowCounts[client.id])}</span>
                       )}
                     </div>
                   </td>
@@ -750,10 +747,8 @@ export default function ClientsPage() {
                   <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border", getTagColor(selectedClient.tag))}>
                     {selectedClient.tag}
                   </span>
-                 <Ban size={11} /> {noShowCounts[selectedClient.id] > 0 && (
-                    <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium bg-red-500/15 border border-red-500/30 text-red-400">
-                      <Ban size={11} /> {noShowCounts[selectedClient.id]} no-show{noShowCounts[selectedClient.id] > 1 ? "s" : ""}
-                    </span>
+                  {noShowCounts[selectedClient.id] > 0 && (
+                    <span className="text-xs text-amber-400">{noShowLabel(noShowCounts[selectedClient.id])}</span>
                   )}
                 </div>
               </div>
