@@ -13,6 +13,7 @@ import { groupClients, sameIdentity, clientToId, apptToId } from "@/lib/client-i
 import type { Client, Appointment } from "@/lib/database.types";
 import { DashboardHeader } from "@/components/dashboard/page-header";
 import { clientMatchesQuery } from "@/lib/client-search";
+import { cacheGet, cacheSet } from "@/lib/view-cache";
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
@@ -105,7 +106,12 @@ export default function ClientsPage() {
     // A realtime refresh runs in the background — don't flash the skeleton back
     // over an already-painted list on every booking/completion. Only the first
     // (foreground) load shows the loading state.
-    if (!opts?.background) setLoading(true);
+    // Instant paint from the last snapshot (this session or device); the fresh
+    // load below then replaces it.
+    const ck = `clients_${shop.id}`;
+    const cached = opts?.background ? null : cacheGet<{ clients: ReturnType<typeof groupClients>; noShow: Record<string, number> }>(ck);
+    if (cached) { setClients(cached.clients); setNoShowCounts(cached.noShow); setLoading(false); }
+    else if (!opts?.background) setLoading(true);
 
     // ── Phase 1 (fast) — the clients table alone. It's small and indexed by
     // shop_id and already carries total_visits/points, so the list can paint
@@ -150,6 +156,7 @@ export default function ClientsPage() {
     const list = groupClients({ shopId: shop.id, clientRows: baseRows, apptRows, txRows });
     if (seq !== loadSeqRef.current) return; // a newer load started — bail
     setClients(list);
+    if (!clientErr) cacheSet(ck, { clients: list, noShow: cached?.noShow ?? {} });
 
     // Read the error too: a failed no-show query looks identical to "zero
     // no-shows" if we only read data, so keep the prior counts instead of
@@ -164,6 +171,7 @@ export default function ClientsPage() {
         if (match) counts[match.id] = (counts[match.id] ?? 0) + 1;
       }
       setNoShowCounts(counts);
+      if (!clientErr) cacheSet(ck, { clients: list, noShow: counts });
     }
   }, [shop]);
 

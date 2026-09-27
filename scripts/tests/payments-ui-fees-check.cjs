@@ -60,4 +60,8 @@ assert(html.includes('Load 3 more · 3 left'), 'load-more button for rows beyond
 assert.equal((html.match(/Client \d+/g) || []).length, 10, 'only 10 rows drawn');
 html = render({ txs: many, visibleTx: 30 });
 assert(!html.includes(' more · '), 'no button once every row is shown');
+// Instant paint: a cached snapshot shows (marked "Updating…") while the fresh
+// load runs, instead of the blank "Loading payments…" screen.
+html = render({ loading: true, fromCache: true });
+assert(html.includes('$115.00') && html.includes('Updating…') && !html.includes('Loading payments…'), 'cached snapshot paints while refreshing');
 console.log('PASS Payments UI missing/known card fees, cash-only, barber take-home, loading/error/shop scope');

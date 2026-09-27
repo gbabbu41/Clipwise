@@ -21,6 +21,7 @@ const StatsCarousel = dynamic(
   { ssr: false, loading: () => <div className="h-64 rounded-2xl bg-card border border-border animate-pulse" /> },
 );
 import { readAllRows } from "@/lib/read-all-rows";
+import { cacheGet, cacheSet } from "@/lib/view-cache";
 import { hasMissingCardFees } from "@/lib/analytics-period";
 import { useSheetDrag } from "@/hooks/use-sheet-drag";
 import { cn, formatCurrency, getDateRange, DATE_FILTER_LABELS, formatDateForDb, DateFilterKey, friendlyDate, timeToMinutes, timeAgo } from "@/lib/utils";
@@ -495,8 +496,41 @@ export default function DashboardPage() {
     setApptCounts(counts);
   }, [shop, calYear, calMonth, profile, myBarberId]);
 
+  // Instant paint: show the last snapshot for this period / today's schedule
+  // (memory, or device when small), then the loaders below refresh it. Kept
+  // outside the tested loaders. The report cache is per date filter, so a
+  // period's numbers never show under another period's label.
+  const [repFromCache, setRepFromCache] = useState(false);
+  const [schedFromCache, setSchedFromCache] = useState(false);
+  const homeRepKey = shop?.id && profile?.id ? `home_rep_${JSON.stringify([shop.id, profile.id, myBarberId, dateFilter, customStart, customEnd])}` : "";
+  const homeSchedKey = shop?.id && profile?.id ? `home_sched_${JSON.stringify([shop.id, profile.id, myBarberId, formatDateForDb(new Date())])}` : "";
+  type HomeRepSnap = { appointments: AppointmentWithDetails[]; txns: RevTx[]; revenueAppts: RevApptRow[]; financialBarbers: Barber[] };
+  useEffect(() => {
+    const snap = homeRepKey ? cacheGet<HomeRepSnap>(homeRepKey) : null;
+    if (!snap) { setRepFromCache(false); return; }
+    setAppointments(snap.appointments); setTxns(snap.txns); setRevenueAppts(snap.revenueAppts); setFinancialBarbers(snap.financialBarbers);
+    setLoadedReportKey(reportKey); setRepFromCache(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [homeRepKey]);
+  useEffect(() => {
+    const snap = homeSchedKey ? cacheGet<{ scheduleAppts: AppointmentWithDetails[]; barbers: Barber[] }>(homeSchedKey) : null;
+    if (!snap) { setSchedFromCache(false); return; }
+    setScheduleAppts(snap.scheduleAppts); setBarbers(snap.barbers);
+    setLoadedScheduleKey(scheduleKey); setSchedFromCache(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [homeSchedKey]);
   useEffect(() => { loadAppointments(); return () => { loadSequence.current++; }; }, [loadAppointments]);
   useEffect(() => { loadSchedule(); return () => { scheduleSequence.current++; }; }, [loadSchedule]);
+  useEffect(() => {
+    if (!homeRepKey || loadingAppts || loadError || loadedReportKey !== reportKey) return;
+    cacheSet(homeRepKey, { appointments, txns, revenueAppts, financialBarbers } satisfies HomeRepSnap);
+    setRepFromCache(false);
+  }, [homeRepKey, loadingAppts, loadError, loadedReportKey, reportKey, appointments, txns, revenueAppts, financialBarbers]);
+  useEffect(() => {
+    if (!homeSchedKey || loadingSchedule || scheduleError || loadedScheduleKey !== scheduleKey) return;
+    cacheSet(homeSchedKey, { scheduleAppts, barbers });
+    setSchedFromCache(false);
+  }, [homeSchedKey, loadingSchedule, scheduleError, loadedScheduleKey, scheduleKey, scheduleAppts, barbers]);
   useEffect(() => { loadSideData(); return () => { sideSequence.current++; }; }, [loadSideData]);
   useEffect(() => { loadCalendarCounts(); }, [loadCalendarCounts]);
   useEffect(() => { loadWeekAppts(); }, [loadWeekAppts]);
@@ -803,7 +837,7 @@ export default function DashboardPage() {
       )}
 
       {/* Never label previous-period figures with the newly selected range. */}
-      {loadError ? null : loadingAppts || loadedReportKey !== reportKey ? (
+      {loadError ? null : (loadingAppts && !repFromCache) || loadedReportKey !== reportKey ? (
         <div className="mb-3"><Skeleton className="h-44 rounded-2xl" /></div>
       ) : (() => {
         // New Clients = distinct client RECORDS first created in the window (each
@@ -886,6 +920,7 @@ export default function DashboardPage() {
               );
             })()}
 
+            {repFromCache && loadingAppts && <p className="text-xs text-grey mb-2" role="status">Updating…</p>}
             {/* Revenue hero (swipeable — revenue, bookings, top barbers, status) */}
             <StatsCarousel revenue={feesUnavailable ? collected.gross : collected.net} taxCollected={collected.tax} cashIncluded={collected.cash} feesPaid={collected.fees} tips={paidOutTips} commission={commission} netRevenue={netRevenue} feesLoading={feesLoading} feesUnavailable={feesUnavailable} paidVisits={paidVisits} appointments={appointments} completed={completed} topBarbers={topBarbers} periodLabel={DATE_FILTER_LABELS[dateFilter]} rangeStart={rangeStart} rangeEnd={rangeEnd} initialSlide={statsSlide} onSlideChange={setStatsSlide} />
             {feesUnavailable && !feesLoading && <button type="button" className="mb-3 border border-border rounded-lg px-4 py-2 text-sm" onClick={() => setFeeRetry(v => v + 1)}>Retry processing fees</button>}
@@ -1024,7 +1059,7 @@ export default function DashboardPage() {
             <div className="cwd-cardb">
               {!selectedCalDate && scheduleError ? (
                 <p role="alert" className="text-sm text-grey">Couldn&apos;t load the schedule. <button className="underline" onClick={() => void loadSchedule()}>Retry</button></p>
-              ) : (selectedCalDate ? loadingSelectedDay : loadingSchedule || loadedScheduleKey !== scheduleKey) ? (
+              ) : (selectedCalDate ? loadingSelectedDay : (loadingSchedule && !schedFromCache) || loadedScheduleKey !== scheduleKey) ? (
                 <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-14" />)}</div>
               ) : displayAppts.length === 0 ? (
                 <div className="py-8 text-center text-grey">
@@ -1079,7 +1114,7 @@ export default function DashboardPage() {
           <div className="cwd-card">
             <div className="cwd-cardh"><span className="cwd-ct">Staff Status</span></div>
             <div className="cwd-cardb cwd-ledgerb">
-              {scheduleError ? <p role="alert" className="text-sm text-grey">Staff status unavailable. Retry the schedule.</p> : loadingSchedule || loadedScheduleKey !== scheduleKey ? <Skeleton className="h-14" /> : barbers.length === 0 ? (
+              {scheduleError ? <p role="alert" className="text-sm text-grey">Staff status unavailable. Retry the schedule.</p> : (loadingSchedule && !schedFromCache) || loadedScheduleKey !== scheduleKey ? <Skeleton className="h-14" /> : barbers.length === 0 ? (
                 <div className="text-center py-4">
                   <p className="text-sm text-grey">No active staff</p>
                   <Link href="/dashboard/staff" className="inline-block mt-1.5 text-sm font-semibold text-accent-soft hover:text-foreground transition-colors">Add a barber →</Link>

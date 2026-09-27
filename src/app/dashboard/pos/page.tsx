@@ -19,6 +19,7 @@ import { clientMatchesQuery } from "@/lib/client-search";
 import { ApptDetail, makeApptActions, Portal } from "@/components/calendar-view";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { safeTz } from "@/lib/timezone";
+import { cacheGet, cacheSet } from "@/lib/view-cache";
 
 type CartItem = { id: string; name: string; price: number; qty: number; type: "service" | "product"; inventoryId?: string };
 type PM = "card" | "cash" | "online";
@@ -148,6 +149,11 @@ export default function POSPage() {
 
   const loadData = useCallback(async () => {
     if (!shop) return;
+    // Instant paint: last menu/staff/client lists; the fresh read below replaces them.
+    type PosSnap = { barbers: Barber[]; services: Service[]; inventory: InventoryItem[]; promos: PromoCode[]; clients: ClientLite[] };
+    const ck = `pos_${shop.id}`;
+    const snap = cacheGet<PosSnap>(ck);
+    if (snap) { setBarbers(snap.barbers); setServices(snap.services); setInventory(snap.inventory); setPromoCodes(snap.promos); setClientsList(snap.clients); setDataLoaded(true); }
     const [barbersRes, svcsRes, invRes, promoRes, clientsRes] = await Promise.all([
       supabase.from("barbers").select("*").eq("shop_id", shop.id).eq("is_active", true).order("name"),
       supabase.from("services").select("*").eq("shop_id", shop.id).eq("is_active", true).order("category").order("name"),
@@ -162,8 +168,11 @@ export default function POSPage() {
     if (svcsRes.data) setServices(svcsRes.data);
     if (invRes.data) setInventory(invRes.data);
     if (promoRes.data) setPromoCodes(promoRes.data);
-    if (clientsRes.data) setClientsList((clientsRes.data as ClientLite[]).map(c => ({ ...c, saved: true })));
+    const freshClients = clientsRes.data ? (clientsRes.data as ClientLite[]).map(c => ({ ...c, saved: true })) : null;
+    if (freshClients) setClientsList(freshClients);
     setDataLoaded(true);
+    if (barbersRes.data && svcsRes.data && invRes.data && promoRes.data && freshClients)
+      cacheSet(ck, { barbers: barbersRes.data, services: svcsRes.data, inventory: invRes.data, promos: promoRes.data, clients: freshClients } satisfies PosSnap);
   }, [shop]);
 
   useEffect(() => { loadData(); }, [loadData]);
@@ -191,7 +200,10 @@ export default function POSPage() {
   const loadAppts = useCallback(async () => {
     if (!shop) return;
     const today = new Date().toLocaleDateString("en-CA"); // local (= shop) YYYY-MM-DD
-    const { data } = await supabase
+    const ck = `pos_appts_${shop.id}_${today}`;
+    const snap = cacheGet<AppointmentWithDetails[]>(ck);
+    if (snap) setAppts(snap);
+    const { data, error } = await supabase
       .from("appointments")
       .select("*, services(name)")
       .eq("shop_id", shop.id)
@@ -204,7 +216,9 @@ export default function POSPage() {
       .or(`date.eq.${today},payment_status.in.(held,saved,unpaid,failed),balance_due.gt.0,and(date.gte.${today},payment_status.in.(paid,captured))`)
       .order("created_at", { ascending: false })
       .limit(80);
+    if (error && snap) return; // keep the last list rather than blanking it
     setAppts((data ?? []) as AppointmentWithDetails[]);
+    if (!error) cacheSet(ck, data ?? []);
   }, [shop]);
   useEffect(() => { loadAppts(); }, [loadAppts]);
 

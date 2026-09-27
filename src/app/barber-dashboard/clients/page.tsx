@@ -4,6 +4,7 @@ import { Search, Users, Phone, Calendar } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useBarber } from "@/lib/barber-context";
 import { clientMatchesQuery } from "@/lib/client-search";
+import { cacheGet, cacheSet } from "@/lib/view-cache";
 
 interface ClientRow {
   client_name: string;
@@ -26,6 +27,10 @@ export default function BarberClientsPage() {
 
   useEffect(() => {
     if (!accessToken || notPermitted) { setLoading(false); return; }
+    // Instant paint from the last snapshot; the fresh read below replaces it.
+    const ck = `bclients_${shop?.id ?? ""}_${barber?.id ?? ""}`;
+    const snap = cacheGet<ClientRow[]>(ck);
+    if (snap) { setClients(snap); setLoading(false); }
     // Aggregate clients from appointments
     const shopParam = shop?.id ? `?shop_id=${shop.id}` : "";
     fetch(`/api/barber/appointments${shopParam}`, { headers: { Authorization: `Bearer ${accessToken}` } })
@@ -53,11 +58,13 @@ export default function BarberClientsPage() {
             }
           }
         }
-        setClients(Array.from(map.values()).sort((a, b) => b.visits - a.visits));
+        const rows = Array.from(map.values()).sort((a, b) => b.visits - a.visits);
+        setClients(rows);
+        cacheSet(ck, rows);
       })
       .catch(() => { /* load failed — finally clears the spinner; list stays empty */ })
       .finally(() => setLoading(false));
-  }, [accessToken, shop?.id, notPermitted]);
+  }, [accessToken, shop?.id, barber?.id, notPermitted]);
 
   const filtered = clients.filter(c => clientMatchesQuery(c, query));
 

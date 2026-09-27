@@ -10,6 +10,7 @@ import { useConfirm } from "@/components/ui/confirm-dialog";
 import type { AppointmentWithDetails } from "@/lib/database.types";
 import { safeCommission } from "@/lib/barber-earnings";
 import { earningsBuckets } from "@/lib/earnings-chart";
+import { cacheGet, cacheSet } from "@/lib/view-cache";
 
 interface Tx {
   id: string;
@@ -67,7 +68,11 @@ export default function BarberPaymentsPage() {
   const loadEarnings = useCallback(async () => {
     const request = ++earningsRequest.current;
     if (!accessToken || !shop?.id || notPermitted) { setTxs([]); setLoading(false); return; }
-    setLoading(true);
+    // Instant paint from the last snapshot; the fresh read below replaces it.
+    const ck = `bearn_${shop.id}_${barber?.id ?? ""}`;
+    const snap = cacheGet<{ txs: Tx[]; pct: number; isOwner: boolean }>(ck);
+    if (snap) { setTxs(snap.txs); setPct(snap.pct); setIsOwner(snap.isOwner); setLoading(false); }
+    else setLoading(true);
     setLoadError("");
     try {
       const r = await fetch(`/api/barber/earnings?period=all&shop_id=${shop.id}`, { headers: { Authorization: `Bearer ${accessToken}` } });
@@ -76,12 +81,13 @@ export default function BarberPaymentsPage() {
       if (!Array.isArray(d.transactions) || !d.summary) throw new Error("Invalid earnings response");
       if (request !== earningsRequest.current) return;
       setTxs(d.transactions as Tx[]); setPct(d.summary.commissionPercent ?? 0); setIsOwner(d.summary.isOwner ?? false);
+      cacheSet(ck, { txs: d.transactions, pct: d.summary.commissionPercent ?? 0, isOwner: d.summary.isOwner ?? false });
     } catch {
       if (request === earningsRequest.current) setLoadError("Unable to load earnings. Please try again.");
     } finally {
       if (request === earningsRequest.current) setLoading(false);
     }
-  }, [accessToken, shop?.id, notPermitted]);
+  }, [accessToken, shop?.id, barber?.id, notPermitted]);
 
   useEffect(() => { setTxs([]); loadEarnings(); return () => { earningsRequest.current++; }; }, [loadEarnings]);
 

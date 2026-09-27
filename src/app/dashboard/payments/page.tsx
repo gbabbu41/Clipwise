@@ -11,6 +11,7 @@ import { formatCurrency, cn, timeToMinutes, timeAgo } from "@/lib/utils";
 import { countablePosTxs, estimateStripeFee, isNoShowTx, isPaid, lineNetFee, transactionCollectedAmount } from "@/lib/revenue";
 import { computeBarberEarnings, barberRowCut } from "@/lib/barber-earnings";
 import { readAllRows } from "@/lib/read-all-rows";
+import { cacheGet, cacheSet } from "@/lib/view-cache";
 import { earningsBuckets } from "@/lib/earnings-chart";
 
 // ── Row shapes ────────────────────────────────────────────────────────────────
@@ -101,6 +102,9 @@ export default function PaymentsPage() {
   }, []);
   const [appts, setAppts] = useState<ApptRow[]>([]);
   const [txs, setTxs] = useState<TxRow[]>([]);
+  // True while the page shows its last snapshot (instant paint) and the fresh load
+  // is still in flight — totals read "Updating…" and rows can't be opened yet.
+  const [fromCache, setFromCache] = useState(false);
   const [stripeNet, setStripeNet] = useState<{ connected: boolean; byPi: Record<string, { gross: number; fee: number; net: number }>; available: number; pending: number; inTransit?: number; nextPayoutDate?: number | null; nextPayoutAmount?: number | null; lastPayout?: { amount: number; date: number } | null } | null>(null);
   // Fee coverage is checked for each period and charge, even after Stripe loads.
   const [feesStatus, setFeesStatus] = useState<"loading" | "ready" | "error">("loading");
@@ -258,7 +262,25 @@ export default function PaymentsPage() {
       if (mountedRef.current && paymentScopeRef.current === paymentScope && sequence === loadSequence.current) setLoading(false);
     }
   }, [shop, accessToken, syncStripe, paymentScope]);
+  // Instant paint: show the last snapshot for this shop + user (memory, or device
+  // when small enough), then loadData below refreshes it. Kept outside loadData so
+  // the tested loader is unchanged.
+  const payCacheKey = shop?.id && user?.id ? `pay_${shop.id}_${user.id}` : "";
+  useEffect(() => {
+    if (!payCacheKey || !shop?.id) return;
+    const snap = cacheGet<{ appts: ApptRow[]; txs: TxRow[]; stripeNet: typeof stripeNet }>(payCacheKey);
+    if (!snap) return;
+    setAppts(snap.appts); setTxs(snap.txs); if (snap.stripeNet) setStripeNet(snap.stripeNet);
+    setLoadedShop(shop.id); setLoadedScope(paymentScope); setFromCache(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [payCacheKey, paymentScope]);
   useEffect(() => { loadData(); return () => { loadSequence.current++; }; }, [loadData]);
+  useEffect(() => {
+    if (!payCacheKey || loading || loadError || loadedScope !== paymentScope) return;
+    cacheSet(payCacheKey, { appts, txs, stripeNet });
+    setFromCache(false);
+  }, [payCacheKey, loading, loadError, loadedScope, paymentScope, appts, txs, stripeNet]);
+  const refreshing = fromCache && loading;
 
   // Keep the Stripe payout/balance figures live. A payout landing or the balance
   // moving never fires a Supabase change, so re-sync from Stripe when the tab
@@ -787,7 +809,7 @@ export default function PaymentsPage() {
     return <FeatureLock title="Payments" description="Online & card payment tracking is available on the Pro and Premium plans." />;
   }
   if (loadError) return <div className="p-6" role="alert"><h1 className="text-xl font-semibold">Payments unavailable</h1><p className="text-grey mt-2">We couldn&apos;t load complete payment records. No totals are shown to avoid an inaccurate report.</p><button type="button" className="mt-4 rounded-lg border border-border px-4 py-2" onClick={() => void loadData()}>Retry</button></div>;
-  if (loading || !shop?.id || loadedShop !== shop.id || loadedScope !== paymentScope) return <div className="p-6" role="status">Loading payments…</div>;
+  if ((loading && !fromCache) || !shop?.id || loadedShop !== shop.id || loadedScope !== paymentScope) return <div className="p-6" role="status">Loading payments…</div>;
 
   // ── Earnings carousel = the period selector. The three presets + a Custom card
   // are the swipeable cards; each is built by mkCard (shop or barber mode). ────
@@ -928,7 +950,7 @@ export default function PaymentsPage() {
       {/* ── Earnings — the period filters live in the carousel ─────────────── */}
       <div className="cwp-earn-head">
         <span className="cwp-lbl">Earnings{barberFirst ? ` · ${barberFirst}` : ""}</span>
-        <span className="cwp-hint">‹ swipe periods ›</span>
+        <span className="cwp-hint" role="status">{refreshing ? "Updating…" : "‹ swipe periods ›"}</span>
       </div>
       <div className="cwp-railwrap">
       <div ref={netRef}
@@ -1062,7 +1084,7 @@ export default function PaymentsPage() {
           <button key={f} className={cn(txFilter === f && "cwp-on")} onClick={() => setTxFilter(f)}>{filterLabels[f]}</button>
         ))}
       </div>
-      {loading ? (
+      {loading && !fromCache ? (
         <div className="py-16 text-center text-grey-muted text-sm">Loading payments…</div>
       ) : txGroups.length === 0 ? (
         <div className="py-16 text-center text-grey-muted text-sm">{txFilter === "unpaid" ? "Nothing outstanding — you're all caught up." : periodScoped ? "No transactions in this period." : "No transactions here yet."}</div>
@@ -1082,7 +1104,7 @@ export default function PaymentsPage() {
                 const glyphCls = isCash ? "cwp-cash" : unpaid ? "cwp-due" : refunded ? "" : "cwp-card";
                 const ago = i.tsIso ? timeAgo(i.tsIso) : null;
                 return (
-                  <button key={i.key} className={cn("cwp-row", refunded && "cwp-refunded")} onClick={() => setDetailItem(i)}>
+                  <button key={i.key} className={cn("cwp-row", refunded && "cwp-refunded")} onClick={() => { if (!refreshing) setDetailItem(i); }}>
                     <span className={cn("cwp-glyph", glyphCls)}><Icon size={18} /></span>
                     <div className="cwp-rmid">
                       <div className="cwp-nm">{i.name}</div>
@@ -1110,7 +1132,7 @@ export default function PaymentsPage() {
           ))}
         </div>
       )}
-      {!loading && hiddenTx > 0 && (
+      {(!loading || fromCache) && hiddenTx > 0 && (
         <button type="button" onClick={() => setVisibleTx(n => n + 20)}
           className="w-full mt-3 py-2.5 rounded-xl border border-border text-sm font-medium text-grey hover:text-foreground hover:bg-white/5 transition-colors">
           Load {Math.min(20, hiddenTx)} more · {hiddenTx} left
