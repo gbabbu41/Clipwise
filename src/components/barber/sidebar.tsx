@@ -486,10 +486,8 @@ export function BarberMobileNav() {
     // "/" boundary on the prefix so a tab never lights on a sibling route.
     const isActive = pathname === href || (href !== "/barber-dashboard" && pathname.startsWith(href + "/"));
     return (
-      <Link key={href} href={href} className={cn("cw-ni", isActive && "active")}>
-        <div className="cw-ni-icon"><Icon size={20} /></div>
-        <div className="cw-ni-label">{label}</div>
-        {isActive && <div className="cw-ni-line" />}
+      <Link key={href} href={href} aria-label={label} title={label} className={cn("cw-ni", isActive && "active")}>
+        <span className="cw-ni-icon"><Icon size={23} /></span>
       </Link>
     );
   };
@@ -505,8 +503,7 @@ export function BarberMobileNav() {
       {perms.view_clients !== false && navLink("/barber-dashboard/clients", "Clients", Users)}
       {/* 'More' opens the sidebar drawer (Schedule, Profile, Time Off, etc.). */}
       <button type="button" onClick={toggleDrawer} className="cw-ni" aria-label="More">
-        <div className="cw-ni-icon"><Menu size={20} /></div>
-        <div className="cw-ni-label">More</div>
+        <span className="cw-ni-icon"><Menu size={23} /></span>
       </button>
     </nav>
   );

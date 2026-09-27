@@ -1404,17 +1404,23 @@ textarea.form-control { min-height: 5rem; resize: vertical; }
    + in the mobile top bar, so the bottom bar is pure navigation with evenly-spaced
    tabs.) */
 
-/* Bottom nav bar (mobile) — floating frosted glass, matching the marketing nav.
-   Base is an OPAQUE --surface fallback; the @supports block below swaps in the
-   translucent --nav-glass + real backdrop-blur only where the browser can blur,
-   so browsers without backdrop-filter never show content bleeding through. */
+/* Bottom nav bar (mobile) — a FLOATING frosted-glass pill: inset from the screen
+   edges, fully rounded, soft shadow, hovering just above the home indicator (the
+   look the big social apps use). Base is an OPAQUE --surface fallback; the @supports
+   block swaps in the translucent --nav-glass + real backdrop-blur only where the
+   browser can blur. Icons only — no labels — and the active tab wears a soft rounded
+   pill instead of an underline. Its total footprint (8px gap + 58px) stays under the
+   ~68px the page content already reserves at the bottom, so nothing hides behind it. */
 .cw-bnav {
-  position: fixed; bottom: 0; left: 0; right: 0;
+  position: fixed;
+  bottom: calc(env(safe-area-inset-bottom) + 8px);
+  left: 12px; right: 12px;
   background: var(--surface);
-  border-top: 1px solid var(--border);
-  /* Reserve the home-indicator inset below the tab row (0 in a browser tab). */
-  height: calc(68px + env(safe-area-inset-bottom));
-  display: flex; align-items: center; padding: 0 6px env(safe-area-inset-bottom); z-index: 30;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  height: 58px;
+  display: flex; align-items: center; padding: 0 6px; z-index: 30;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
 }
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .cw-bnav {
@@ -1423,18 +1429,22 @@ textarea.form-control { min-height: 5rem; resize: vertical; }
     -webkit-backdrop-filter: blur(24px) saturate(1.5);
   }
 }
+/* Each tab centers one icon; the icon wrapper is both the tap target and the pill. */
 .cw-ni {
-  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
-  cursor: pointer; padding: 8px 0;
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  cursor: pointer; padding: 5px 0; min-width: 0;
   -webkit-tap-highlight-color: transparent;
 }
 /* While a modal is open, hide the bottom nav so cards never overlap it. */
 .cw-modal-open .cw-bnav { display: none; }
-.cw-ni-icon  { font-size: 20px; color: var(--grey-2); transition: color 0.15s; }
-.cw-ni-label { font-size: 10px; color: var(--grey-2); font-weight: 600; transition: color 0.15s; white-space: nowrap; }
-.cw-ni.active .cw-ni-icon,
-.cw-ni.active .cw-ni-label { color: var(--foreground); }
-.cw-ni-line  { width: 18px; height: 2px; background: var(--foreground); border-radius: 2px; margin-top: 2px; }
+.cw-ni-icon {
+  display: flex; align-items: center; justify-content: center;
+  padding: 7px 12px; border-radius: 999px;
+  color: var(--grey-2);
+  transition: color 0.15s, background 0.15s;
+}
+/* Active tab — a soft filled pill + full-strength icon (replaces the old underline). */
+.cw-ni.active .cw-ni-icon { background: var(--surface-overlay); color: var(--foreground); }
 /* Fade-up entrance animation used by stat cards and appt rows */
 @keyframes cw-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 .cw-anim-up { animation: cw-up 0.35s ease both; }
