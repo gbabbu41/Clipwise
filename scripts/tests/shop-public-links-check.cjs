@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript');
 const code = ts.transpileModule(fs.readFileSync('src/lib/shop-public-links.ts','utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
 const mod={exports:{}};new Function('exports',code)(mod.exports);
-const {publicWebsite,shopSocialLinks,shopDirections}=mod.exports;
+const {publicWebsite,shopSocialLinks,shopDirections,shopEmailLink}=mod.exports;
 for(const value of ['javascript:alert(1)','data:text/html,test','https://user:pass@example.com','https://bad host.test','\\evil.test',null,'']) assert.equal(publicWebsite(value),null);
 assert.equal(publicWebsite('studio.example/contact'),'https://studio.example/contact');
 assert.equal(shopSocialLinks({}).length,0);
@@ -16,3 +16,9 @@ const landing=fs.readFileSync('src/app/shop-preview/[shopslug]/luxury-landing.ts
 assert.doesNotMatch(landing,/Photo coming soon|Good cuts\. Quiet confidence|Sample hours|Your portfolio goes here|Design preview/);
 assert.match(landing,/shop\.description/);assert.match(landing,/Get directions/);
 console.log('PASS saved shop contact links: safe protocols/platforms, handles, absent data, encoded saved destination, and no placeholder claims');
+
+assert.equal(shopEmailLink(' desidripdrop@gmail.com '),'mailto:desidripdrop@gmail.com');
+assert.equal(shopEmailLink('hello+booking@example.test'),'mailto:hello%2Bbooking@example.test');
+assert.equal(shopEmailLink('a?subject=x&bcc=y@example.test'),'mailto:a%3Fsubject%3Dx%26bcc%3Dy@example.test');
+for(const invalid of [null,'','a@example.test\r\nBcc:x@y.test','a@example.test?subject=x','a@@example.test','a,b@example.test','.a@example.test','a..b@example.test','a@-example.test','a@localhost']) assert.equal(shopEmailLink(invalid),null,invalid);
+console.log('PASS mailto: literal mailbox separator, encoded local URI characters, rejected malformed/header injection values');

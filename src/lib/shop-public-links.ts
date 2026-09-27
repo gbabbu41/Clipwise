@@ -41,3 +41,12 @@ export function shopDirections(shop: Pick<Shop, "name" | "address" | "city" | "p
   if (shop.google_place_id?.trim()) params.set("query_place_id", shop.google_place_id.trim());
   return `https://www.google.com/maps/search/?${params}`;
 }
+
+// Keep the mailbox separator literal; encode URI-reserved local-part characters.
+export function shopEmailLink(value?: string | null): string | null {
+  const email = value?.trim();
+  if (!email || email.length > 254) return null;
+  const match = /^([A-Za-z0-9!#$%&'*+\/=?^_`{|}~.-]+)@([A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)+)$/.exec(email);
+  if (!match || match[1].length > 64 || match[1].startsWith(".") || match[1].endsWith(".") || match[1].includes("..")) return null;
+  return `mailto:${encodeURIComponent(match[1])}@${match[2]}`;
+}
