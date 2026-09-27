@@ -1,5 +1,6 @@
 "use client";
 
+import { createPortal } from "react-dom";
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import {
   BarChart, Bar, PieChart, Pie, Cell,
@@ -111,16 +112,19 @@ export function StatsCarousel({
 
   const Empty = () => <div className="h-full flex items-center justify-center text-xs text-grey">No data for this period</div>;
   const card = "cwd-stat bg-card rounded-2xl pt-[18px] px-[18px] pb-[14px] h-full flex flex-col";
-  // Tooltip rides the top strip AND never captures touches (pointerEvents:none)
-  // — so tapping a bar shows its value without the popup covering / blocking the
-  // neighbouring bars. Shared by every chart so the behaviour is global.
-  const tip = {
-    contentStyle: { borderRadius: 10, border: "1px solid var(--border)", background: "var(--card)", color: "var(--foreground)", fontSize: 11, padding: "4px 8px", boxShadow: "0 6px 16px rgba(0,0,0,0.15)" },
-    wrapperStyle: { pointerEvents: "none" as const, zIndex: 30 },
-    position: { y: 0 },
-    allowEscapeViewBox: { x: false, y: false },
-    isAnimationActive: false,
-  } as const;
+  // Recharts still selects the hovered/touched datum, but details render in a
+  // reserved row outside the plot so they cannot obscure bars, axes or legends.
+  const detailRows = useRef<Array<HTMLDivElement | null>>([]);
+  const chartDetail = (i: number, active: boolean | undefined, label: string, value: string) => {
+    const target = detailRows.current[i];
+    return active && idx === i + 1 && target ? createPortal(
+      <div className="text-[11px] leading-4 text-foreground break-words">
+        <span>{label}</span><span className="block font-mono tabular-nums">{value}</span>
+      </div>, target,
+    ) : null;
+  };
+  const detailRow = (i: number) => <div ref={el => { detailRows.current[i] = el; }}
+    data-chart-detail aria-live="polite" className="min-h-[40px] shrink-0 pt-1" />;
 
   const slides = [
     // 1 — Revenue (area)
@@ -198,18 +202,18 @@ export function StatsCarousel({
       <div className="flex-1 min-h-[96px] mt-1 -mx-1">
         {bookingsByDay.some(day => day.count > 0) ? (
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={bookingSeries} margin={{ top: 6, right: 8, left: 8, bottom: 0 }}>
+            <BarChart key={`${rangeStart}:${rangeEnd}`} data={bookingSeries} margin={{ top: 6, right: 8, left: 8, bottom: 0 }}>
               <XAxis dataKey="day" tick={{ fontSize: 9, fill: "var(--grey)" }} interval="preserveStartEnd" minTickGap={24} axisLine={false} tickLine={false} />
               <Bar dataKey="count" fill={CHART_COLORS.bookings} radius={[4, 4, 0, 0]} maxBarSize={26} isAnimationActive={false} />
-              <Tooltip {...tip} formatter={(value) => [String(value), "Bookings"]}
-                labelFormatter={(_, payload) => {
-                  const row = payload?.[0]?.payload;
-                  return row ? bookingReportRange(row.date, row.endDate) : "";
-                }} cursor={false} />
+              <Tooltip isAnimationActive={false} cursor={false} content={({ active, payload }) => {
+                const row = payload?.[0]?.payload;
+                return chartDetail(0, active && !!row, row ? bookingReportRange(row.date, row.endDate) : "", `Bookings: ${row?.count ?? 0}`);
+              }} />
             </BarChart>
           </ResponsiveContainer>
         ) : <Empty />}
       </div>
+      {detailRow(0)}
       {bookingsByDay.length > 45 && <p className="text-[11px] text-grey mt-1">Monthly bookings</p>}
     </div>,
 
@@ -220,15 +224,19 @@ export function StatsCarousel({
       <div className="flex-1 min-h-[112px] mt-2">
         {revenueByBarber.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={revenueByBarber} layout="vertical" margin={{ top: 4, right: 12, left: 4, bottom: 0 }}>
+            <BarChart key={`${rangeStart}:${rangeEnd}`} data={revenueByBarber} layout="vertical" margin={{ top: 4, right: 12, left: 4, bottom: 0 }}>
               <XAxis type="number" hide />
               <YAxis type="category" dataKey="name" width={56} tick={{ fontSize: 11, fill: "var(--grey)" }} axisLine={false} tickLine={false} />
               <Bar dataKey="revenue" fill={CHART_COLORS.barbers} maxBarSize={28} radius={[0, 4, 4, 0]} isAnimationActive={false} />
-              <Tooltip {...tip} formatter={(value) => [formatCurrency(Number(value)), "Revenue"]} cursor={false} />
+              <Tooltip isAnimationActive={false} cursor={false} content={({ active, payload }) => {
+                const row = payload?.[0]?.payload;
+                return chartDetail(1, active && !!row, row?.name ?? "", `Revenue: ${formatCurrency(row?.revenue ?? 0)}`);
+              }} />
             </BarChart>
           </ResponsiveContainer>
         ) : <Empty />}
       </div>
+      {detailRow(1)}
     </div>,
 
     // 4 — Status mix (donut)
@@ -239,11 +247,14 @@ export function StatsCarousel({
           <>
             <div className="w-1/2 h-[120px]">
               <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
+                <PieChart key={`${rangeStart}:${rangeEnd}`}>
                   <Pie data={statusMix} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={32} outerRadius={52} paddingAngle={2} stroke="none" isAnimationActive={false}>
                     {statusMix.map((s, i) => <Cell key={i} fill={s.color} />)}
                   </Pie>
-                  <Tooltip {...tip} />
+                  <Tooltip isAnimationActive={false} content={({ active, payload }) => {
+                    const row = payload?.[0]?.payload;
+                    return chartDetail(2, active && !!row, row?.name ?? "", `Bookings: ${row?.value ?? 0}`);
+                  }} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
@@ -259,6 +270,7 @@ export function StatsCarousel({
           </>
         ) : <Empty />}
       </div>
+      {detailRow(2)}
     </div>,
   ];
 
