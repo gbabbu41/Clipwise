@@ -160,11 +160,12 @@ export default function DashboardLayoutClient({ children, native }: { children: 
       <NotificationListener />
       <PullToRefresh />
       <Sidebar />
-      {/* The top spacer (mobile/tablet) clears the floating bell+profile pill.
+      {/* The top spacer clears the header. Calendar bottom clearance lives inside
+          its timeline so content can continue behind the floating navigation.
           main's background follows the active page so that spacer is the page's
           own color — no separate bar. The calendar pins its own sunken canvas so
           the spacer matches it; everything else uses the calm page background. */}
-      <main className={`cw-main lg:ml-64 pt-[calc(3.5rem+env(safe-area-inset-top))] lg:pt-0 ${isCalendar ? "pb-[calc(4.25rem+env(safe-area-inset-bottom))]" : "pb-[calc(6rem+env(safe-area-inset-bottom))]"} lg:pb-0 ${isCalendar ? "bg-background fixed inset-0 h-[100dvh] flex flex-col overflow-hidden [&>div:not(.cw-swipe-clip)]:shrink-0" : ""}`}>
+      <main data-calendar-canvas={isCalendar ? "" : undefined} className={`cw-main lg:ml-64 pt-[calc(3.5rem+env(safe-area-inset-top))] lg:pt-0 ${isCalendar ? "pb-0" : "pb-[calc(6rem+env(safe-area-inset-bottom))]"} lg:pb-0 ${isCalendar ? "bg-background fixed inset-0 h-[100dvh] flex flex-col overflow-hidden [&>div:not(.cw-swipe-clip)]:shrink-0" : ""}`}>
         <MaintenanceBanner />
         {/* One notice bar at a time (they used to all pop on landing). The provider
             spans the bars AND the page children (the calendar's setup nudge). */}

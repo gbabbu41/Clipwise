@@ -1,4 +1,5 @@
 "use client";
+import { useCalendarNavVisibility } from "@/lib/use-calendar-nav-visibility";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
@@ -850,6 +851,7 @@ export function Sidebar() {
 
 export function MobileNav() {
   const pathname = usePathname();
+  const { navRef, hidden } = useCalendarNavVisibility(pathname === "/dashboard/calendar");
   const { shop, profile } = useAuth();
   const toggleDrawer = () => window.dispatchEvent(new Event("cw-toggle-sidebar"));
 
@@ -874,7 +876,7 @@ export function MobileNav() {
   };
 
   return (
-    <nav className="cw-bnav lg:hidden">
+    <nav ref={navRef} data-calendar-nav={pathname === "/dashboard/calendar" || undefined} data-calendar-nav-hidden={hidden || undefined} aria-hidden={hidden || undefined} className="cw-bnav lg:hidden">
       {tabs.map(navLink)}
       {/* 'More' opens the sidebar drawer (Schedule, Staff, Payroll, Settings…). */}
       <button type="button" onClick={toggleDrawer} className="cw-ni" aria-label="More">

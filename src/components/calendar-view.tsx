@@ -2875,7 +2875,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
             </div>
             )}
 
-        <div ref={attachScroll} data-focus-key={focusKey} className="overflow-y-auto overflow-x-hidden overscroll-y-contain flex-1 min-h-0" style={{ overflowAnchor: "none" }}>
+        <div ref={attachScroll} data-calendar-scroll data-focus-key={focusKey} className="overflow-y-auto overflow-x-hidden overscroll-y-contain flex-1 min-h-0" style={{ overflowAnchor: "none" }}>
           <div className="relative" data-calendar-time-grid data-start-hour={winStart} data-end-hour={winEnd} data-landing-hour={landingFor([dateStr], cols.map(b => b.id))} data-landing-align={dateStr === shopToday ? "center" : "start"}>
             {hours.map(hour => (
               <div key={hour} className="cw-time-row grid border-b border-border relative" style={{ gridTemplateColumns: `56px repeat(${cols.length}, minmax(0, 1fr))`, height: `${rowH}px` }}>
@@ -3115,7 +3115,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
             })}
           </div>
 
-        <div ref={attachScroll} data-focus-key={focusKey} className="overflow-auto overscroll-y-contain flex-1 min-h-0" style={{ overflowAnchor: "none" }}>
+        <div ref={attachScroll} data-calendar-scroll data-focus-key={focusKey} className="overflow-auto overscroll-y-contain flex-1 min-h-0" style={{ overflowAnchor: "none" }}>
           <div className="relative" data-calendar-time-grid data-start-hour={winStart} data-end-hour={winEnd} data-landing-hour={landingFor(dayStrs, [barber.id])} data-landing-align={anyToday ? "center" : "start"}>
             {hours.map(hour => (
               <div key={hour} className="cw-time-row grid border-b border-border" style={{ gridTemplateColumns: gridCols, height: `${ROW_PX}px` }}>
