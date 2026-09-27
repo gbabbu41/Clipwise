@@ -103,7 +103,7 @@ export default function PaymentsPage() {
   const [txs, setTxs] = useState<TxRow[]>([]);
   const [stripeNet, setStripeNet] = useState<{ connected: boolean; byPi: Record<string, { gross: number; fee: number; net: number }>; available: number; pending: number; inTransit?: number; nextPayoutDate?: number | null; nextPayoutAmount?: number | null; lastPayout?: { amount: number; date: number } | null } | null>(null);
   // Fee coverage is checked for each period and charge, even after Stripe loads.
-  const [, setFeesStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [feesStatus, setFeesStatus] = useState<"loading" | "ready" | "error">("loading");
   const [netSlide, setNetSlide] = useState(0);
   const netRef = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState<string | null>(null);

@@ -34,6 +34,9 @@ assert(html.includes('$115.00'));   // gross taken in
 assert(html.includes('$111.36'));   // net after the estimated fee
 assert(html.includes('≈'));         // estimate marker
 assert(html.includes('(est.)'));    // estimated-fee label
+// Collapsed card: headline + the Stripe fee line stay visible; gross is behind "More".
+html = render({ showDetails: false, stripeNet: { connected: true, byPi: {}, available: 0, pending: 0 } });
+assert(html.includes('$111.36') && html.includes('(est.)') && !html.includes('$115.00'));
 html = render({ stripeNet: { connected: true, byPi: { pi_test: { gross: 115, fee: 3, net: 112 } }, available: 0, pending: 0 } });
 assert(html.includes('$112.00')); assert(!html.includes('Unavailable'));
 html = render({ txs: [{ ...tx, payment_method: 'cash', payment_intent_id: null }] });
