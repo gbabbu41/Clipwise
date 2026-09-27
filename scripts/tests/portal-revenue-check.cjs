@@ -34,7 +34,7 @@ assert.equal(result.ownerTips, 20); assert.equal(result.tips, 20); assert.equal(
 assert.equal(computeBarberEarnings([{ ...base, tip: 20, stripe_fee: 4 }], 50).youKeep, 70);
 assert.equal(computeBarberEarnings([{ ...base, tip: 20, stripe_fee: 4, commission_amount: 0 }], 0, true).youKeep, 120);
 const days = bookingChartDays([{ date: '2026-09-01' }, { date: '2026-09-17' }], '2026-09-01', '2026-09-17');
-assert.equal(days.length, 14); assert.equal(days[0].date, '2026-09-04'); assert.equal(days[0].count, 0); assert.equal(days[13].count, 1);
+assert.equal(days.length, 17); assert.equal(days[0].date, '2026-09-01'); assert.equal(days[0].count, 1); assert.equal(days[16].count, 1);
 assert.equal(bookingChartDays([], '2026-09-17', '2026-09-17').length, 1);
 assert.deepEqual(bookingChartDays([], '2026-09-18', '2026-09-17'), []);
 const leap = bookingChartDays([], '2024-02-28', '2024-03-01');

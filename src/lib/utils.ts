@@ -479,6 +479,12 @@ export function getDateRange(
   const today = formatDateForDb(now);
 
   const startOf = (d: Date) => { d.setHours(0, 0, 0, 0); return d; };
+  const monthsAgo = (months: number) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - months, 1);
+    const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+    d.setDate(Math.min(now.getDate(), lastDay));
+    return d;
+  };
 
   switch (filter) {
     case "today":
@@ -504,14 +510,10 @@ export function getDateRange(
       return [formatDateForDb(s), formatDateForDb(e)];
     }
     case "last-3-months": {
-      const s = new Date(now);
-      s.setMonth(now.getMonth() - 3);
-      return [formatDateForDb(startOf(s)), today];
+      return [formatDateForDb(monthsAgo(3)), today];
     }
     case "last-6-months": {
-      const s = new Date(now);
-      s.setMonth(now.getMonth() - 6);
-      return [formatDateForDb(startOf(s)), today];
+      return [formatDateForDb(monthsAgo(6)), today];
     }
     case "this-year": {
       const s = new Date(now.getFullYear(), 0, 1);

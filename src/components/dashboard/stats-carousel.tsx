@@ -8,7 +8,7 @@ import {
 import { ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import type { AppointmentWithDetails } from "@/lib/database.types";
-import { bookingChartDays } from "@/lib/booking-chart";
+import { bookingChartDays, bookingChartSeries, bookingReportRange } from "@/lib/booking-chart";
 
 /**
  * Swipeable stats carousel — the dashboard's premium visual anchor. Real
@@ -52,6 +52,7 @@ export function StatsCarousel({
 
   // ── Datasets (from already-loaded data) ──
   const bookingsByDay = bookingChartDays(appointments, rangeStart, rangeEnd);
+  const bookingSeries = bookingChartSeries(bookingsByDay);
 
   // Precomputed by the page on the SAME basis as the Collected headline (money-
   // moved paid appointments + POS), so this reconciles with slide 1 instead of the
@@ -96,7 +97,7 @@ export function StatsCarousel({
     contentStyle: { borderRadius: 10, border: "1px solid var(--border)", background: "var(--card)", color: "var(--foreground)", fontSize: 11, padding: "4px 8px", boxShadow: "0 6px 16px rgba(0,0,0,0.15)" },
     wrapperStyle: { pointerEvents: "none" as const, zIndex: 30 },
     position: { y: 0 },
-    allowEscapeViewBox: { x: true, y: true },
+    allowEscapeViewBox: { x: false, y: false },
     isAnimationActive: false,
   } as const;
 
@@ -173,20 +174,22 @@ export function StatsCarousel({
           ? `${completed.length} completed`
           : totalBookings > 0 ? "0 completed" : "No bookings yet"}
       </p>
-      {/* The big number is the period total; the bars below are only the most recent
-          14 dated days — label it so the two aren't read as the same figure. */}
-      {bookingsByDay.length > 1 && <p className="text-xs text-grey mt-1">{bookingsByDay[0].day} – {bookingsByDay[bookingsByDay.length - 1].day}</p>}
       <div className="flex-1 min-h-[96px] mt-1 -mx-1">
         {bookingsByDay.some(day => day.count > 0) ? (
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={bookingsByDay} margin={{ top: 6, right: 8, left: 8, bottom: 0 }}>
+            <BarChart data={bookingSeries} margin={{ top: 6, right: 8, left: 8, bottom: 0 }}>
               <XAxis dataKey="day" tick={{ fontSize: 9, fill: "var(--grey)" }} interval="preserveStartEnd" minTickGap={24} axisLine={false} tickLine={false} />
               <Bar dataKey="count" fill={CHART_COLORS.bookings} radius={[4, 4, 0, 0]} maxBarSize={26} isAnimationActive={false} />
-              <Tooltip {...tip} formatter={(value) => [String(value), "Bookings"]} cursor={false} />
+              <Tooltip {...tip} formatter={(value) => [String(value), "Bookings"]}
+                labelFormatter={(_, payload) => {
+                  const row = payload?.[0]?.payload;
+                  return row ? bookingReportRange(row.date, row.endDate) : "";
+                }} cursor={false} />
             </BarChart>
           </ResponsiveContainer>
         ) : <Empty />}
       </div>
+      {bookingsByDay.length > 45 && <p className="text-[11px] text-grey mt-1">Monthly bookings</p>}
     </div>,
 
     // 3 — Top barbers (horizontal bars)
@@ -245,6 +248,7 @@ export function StatsCarousel({
 
   return (
     <div className="mb-3">
+      <p className="text-xs text-grey mb-2" aria-label="Reporting period">{bookingReportRange(rangeStart, rangeEnd)}</p>
       <div className="relative">
         {/* py + -my gives the card's elevation shadow room to render INSIDE the
             scroll viewport (overflow clips at the padding edge), then pulls the
@@ -293,7 +297,7 @@ export function StatsCarousel({
         <summary className="cursor-pointer py-2 w-fit">Chart data</summary>
         <p className="py-2">{periodLabel ?? "Selected period"}. Collected includes paid sales; bookings follow appointment dates. Average ticket covers paid, completed visits only. Barber revenue excludes tax and tips, before processing fees.</p>
         <div className="grid sm:grid-cols-2 gap-4 py-2">
-          <table className="w-full text-left"><caption className="text-left font-medium mb-2">Daily bookings (latest {bookingsByDay.length} calendar days in period)</caption><thead><tr><th scope="col">Date</th><th scope="col" className="text-right">Bookings</th></tr></thead><tbody>{bookingsByDay.map(d => <tr key={d.date}><th scope="row" className="font-normal py-1">{d.date}</th><td className="text-right tabular-nums">{d.count}</td></tr>)}</tbody></table>
+          <table className="w-full text-left"><caption className="text-left font-medium mb-2">Daily bookings · full reporting period</caption><thead><tr><th scope="col">Date</th><th scope="col" className="text-right">Bookings</th></tr></thead><tbody>{bookingsByDay.map(d => <tr key={d.date}><th scope="row" className="font-normal py-1">{d.date}</th><td className="text-right tabular-nums">{d.count}</td></tr>)}</tbody></table>
           <table className="w-full text-left"><caption className="text-left font-medium mb-2">Top barbers · service revenue (CAD)</caption><thead><tr><th scope="col">Barber</th><th scope="col" className="text-right">Revenue</th></tr></thead><tbody>{topBarbers.map((b, i) => <tr key={i}><th scope="row" className="font-normal py-1">{b.name}</th><td className="text-right tabular-nums">{formatCurrency(b.revenue)}</td></tr>)}</tbody></table>
         </div>
       </details>
