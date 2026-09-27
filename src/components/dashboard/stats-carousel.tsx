@@ -54,10 +54,10 @@ export function StatsCarousel({
       return next;
     });
   };
-  // Revenue card keeps a CALM default — Gross → − Stripe fees → Net — and tucks the
-  // full breakdown (Collected, cash, tax, tips, commission) behind a tap.
+  // Revenue card keeps a CALM default — Collected headline → Net revenue — and tucks
+  // the full breakdown (Gross, Stripe fees, cash, tax, tips, commission) behind a tap.
   const [showBreakdown, setShowBreakdown] = useState(false);
-  const hasBreakdown = cashIncluded > 0 || taxCollected > 0 || tips > 0 || commission > 0;
+  const hasBreakdown = feesLoading || feesPaid > 0 || cashIncluded > 0 || taxCollected > 0 || tips > 0 || commission > 0;
   const ref = useRef<HTMLDivElement>(null);
 
   // On mount, jump straight to the restored slide (no animation, before paint)
@@ -151,26 +151,23 @@ export function StatsCarousel({
       {feesUnavailable && <p className="text-xs text-grey mt-3">{feesLoading ? "Checking processing fees…" : "Processing fees unavailable."} Net revenue is not calculated until fees are verified.</p>}
       {!feesUnavailable && revenue + feesPaid > 0 && (
         <div className="mt-3 border-t border-border pt-2.5 flex flex-col gap-1.5">
-          {/* Gross + Stripe fees: skeleton until the live fee data resolves (so it
-              doesn't briefly show Gross == Collected then jump); once loaded, the
-              rows are hidden entirely on a no-fee (all-cash) day so Collected is the
-              single top line. */}
-          {feesLoading ? (
-            <>
-              <div className="flex justify-between text-[12px]"><span className="text-grey">Gross</span><span className="inline-block h-3 w-16 rounded bg-card-raised animate-pulse" /></div>
-              <div className="flex justify-between text-[12px]"><span className="text-grey">− Stripe fees</span><span className="inline-block h-3 w-12 rounded bg-card-raised animate-pulse" /></div>
-            </>
-          ) : feesPaid > 0 ? (
-            <>
-              <div className="flex justify-between text-[12px]"><span className="text-grey">Gross</span><span className="font-mono tabular-nums text-foreground">{formatCurrency(revenue + feesPaid)}</span></div>
-              <div className="flex justify-between text-[12px]"><span className="text-grey">− Stripe fees</span><span className="font-mono tabular-nums text-foreground">−{formatCurrency(feesPaid)}</span></div>
-            </>
-          ) : null}
-          {/* The full breakdown (Collected, cash, tax, tips, commission) stays hidden
-              until the owner taps "Show breakdown" — the default receipt is just
-              Gross → − Stripe fees → Net revenue. */}
+          {/* Everything but the bottom line — Gross, − Stripe fees, Collected, cash,
+              tax, tips, commission — stays behind "Show breakdown" so the calm
+              default is just the Collected headline → Net revenue. Gross + fees
+              skeleton until the live fee data resolves, and hide on a no-fee day. */}
           {showBreakdown && (
             <>
+              {feesLoading ? (
+                <>
+                  <div className="flex justify-between text-[12px]"><span className="text-grey">Gross</span><span className="inline-block h-3 w-16 rounded bg-card-raised animate-pulse" /></div>
+                  <div className="flex justify-between text-[12px]"><span className="text-grey">− Stripe fees</span><span className="inline-block h-3 w-12 rounded bg-card-raised animate-pulse" /></div>
+                </>
+              ) : feesPaid > 0 ? (
+                <>
+                  <div className="flex justify-between text-[12px]"><span className="text-grey">Gross</span><span className="font-mono tabular-nums text-foreground">{formatCurrency(revenue + feesPaid)}</span></div>
+                  <div className="flex justify-between text-[12px]"><span className="text-grey">− Stripe fees</span><span className="font-mono tabular-nums text-foreground">−{formatCurrency(feesPaid)}</span></div>
+                </>
+              ) : null}
               <div className={cn("flex justify-between text-[12px]", (feesLoading || feesPaid > 0) && "border-t border-dashed border-border pt-2")}><span className="text-foreground">Collected</span><span className="font-mono tabular-nums text-foreground">{formatCurrency(revenue)}</span></div>
               {cashIncluded > 0 && <div className="flex justify-between text-[11px] text-grey"><span>incl. cash</span><span className="font-mono tabular-nums">{formatCurrency(cashIncluded)}</span></div>}
               {taxCollected > 0 && <div className="flex justify-between text-[12px]"><span className="text-grey">− Sales tax</span><span className="font-mono tabular-nums text-foreground">−{formatCurrency(taxCollected)}</span></div>}
@@ -178,7 +175,7 @@ export function StatsCarousel({
               {commission > 0 && <div className="flex justify-between text-[12px]"><span className="text-grey">− Barber commission</span><span className="font-mono tabular-nums text-foreground">−{formatCurrency(commission)}</span></div>}
             </>
           )}
-          <div className={cn("flex justify-between text-[12px]", (feesLoading || feesPaid > 0 || showBreakdown) && "border-t border-border pt-2")}><span className="text-foreground font-semibold">Net revenue</span><span className={cn("font-mono tabular-nums font-bold text-[14px]", netRev < 0 ? "text-red-400" : "text-foreground")}>{formatCurrency(netRev)}</span></div>
+          <div className={cn("flex justify-between text-[12px]", showBreakdown && "border-t border-border pt-2")}><span className="text-foreground font-semibold">Net revenue</span><span className={cn("font-mono tabular-nums font-bold text-[14px]", netRev < 0 ? "text-red-400" : "text-foreground")}>{formatCurrency(netRev)}</span></div>
           {hasBreakdown && (
             <button type="button" aria-expanded={showBreakdown} onClick={() => setShowBreakdown(v => !v)}
               className="mt-1 self-center inline-flex items-center gap-1 text-[11px] text-grey hover:text-foreground transition-colors">
