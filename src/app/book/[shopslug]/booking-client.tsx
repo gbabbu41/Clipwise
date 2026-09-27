@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, type ComponentProps, type ComponentType } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight, Star, Clock, Check, Calendar, Share2, User, Tag, X, Phone, Mail } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
@@ -152,7 +152,7 @@ function Skeleton({ className }: { className?: string }) {
   return <div className={cn("animate-pulse bg-[#141414] rounded-xl", className)} />;
 }
 
-export default function BookingClient() {
+export default function BookingClient({ Landing = ShopLanding, presentation }: { Landing?: ComponentType<ComponentProps<typeof ShopLanding>>; presentation?: "luxury" } = {}) {
   const params = useParams();
   const searchParams = useSearchParams();
   const shopslug = params?.shopslug as string;
@@ -943,6 +943,7 @@ export default function BookingClient() {
           body: JSON.stringify({
             shop_id: shop.id,
             shop_slug: shop.slug,
+            ...(presentation === "luxury" ? { presentation: "luxury" } : {}),
             barber_id: finalBarberId,
             service_id: selectedService,
             service_ids: selectedServices,
@@ -1333,6 +1334,9 @@ export default function BookingClient() {
     return () => window.removeEventListener("popstate", onPop);
   }, [lockedBarber, STEPS.length]);
 
+  // The preview success screen must not retain a previous failed-attempt toast.
+  useEffect(() => { if (presentation === "luxury" && confirmed) setToast(null); }, [presentation, confirmed]);
+
   // ── Loading screen ─────────────────────────────────────────────────────────
   if (pageLoading || (shop && shop.slug !== shopslug)) {
     return (
@@ -1585,7 +1589,7 @@ export default function BookingClient() {
   // brand moment). Book Now hands off to the existing booking wizard below.
   if (view === "landing") {
     return (
-      <ShopLanding
+      <Landing
         shop={shop}
         services={services}
         barbers={barbers}
@@ -1685,7 +1689,7 @@ export default function BookingClient() {
 
             {/* Selected services summary — chips with remove + running total */}
             {servicesPicked.length > 0 && (
-              <div className="bg-black/5 border border-[#2a2a2a] rounded-2xl p-3 space-y-2">
+              <div data-booking-selection className="bg-black/5 border border-[#2a2a2a] rounded-2xl p-3 space-y-2">
                 <div className="flex flex-wrap gap-2">
                   {servicesPicked.map((s, idx) => (
                     <span key={s.id + idx} className="cw-cart inline-flex items-center gap-1.5 bg-white/10 border border-white/25 text-white rounded-full pl-3 pr-1 py-1 text-xs font-medium">
@@ -1731,7 +1735,7 @@ export default function BookingClient() {
                 const count = selectedServices.filter(id => id === svc.id).length;
                 const isPicked = count > 0;
                 return (
-                <div key={svc.id}
+                <div key={svc.id} data-booking-service
                   className={cn("w-full flex items-center justify-between p-4 rounded-2xl border text-left transition-all", isPicked ? "border-white/60 bg-white/[0.04]" : "border-[#2a2a2a] bg-[#0d0d0d] hover:border-[#333]")}
                 >
                   <div className="flex-1 pr-4 cursor-pointer" onClick={() => toggleService(svc.id)}>
@@ -1908,7 +1912,7 @@ export default function BookingClient() {
                       const active = barberFilter === id;
                       const first = b ? b.name.split(" ")[0] : "Anyone";
                       return (
-                        <button key={id ?? "any"} type="button"
+                        <button key={id ?? "any"} type="button" aria-pressed={active} data-barber-filter={id ?? "any"}
                           onClick={() => {
                             setBarberFilter(id);
                             // Drop a chosen time if the new barber isn't free then.
@@ -1922,7 +1926,7 @@ export default function BookingClient() {
                           <span className={cn("w-7 h-7 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0 text-[11px] font-bold ring-1",
                             active ? "ring-black/10 bg-black/10 text-black" : "ring-white/10 bg-white/10 text-white")}>
                             {b === null
-                              ? <span aria-hidden="true">✨</span>
+                              ? <User size={17} strokeWidth={2} aria-hidden="true" className="booking-anyone-icon" />
                               : b.photo
                                 ? <img src={b.photo} alt={b.name} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                                 : (b.name[0] || "?").toUpperCase()}
@@ -2361,7 +2365,7 @@ export default function BookingClient() {
           Squire-style "always-visible price tally" pattern, but rendered
           as a rounded pill that floats with margin instead of a square
           edge-to-edge bar, so it reads distinct from theirs. */}
-      <div className="fixed bottom-0 left-0 right-0 z-20 px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] pointer-events-none">
+      <div data-booking-actions className="fixed bottom-0 left-0 right-0 z-20 px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] pointer-events-none">
         <div className="pointer-events-auto max-w-2xl mx-auto bg-black border border-white/15 rounded-full pl-5 pr-2 py-2 flex items-center gap-3 shadow-[0_8px_32px_rgba(0,0,0,0.45)]">
           {/* Running total — only shown when at least one service is picked.
               Falls back to a tiny step caption otherwise so the bar isn't empty. */}
