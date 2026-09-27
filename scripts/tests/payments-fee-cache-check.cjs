@@ -48,7 +48,7 @@ const stripe = {
 };
 const mocks = {
   '@/lib/api-auth': { authorizeShop: async () => ({ isOwner: true, shop: { id: 'shop', stripe_account_id: 'acct_shop', stripe_connected: true } }) },
-  '@/lib/platform-settings': { getPlatformSettings: async () => ({ est_card_fee_percent: 3.7, est_card_fee_fixed: 0.3 }), cardFeeEstimateRate: st => ({ percent: st.est_card_fee_percent, fixed: st.est_card_fee_fixed }) },
+  '@/lib/platform-settings': { cardFeeEstimateSafe: async () => ({ percent: 3.7, fixed: 0.3 }) },
   '@/lib/supabase-admin': { supabaseAdmin: db },
   '@/lib/stripe': { stripe, confirmedStripeFee: async (pi, account) => { lookups.push({ pi, account }); return pi === 'pi_zero' ? { gross: 115, fee: 0, net: 115 } : { gross: 115, fee: 3, net: 112 }; } },
   // Two reads per request: transaction fees, then cached appointment fees (phase66).

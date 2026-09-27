@@ -53,6 +53,24 @@ export function cardFeeEstimateRate(s: PlatformSettings): { percent: number; fix
   return { percent: pick("est_card_fee_percent"), fixed: pick("est_card_fee_fixed") };
 }
 
+/** The estimate rate for callers that must never wait on (or fail because of)
+ * the settings read — e.g. confirmed payment figures. A failed or slow read
+ * (> timeoutMs) resolves to the default rate; this promise never rejects. */
+export async function cardFeeEstimateSafe(timeoutMs = 1500): Promise<{ percent: number; fixed: number }> {
+  const fallback = cardFeeEstimateRate(DEFAULT_PLATFORM_SETTINGS);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      getPlatformSettings().then(cardFeeEstimateRate),
+      new Promise<{ percent: number; fixed: number }>(resolve => { timer = setTimeout(() => resolve(fallback), timeoutMs); }),
+    ]);
+  } catch {
+    return fallback;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 let cache: { value: PlatformSettings; at: number } | null = null;
 const TTL_MS = 30_000;
 

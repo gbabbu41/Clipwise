@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { confirmedStripeFee, stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { authorizeShop } from "@/lib/api-auth";
-import { cardFeeEstimateRate, getPlatformSettings } from "@/lib/platform-settings";
+import { cardFeeEstimateSafe } from "@/lib/platform-settings";
 import { readAllRows } from "@/lib/read-all-rows";
 import { confirmedFeesFromAppts, confirmedFeesFromRows, missingFeeIntents, type ApptFeeRow, type FeeRow } from "@/lib/confirmed-fees";
 import type { ByPi } from "@/lib/revenue";
@@ -58,8 +58,10 @@ export async function POST(req: NextRequest) {
   const isOwner = auth.isOwner;
   // The platform's fallback card-fee ESTIMATE rate (super-admin setting). The page
   // uses it only for fees Stripe hasn't confirmed; confirmed fees in byPi and
-  // customer charges never use it.
-  const feeEstimate = cardFeeEstimateRate(await getPlatformSettings());
+  // customer charges never use it. Read in parallel and never blocking: a slow or
+  // failed settings read resolves to the default rate (the promise never rejects),
+  // so it can't hold up or break the confirmed figures below.
+  const feeEstimateP = cardFeeEstimateSafe();
   const shop = auth.shop as { stripe_account_id?: string | null; stripe_connected?: boolean | null };
   const connected = !!(shop?.stripe_account_id && shop.stripe_connected);
   if (!connected) {
@@ -69,7 +71,7 @@ export async function POST(req: NextRequest) {
     console.log("[payments-summary] not connected", {
       shop_id, hasAccount: !!shop?.stripe_account_id, connectedFlag: !!shop?.stripe_connected,
     });
-    return NextResponse.json({ connected: false, byPi: {}, available: 0, pending: 0, feeEstimate });
+    return NextResponse.json({ connected: false, byPi: {}, available: 0, pending: 0, feeEstimate: await feeEstimateP });
   }
   const opts = { stripeAccount: shop!.stripe_account_id! };
 
@@ -208,6 +210,7 @@ export async function POST(req: NextRequest) {
     // Shop-wide balance + payout schedule are OWNER-only. A barber gets just the
     // per-payment fee map (byPi) — enough to net fees on their own cuts, never the
     // shop's balance or payouts.
+    const feeEstimate = await feeEstimateP;
     return NextResponse.json(
       isOwner
         ? { connected: true, byPi, available, pending, inTransit, nextPayoutDate, nextPayoutAmount, lastPayout, feeEstimate }
@@ -226,6 +229,6 @@ export async function POST(req: NextRequest) {
       path: "/api/stripe/payments-summary",
       shop_id: shop_id ?? null,
     }).then(null, () => null);
-    return NextResponse.json({ connected: true, byPi, feesReady, available: 0, pending: 0, error: msg, feeEstimate });
+    return NextResponse.json({ connected: true, byPi, feesReady, available: 0, pending: 0, error: msg, feeEstimate: await feeEstimateP });
   }
 }

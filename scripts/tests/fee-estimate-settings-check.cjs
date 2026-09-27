@@ -89,5 +89,40 @@ const put = async body => {
   // A malformed stored value never produces a nonsense estimate.
   assert.deepEqual(settings.cardFeeEstimateRate({ ...settings.DEFAULT_PLATFORM_SETTINGS, est_card_fee_percent: 'x', est_card_fee_fixed: 99 }), { percent: 2.9, fixed: 0.3 });
 
-  console.log('PASS fee estimate settings: super-admin only, validated + audited, nothing half-saved, defaults on bad data, estimate-only math');
+  // Settings-read failure or hang must never block/break CONFIRMED payment figures:
+  // payments-summary with the real settings module over a failing / hanging read.
+  const summaryWith = settingsBehaviour => {
+    const sdb = { from(table) {
+      const q = { select() { return q; }, eq() { return q; }, maybeSingle() { return q; }, not() { return q; }, or() { return q; },
+        gte() { return q; }, in() { return q; }, is() { return q; }, order() { return q; }, limit() { return q; }, range() { return q; },
+        then(resolve, reject) {
+          if (table === 'platform_settings') return settingsBehaviour().then(resolve, reject);
+          return Promise.resolve({ data: [], error: null }).then(resolve, reject);
+        } };
+      return q;
+    } };
+    const m2 = { '@/lib/supabase-admin': { supabaseAdmin: sdb } };
+    const realSettings = load('src/lib/platform-settings.ts', m2);
+    const confirmed = [{ id: 't1', payment_intent_id: 'pi_ok', stripe_fee: 1.64, amount: 34.59, tax: 0, tip: 0, payment_method: 'card', refunded: false, source: 'completion' }];
+    let reads = 0;
+    return load('src/app/api/stripe/payments-summary/route.ts', {
+      ...m2, '@/lib/platform-settings': realSettings,
+      '@/lib/api-auth': { authorizeShop: async () => ({ isOwner: true, shop: { id: 'shop', stripe_account_id: 'acct_shop', stripe_connected: true } }) },
+      '@/lib/read-all-rows': { readAllRows: async () => (reads++ % 2 === 0 ? confirmed : []) },
+      '@/lib/stripe': { confirmedStripeFee: async () => null, stripe: {
+        balance: { retrieve: async () => ({ available: [], pending: [] }) }, payouts: { list: async () => ({ data: [] }) },
+        accounts: { retrieve: async () => ({ settings: { payouts: { schedule: { interval: 'manual' } } } }) } } },
+    });
+  };
+  const summaryCall = r => r.POST(new NextRequest('https://clipwise.ca/api/stripe/payments-summary', { method: 'POST', body: JSON.stringify({ shop_id: 'shop' }) }));
+  for (const [label, behaviour] of [['failing', () => Promise.reject(new Error('settings table unavailable'))], ['hanging', () => new Promise(() => {})]]) {
+    const started = Date.now();
+    const out = await (await summaryCall(summaryWith(behaviour))).json();
+    assert.deepEqual(out.byPi.pi_ok, { gross: 34.59, fee: 1.64, net: 32.95 }, `${label} settings read: confirmed fee still returned`);
+    assert(!out.error, `${label} settings read: no error`);
+    assert.deepEqual(out.feeEstimate, { percent: 2.9, fixed: 0.3 }, `${label} settings read: default estimate`);
+    assert(Date.now() - started < 4000, `${label} settings read: bounded wait`);
+  }
+
+  console.log('PASS fee estimate settings: super-admin only, validated + audited, nothing half-saved, defaults on bad data, estimate-only math, settings failure/hang never blocks confirmed figures');
 })().catch(error => { console.error(error); process.exitCode = 1; });
