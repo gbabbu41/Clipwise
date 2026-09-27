@@ -81,3 +81,5 @@
 
 /* Explicitly beat legacy root/utility chunk order on the canonical booking page. */
 .shop-luxury .cw-book-cine.bg-black{background-color:#fcfaf5!important;background-image:none!important}
+
+.lux-template .contact-links{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}.lux-template .contact-links a{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:10px 14px;border:1px solid var(--line);font-size:12px}.lux-template .contact-links a:hover{background:var(--soft)}

@@ -329,7 +329,7 @@ export default function BookingClient({ Landing = ShopLanding, presentation }: {
           // ship stripe_customer_id / stripe_subscription_id / owner_id to any
           // visitor. (stripe_account_id + stripe_connected are needed here to
           // decide if online pay is available and are non-secret identifiers.)
-          .select("id, name, slug, status, description, logo, address, city, province, postal_code, phone, email, website, instagram, google_place_id, allow_pay_in_person, booking_settings, subscription_plan, subscription_status, stripe_account_id, stripe_connected")
+          .select("id, name, slug, status, description, logo, address, city, province, postal_code, phone, email, website, instagram, tiktok, facebook, youtube, google_place_id, allow_pay_in_person, booking_settings, subscription_plan, subscription_status, stripe_account_id, stripe_connected")
           .eq("slug", shopslug)
           .maybeSingle();
         if (!current()) return;
