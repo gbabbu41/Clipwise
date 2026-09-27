@@ -1735,7 +1735,7 @@ export default function BookingClient({ Landing = ShopLanding, presentation }: {
                 const count = selectedServices.filter(id => id === svc.id).length;
                 const isPicked = count > 0;
                 return (
-                <div key={svc.id}
+                <div key={svc.id} data-booking-service
                   className={cn("w-full flex items-center justify-between p-4 rounded-2xl border text-left transition-all", isPicked ? "border-white/60 bg-white/[0.04]" : "border-[#2a2a2a] bg-[#0d0d0d] hover:border-[#333]")}
                 >
                   <div className="flex-1 pr-4 cursor-pointer" onClick={() => toggleService(svc.id)}>

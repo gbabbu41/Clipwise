@@ -42,3 +42,17 @@
 @media(prefers-reduced-motion:reduce){.lux-template{scroll-behavior:auto}}
 
 .shop-luxury{width:100%;max-width:none}.lux-template{font-family:var(--font-manrope,Manrope),sans-serif;width:100%;max-width:none}.lux-template .wrap{width:100%}.lux-template h1{overflow-wrap:anywhere}.lux-template .team .profile-photo{width:58px;height:66px;object-fit:cover;flex-shrink:0}.lux-template .monogram{flex-shrink:0}.lux-template .team article>div:last-child{min-width:0}.lux-template .client-reviews{display:flex;gap:30px;flex-wrap:wrap}.lux-template blockquote{flex:1;min-width:220px}.lux-template .gift-link{padding:24px 0;font-size:12px}.lux-template .price,.lux-template .hours span{font-family:var(--font-dm-mono),monospace}
+
+/* Preview booking controls: readable semantic tokens and shrinkable service labels. */
+.shop-luxury{--surface-raised:#e6e7dc;--border:#d5d5c9;overflow-x:clip}
+.shop-luxury .bg-surface-raised{background:#e6e7dc;color:#242722}
+.shop-luxury [data-booking-service]>:first-child{min-width:0;overflow-wrap:anywhere}
+.shop-luxury .cw-book-cine{width:100%;max-width:100%;min-width:0}
+.lux-template .solid:after{content:none}
+.lux-template .solid svg,.lux-template .text-link svg,.lux-template .service svg{flex-shrink:0}
+.lux-template .gift-link a{display:inline-flex;align-items:center;gap:8px}
+
+@media(max-width:700px){.shop-luxury input:not([type=checkbox]),.shop-luxury select,.shop-luxury textarea{font-size:16px}}
+
+.shop-luxury .cw-book-cine [class*="hover:bg-[#"]:hover{background-color:#e6e7dc;color:#242722}
+.shop-luxury .cw-book-cine .bg-white:hover{background-color:#41473c;color:#fcfaf5}
