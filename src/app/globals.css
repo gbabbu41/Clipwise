@@ -1896,6 +1896,8 @@ html[data-theme="light"] .portal .cwd-act.cwd-act--muted { background:var(--surf
 .cwp-lv{font-family:var(--font-mono),"DM Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums;color:var(--foreground);font-size:12.5px}
 .cwp-more{align-self:center;display:inline-flex;align-items:center;gap:4px;font-size:11.5px;color:var(--grey);background:none;border:none;padding:2px 6px;cursor:pointer}
 .cwp-more:hover{color:var(--foreground)}
+.cwp-lrow.cwp-lsub{margin-top:-4px;font-size:11px}
+.cwp-lsub .cwp-lk,.cwp-lsub .cwp-lv{color:var(--grey-2);font-size:11px}
 .cwp-lrow.cwp-ltotal{border-top:1px dashed var(--cwd-div);padding-top:9px;margin-top:1px}
 .cwp-ltotal .cwp-lk{color:var(--foreground);font-weight:650}
 .cwp-ltotal .cwp-lv{color:var(--foreground);font-weight:700;font-size:14.5px}

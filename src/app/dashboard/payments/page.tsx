@@ -843,7 +843,7 @@ export default function PaymentsPage() {
   const renderLedger = (p: PeriodCard) => {
     const stripeRow = p.fees > 0 && <div className="cwp-lrow"><span className="cwp-lk">Stripe fees{p.feesKnown ? "" : " (est.)"}</span><span className="cwp-lv">−{formatCurrency(p.fees)}</span></div>;
     const extras = (
-      <div className="cwp-lrow"><span className="cwp-lk">{p.cash > 0 ? "Average · cash" : "Average"}</span><span className="cwp-lv">{formatCurrency(p.avg)}{p.cash > 0 ? ` · ${formatCurrency(p.cash)}` : ""}</span></div>
+      <div className="cwp-lrow"><span className="cwp-lk">Average per cut</span><span className="cwp-lv">{formatCurrency(p.avg)}</span></div>
     );
     return (
       <div className="cwp-ledger">
@@ -857,6 +857,7 @@ export default function PaymentsPage() {
         ) : showDetails ? <>
           {extras}
           <div className="cwp-lrow"><span className="cwp-lk">Gross taken in</span><span className="cwp-lv">{formatCurrency(p.gross)}</span></div>
+          {p.cash > 0 && <div className="cwp-lrow cwp-lsub"><span className="cwp-lk">incl. cash</span><span className="cwp-lv">{formatCurrency(p.cash)}</span></div>}
           {p.tax > 0 && <div className="cwp-lrow"><span className="cwp-lk">Sales tax</span><span className="cwp-lv">{formatCurrency(p.tax)}</span></div>}
           {stripeRow}
           <div className="cwp-lrow cwp-ltotal"><span className="cwp-lk">Net collected</span><span className="cwp-lv">{p.feesKnown ? "" : "≈ "}{formatCurrency(p.headline)}</span></div>
