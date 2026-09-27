@@ -137,11 +137,11 @@ function bookedSlotsFor(b: AvailBarber, interval: number): string[] {
 // ─── Toast Component ──────────────────────────────────────────────────────────
 function ToastBar({ toast, onClose }: { toast: Toast; onClose: () => void }) {
   return (
-    <div className={cn(
+    <div role="status" aria-live="polite" data-booking-toast={toast.ok ? "success" : "error"} className={cn(
       "fixed bottom-24 right-4 z-[200] flex items-center gap-3 px-5 py-3 rounded-xl border shadow-xl text-sm font-medium animate-slide-up",
       toast.ok ? "bg-black/80 border-white/25 text-white" : "bg-red-900/80 border-red-500/40 text-red-300"
     )}>
-      {toast.ok ? <Check size={15} /> : "✕"} {toast.msg}
+      {toast.ok ? <Check size={15} aria-hidden="true" /> : "✕"} <span>{toast.msg}</span>
       <button onClick={onClose} aria-label="Dismiss" className="ml-2 opacity-60 hover:opacity-100">✕</button>
     </div>
   );
@@ -1620,7 +1620,7 @@ export default function BookingClient({ Landing = ShopLanding, presentation }: {
             <div className="flex items-center gap-3.5 rounded-2xl bg-[#141414] border border-[#242424] px-4 py-3.5">
               {lockedBarber.photo
                 ? <img src={lockedBarber.photo} alt={lockedBarber.name} loading="lazy" decoding="async" className="w-12 h-12 rounded-full object-cover ring-2 ring-white/10 flex-shrink-0" />
-                : <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#2b2b31] to-[#0b0b0e] flex items-center justify-center text-white text-lg font-black ring-2 ring-white/10 flex-shrink-0">{(lockedBarber.name[0] || "?").toUpperCase()}</div>}
+                : <div data-booking-avatar className="w-12 h-12 rounded-full bg-gradient-to-br from-[#2b2b31] to-[#0b0b0e] flex items-center justify-center text-white text-lg font-black ring-2 ring-white/10 flex-shrink-0">{(lockedBarber.name[0] || "?").toUpperCase()}</div>}
               <div className="min-w-0 flex-1">
                 <p className="text-[10.5px] uppercase tracking-[0.16em] text-[#6e6e6e] font-semibold">Booking with</p>
                 <p className="text-base font-bold text-white truncate leading-tight mt-0.5">{lockedBarber.name}</p>
@@ -1981,7 +1981,7 @@ export default function BookingClient({ Landing = ShopLanding, presentation }: {
                   </div>
                 )}
                 {selectedDate && !slotsLoading && slotGrid.length > 0 && bookableSlots.length === 0 && (
-                  <div className="m-4 py-5 text-center bg-orange-500/5 border border-orange-500/20 rounded-xl px-4">
+                  <div data-booking-notice="no-openings" className="m-4 py-5 text-center bg-orange-500/5 border border-orange-500/20 rounded-xl px-4">
                     <p className="text-orange-300 text-sm font-medium">
                       {barberFilter
                         ? `${barbers.find(b => b.id === barberFilter)?.name?.split(" ")[0] ?? "This barber"} has no openings this day — ${lockedBarber ? "try another day" : "try Anyone, or another day"}`

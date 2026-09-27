@@ -87,3 +87,15 @@
 .lux-template .contact-links svg{flex-shrink:0}
 
 @media(max-width:700px){.lux-template .visit-action{margin-top:24px}}
+
+/* Explicit pairs for inherited dark-theme notification and avatar surfaces. */
+.shop-luxury [data-booking-toast]{background:#242722!important;color:#fcfaf5!important;border-color:#65695e!important;max-width:calc(100vw - 32px)}
+.shop-luxury [data-booking-toast="error"]{background:#fff0ee!important;color:#8a211c!important;border-color:#c47970!important}
+.shop-luxury [data-booking-toast] :is(span,svg,button){color:inherit!important}
+.shop-luxury [data-booking-toast] span{min-width:0;overflow-wrap:anywhere}
+.shop-luxury [data-booking-toast] svg{flex-shrink:0}
+.shop-luxury [data-booking-toast] button{opacity:1;flex-shrink:0;min-width:32px;min-height:32px}
+.shop-luxury [data-booking-toast] button:focus-visible{outline-color:currentColor}
+.shop-luxury [data-booking-avatar]{background:#e6e7dc!important;background-image:none!important;color:#242722!important}
+.shop-luxury [data-booking-notice="no-openings"]{background:#f6eddf!important;border-color:#c7ac83!important}
+.shop-luxury [data-booking-notice="no-openings"] .text-orange-300{color:#805318!important}
