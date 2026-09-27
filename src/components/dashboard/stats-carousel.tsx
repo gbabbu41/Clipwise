@@ -15,9 +15,8 @@ import { bookingChartDays } from "@/lib/booking-chart";
  * scroll-snap slides (Revenue area chart, Bookings bars, Top barbers, Status
  * mix donut) with paging dots. All charts derive from the data already loaded.
  */
-// Single source for the chart SERIES colors (the status donut keeps its own
-// semantic hues: green = completed, red = no-show, etc.).
-const CHART_COLORS = { bookings: "#4a86d8", barbers: "#6ea8fe" } as const;
+// This carousel uses a blue/neutral palette; status labels retain their meaning.
+const CHART_COLORS = { bookings: "#6ea8fe", barbers: "#6ea8fe" } as const;
 const SLIDE_NAMES = ["Revenue", "Bookings", "Top barbers", "Booking status"] as const;
 
 export function StatsCarousel({
@@ -61,8 +60,8 @@ export function StatsCarousel({
 
   const statusMix = (() => {
     const labels: Record<string, { name: string; color: string }> = {
-      completed: { name: "Completed", color: "#10b981" },
-      confirmed: { name: "Confirmed", color: "#6366f1" },
+      completed: { name: "Completed", color: "#3f70ae" },
+      confirmed: { name: "Confirmed", color: "#6ea8fe" },
       pending: { name: "Pending", color: "#f59e0b" },
       "no-show": { name: "No-show", color: "#ef4444" },
       cancelled: { name: "Cancelled", color: "#9ca3af" },
@@ -88,7 +87,7 @@ export function StatsCarousel({
     el.scrollTo({ left: card.offsetLeft - first.offsetLeft, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
   };
 
-  const Empty = () => <div className="h-full flex items-center justify-center text-xs text-grey-muted">No data yet</div>;
+  const Empty = () => <div className="h-full flex items-center justify-center text-xs text-grey">No data for this period</div>;
   const card = "cwd-stat bg-card rounded-2xl pt-[18px] px-[18px] pb-[14px] h-full flex flex-col";
   // Tooltip rides the top strip AND never captures touches (pointerEvents:none)
   // — so tapping a bar shows its value without the popup covering / blocking the
@@ -106,14 +105,14 @@ export function StatsCarousel({
     <div key="rev" className={card}>
       {/* pr keeps the right side clear for the Today ▾ filter the parent overlays
           at the card's top-right corner. */}
-      <p className="text-[10.5px] uppercase tracking-[0.16em] text-grey-muted">{feesUnavailable ? "Gross collected" : "Collected"}</p>
+      <p className="text-[10.5px] uppercase tracking-[0.16em] text-grey">{feesUnavailable ? "Gross collected" : "Collected"}</p>
       <p className="text-[34px] font-bold text-foreground font-mono tracking-[-0.02em] mt-1.5 leading-none">
         {formatCurrency(revenue)}
       </p>
       {/* Count is on the SAME money-moved basis as Collected (paid this period), so
           the two lines describe the same window. */}
-      <span className={cn("mt-1.5 block text-[12px] font-medium", paidVisits > 0 ? "text-emerald-400" : "text-grey-muted")}>
-        {paidVisits > 0 ? `${paidVisits} paid this period` : "Nothing paid yet"}
+      <span className="mt-1.5 block text-[12px] font-medium text-grey">
+        {paidVisits > 0 ? `${paidVisits} paid` : "Nothing paid yet"}
       </span>
       {/* Spacer so the receipt ledger settles toward the bottom of the card and
           the empty state ($0) isn't top-heavy. (The old placeholder bar graph —
@@ -132,13 +131,13 @@ export function StatsCarousel({
               single top line. */}
           {feesLoading ? (
             <>
-              <div className="flex justify-between text-[12px]"><span className="text-grey-muted">Gross</span><span className="inline-block h-3 w-16 rounded bg-card-raised animate-pulse" /></div>
-              <div className="flex justify-between text-[12px]"><span className="text-grey-muted">− Stripe fees</span><span className="inline-block h-3 w-12 rounded bg-card-raised animate-pulse" /></div>
+              <div className="flex justify-between text-[12px]"><span className="text-grey">Gross</span><span className="inline-block h-3 w-16 rounded bg-card-raised animate-pulse" /></div>
+              <div className="flex justify-between text-[12px]"><span className="text-grey">− Stripe fees</span><span className="inline-block h-3 w-12 rounded bg-card-raised animate-pulse" /></div>
             </>
           ) : feesPaid > 0 ? (
             <>
-              <div className="flex justify-between text-[12px]"><span className="text-grey-muted">Gross</span><span className="font-mono tabular-nums text-foreground">{formatCurrency(revenue + feesPaid)}</span></div>
-              <div className="flex justify-between text-[12px]"><span className="text-grey-muted">− Stripe fees</span><span className="font-mono tabular-nums text-foreground">−{formatCurrency(feesPaid)}</span></div>
+              <div className="flex justify-between text-[12px]"><span className="text-grey">Gross</span><span className="font-mono tabular-nums text-foreground">{formatCurrency(revenue + feesPaid)}</span></div>
+              <div className="flex justify-between text-[12px]"><span className="text-grey">− Stripe fees</span><span className="font-mono tabular-nums text-foreground">−{formatCurrency(feesPaid)}</span></div>
             </>
           ) : null}
           {/* The full breakdown (Collected, cash, tax, tips, commission) stays hidden
@@ -147,16 +146,16 @@ export function StatsCarousel({
           {showBreakdown && (
             <>
               <div className={cn("flex justify-between text-[12px]", (feesLoading || feesPaid > 0) && "border-t border-dashed border-border pt-2")}><span className="text-foreground">Collected</span><span className="font-mono tabular-nums text-foreground">{formatCurrency(revenue)}</span></div>
-              {cashIncluded > 0 && <div className="flex justify-between text-[11px] text-grey-muted"><span>incl. cash</span><span className="font-mono tabular-nums">{formatCurrency(cashIncluded)}</span></div>}
-              {taxCollected > 0 && <div className="flex justify-between text-[12px]"><span className="text-grey-muted">− Sales tax</span><span className="font-mono tabular-nums text-foreground">−{formatCurrency(taxCollected)}</span></div>}
-              {tips > 0 && <div className="flex justify-between text-[12px]"><span className="text-grey-muted">− Tips</span><span className="font-mono tabular-nums text-foreground">−{formatCurrency(tips)}</span></div>}
-              {commission > 0 && <div className="flex justify-between text-[12px]"><span className="text-grey-muted">− Barber commission</span><span className="font-mono tabular-nums text-foreground">−{formatCurrency(commission)}</span></div>}
+              {cashIncluded > 0 && <div className="flex justify-between text-[11px] text-grey"><span>incl. cash</span><span className="font-mono tabular-nums">{formatCurrency(cashIncluded)}</span></div>}
+              {taxCollected > 0 && <div className="flex justify-between text-[12px]"><span className="text-grey">− Sales tax</span><span className="font-mono tabular-nums text-foreground">−{formatCurrency(taxCollected)}</span></div>}
+              {tips > 0 && <div className="flex justify-between text-[12px]"><span className="text-grey">− Tips</span><span className="font-mono tabular-nums text-foreground">−{formatCurrency(tips)}</span></div>}
+              {commission > 0 && <div className="flex justify-between text-[12px]"><span className="text-grey">− Barber commission</span><span className="font-mono tabular-nums text-foreground">−{formatCurrency(commission)}</span></div>}
             </>
           )}
-          <div className="flex justify-between border-t border-border pt-2 text-[12px]"><span className="text-foreground font-semibold">Net revenue</span><span className={cn("font-mono tabular-nums font-bold text-[14px]", netRev < 0 ? "text-red-400" : "text-emerald-400")}>{formatCurrency(netRev)}</span></div>
+          <div className={cn("flex justify-between text-[12px]", (feesLoading || feesPaid > 0 || showBreakdown) && "border-t border-border pt-2")}><span className="text-foreground font-semibold">Net revenue</span><span className={cn("font-mono tabular-nums font-bold text-[14px]", netRev < 0 ? "text-red-400" : "text-foreground")}>{formatCurrency(netRev)}</span></div>
           {hasBreakdown && (
-            <button type="button" onClick={() => setShowBreakdown(v => !v)}
-              className="mt-1 self-center inline-flex items-center gap-1 text-[11px] text-grey-muted hover:text-foreground transition-colors">
+            <button type="button" aria-expanded={showBreakdown} onClick={() => setShowBreakdown(v => !v)}
+              className="mt-1 self-center inline-flex items-center gap-1 text-[11px] text-grey hover:text-foreground transition-colors">
               {showBreakdown ? "Hide breakdown" : "Show breakdown"}
               <ChevronDown size={12} className={cn("transition-transform", showBreakdown && "rotate-180")} />
             </button>
@@ -167,23 +166,23 @@ export function StatsCarousel({
 
     // 2 — Bookings (bars)
     <div key="bk" className={card}>
-      <p className="text-[10.5px] uppercase tracking-[0.16em] text-grey-muted">Bookings</p>
+      <p className="text-[10.5px] uppercase tracking-[0.16em] text-grey">Bookings</p>
       <p className="text-[34px] font-bold text-foreground font-mono tracking-[-0.02em] mt-1.5 leading-none">{totalBookings}</p>
-      <p className={cn("text-xs mt-1 font-medium", hasCompleted ? "text-emerald-400" : "text-grey")}>
+      <p className="text-xs mt-1 font-medium text-grey">
         {hasCompleted
           ? `${completed.length} completed`
-          : totalBookings > 0 ? "None completed yet" : "No bookings yet"}
+          : totalBookings > 0 ? "0 completed" : "No bookings yet"}
       </p>
       {/* The big number is the period total; the bars below are only the most recent
           14 dated days — label it so the two aren't read as the same figure. */}
-      {bookingsByDay.length > 0 && <p className="text-xs text-grey-muted mt-1">{bookingsByDay[0].day} – {bookingsByDay[bookingsByDay.length - 1].day} · Daily bookings</p>}
+      {bookingsByDay.length > 1 && <p className="text-xs text-grey mt-1">{bookingsByDay[0].day} – {bookingsByDay[bookingsByDay.length - 1].day}</p>}
       <div className="flex-1 min-h-[96px] mt-1 -mx-1">
-        {bookingsByDay.length > 0 ? (
+        {bookingsByDay.some(day => day.count > 0) ? (
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={bookingsByDay} margin={{ top: 6, right: 8, left: 8, bottom: 0 }}>
               <XAxis dataKey="day" tick={{ fontSize: 9, fill: "var(--grey)" }} interval="preserveStartEnd" minTickGap={24} axisLine={false} tickLine={false} />
               <Bar dataKey="count" fill={CHART_COLORS.bookings} radius={[4, 4, 0, 0]} maxBarSize={26} isAnimationActive={false} />
-              <Tooltip {...tip} formatter={(value) => [String(value), "Bookings"]} cursor={{ fill: "rgba(128,128,128,0.15)" }} />
+              <Tooltip {...tip} formatter={(value) => [String(value), "Bookings"]} cursor={false} />
             </BarChart>
           </ResponsiveContainer>
         ) : <Empty />}
@@ -192,16 +191,16 @@ export function StatsCarousel({
 
     // 3 — Top barbers (horizontal bars)
     <div key="tb" className={card}>
-      <p className="text-[10.5px] uppercase tracking-[0.16em] text-grey-muted">Top barbers · service revenue</p>
-      <p className="text-xs text-grey-muted mt-1">Before tax, tips and fees</p>
+      <p className="text-[10.5px] uppercase tracking-[0.16em] text-grey">Top barbers</p>
+      <p className="text-xs text-grey mt-1">Service revenue</p>
       <div className="flex-1 min-h-[112px] mt-2">
         {revenueByBarber.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={revenueByBarber} layout="vertical" margin={{ top: 4, right: 12, left: 4, bottom: 0 }}>
               <XAxis type="number" hide />
               <YAxis type="category" dataKey="name" width={56} tick={{ fontSize: 11, fill: "var(--grey)" }} axisLine={false} tickLine={false} />
-              <Bar dataKey="revenue" fill={CHART_COLORS.barbers} radius={[0, 4, 4, 0]} isAnimationActive={false} />
-              <Tooltip {...tip} formatter={(value) => [formatCurrency(Number(value)), "Revenue"]} cursor={{ fill: "rgba(128,128,128,0.15)" }} />
+              <Bar dataKey="revenue" fill={CHART_COLORS.barbers} maxBarSize={28} radius={[0, 4, 4, 0]} isAnimationActive={false} />
+              <Tooltip {...tip} formatter={(value) => [formatCurrency(Number(value)), "Revenue"]} cursor={false} />
             </BarChart>
           </ResponsiveContainer>
         ) : <Empty />}
@@ -210,7 +209,7 @@ export function StatsCarousel({
 
     // 4 — Status mix (donut)
     <div key="st" className={card}>
-      <p className="text-[10.5px] uppercase tracking-[0.16em] text-grey-muted">Booking status</p>
+      <p className="text-[10.5px] uppercase tracking-[0.16em] text-grey">Booking status</p>
       <div className="flex-1 min-h-[112px] mt-2 flex items-center">
         {statusMix.length > 0 ? (
           <>
@@ -261,7 +260,7 @@ export function StatsCarousel({
           {/* min-h holds the tallest (populated slide 1 with the full ledger) so the
               carousel doesn't shrink/grow as the period filter changes. */}
           {slides.map((s, i) => (
-            <div key={i} className="min-w-full snap-center min-h-[290px]">{s}</div>
+            <div key={i} className="min-w-full snap-center min-h-[232px]">{s}</div>
           ))}
         </div>
         {/* Announce the current slide to screen readers as it changes. */}
@@ -291,7 +290,8 @@ export function StatsCarousel({
         ))}
       </div>
       <details className="text-xs text-grey mt-1">
-        <summary className="cursor-pointer py-2 w-fit">View chart data · {periodLabel ?? "Selected period"}</summary>
+        <summary className="cursor-pointer py-2 w-fit">Chart data</summary>
+        <p className="py-2">{periodLabel ?? "Selected period"}. Collected includes paid sales; bookings follow appointment dates. Average ticket covers paid, completed visits only. Barber revenue excludes tax and tips, before processing fees.</p>
         <div className="grid sm:grid-cols-2 gap-4 py-2">
           <table className="w-full text-left"><caption className="text-left font-medium mb-2">Daily bookings (latest {bookingsByDay.length} calendar days in period)</caption><thead><tr><th scope="col">Date</th><th scope="col" className="text-right">Bookings</th></tr></thead><tbody>{bookingsByDay.map(d => <tr key={d.date}><th scope="row" className="font-normal py-1">{d.date}</th><td className="text-right tabular-nums">{d.count}</td></tr>)}</tbody></table>
           <table className="w-full text-left"><caption className="text-left font-medium mb-2">Top barbers · service revenue (CAD)</caption><thead><tr><th scope="col">Barber</th><th scope="col" className="text-right">Revenue</th></tr></thead><tbody>{topBarbers.map((b, i) => <tr key={i}><th scope="row" className="font-normal py-1">{b.name}</th><td className="text-right tabular-nums">{formatCurrency(b.revenue)}</td></tr>)}</tbody></table>
