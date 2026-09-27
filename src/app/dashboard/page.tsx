@@ -185,6 +185,10 @@ export default function DashboardPage() {
   const [loadingSchedule, setLoadingSchedule] = useState(true);
   const [scheduleError, setScheduleError] = useState(false);
   const [loadedScheduleKey, setLoadedScheduleKey] = useState("");
+  // Survives the loading-skeleton swap below (which unmounts StatsCarousel on
+  // every filter change) so switching the date filter doesn't bounce the
+  // carousel back to its first slide.
+  const [statsSlide, setStatsSlide] = useState(0);
   const [financialBarbers, setFinancialBarbers] = useState<Barber[]>([]);
   const [feesError, setFeesError] = useState(false);
   const [feeRetry, setFeeRetry] = useState(0);
@@ -860,7 +864,7 @@ export default function DashboardPage() {
             })()}
 
             {/* Revenue hero (swipeable — revenue, bookings, top barbers, status) */}
-            <StatsCarousel revenue={feesUnavailable ? collected.gross : collected.net} taxCollected={collected.tax} cashIncluded={collected.cash} feesPaid={collected.fees} tips={paidOutTips} commission={commission} netRevenue={netRevenue} feesLoading={feesLoading} feesUnavailable={feesUnavailable} paidVisits={paidVisits} appointments={appointments} completed={completed} topBarbers={topBarbers} periodLabel={DATE_FILTER_LABELS[dateFilter]} rangeStart={rangeStart} rangeEnd={rangeEnd} />
+            <StatsCarousel revenue={feesUnavailable ? collected.gross : collected.net} taxCollected={collected.tax} cashIncluded={collected.cash} feesPaid={collected.fees} tips={paidOutTips} commission={commission} netRevenue={netRevenue} feesLoading={feesLoading} feesUnavailable={feesUnavailable} paidVisits={paidVisits} appointments={appointments} completed={completed} topBarbers={topBarbers} periodLabel={DATE_FILTER_LABELS[dateFilter]} rangeStart={rangeStart} rangeEnd={rangeEnd} initialSlide={statsSlide} onSlideChange={setStatsSlide} />
             {feesUnavailable && !feesLoading && <button type="button" className="mb-3 border border-border rounded-lg px-4 py-2 text-sm" onClick={() => setFeeRetry(v => v + 1)}>Retry processing fees</button>}
 
             {/* Minimal stat tiles — label + number only (helper sub-text removed),

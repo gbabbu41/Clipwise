@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import {
   BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, ResponsiveContainer, Tooltip,
@@ -20,7 +20,7 @@ const CHART_COLORS = { bookings: "#6ea8fe", barbers: "#6ea8fe" } as const;
 const SLIDE_NAMES = ["Revenue", "Bookings", "Top barbers", "Booking status"] as const;
 
 export function StatsCarousel({
-  revenue, taxCollected = 0, cashIncluded = 0, feesPaid = 0, tips = 0, commission = 0, netRevenue, feesLoading = false, feesUnavailable = false, paidVisits = 0, appointments, completed, topBarbers, filterControl, periodLabel, rangeStart, rangeEnd,
+  revenue, taxCollected = 0, cashIncluded = 0, feesPaid = 0, tips = 0, commission = 0, netRevenue, feesLoading = false, feesUnavailable = false, paidVisits = 0, appointments, completed, topBarbers, filterControl, periodLabel, rangeStart, rangeEnd, initialSlide = 0, onSlideChange,
 }: {
   revenue: number;         // COLLECTED = net after Stripe fees (incl. tax + cash + tips)
   taxCollected?: number;   // GST/HST + PST portion (subtracted in the waterfall — owed to gov't)
@@ -39,16 +39,37 @@ export function StatsCarousel({
   rangeStart: string;
   rangeEnd: string;
   filterControl?: ReactNode; // the date-filter (Today ▾) — overlaid at the first card's top-right
+  initialSlide?: number;      // restores the slide a parent-level remount (e.g. a loading skeleton swap) would otherwise reset to 0
+  onSlideChange?: (i: number) => void;
 }) {
   // Fall back to computing net revenue locally if the parent didn't pass it. NOT
   // floored — a real loss shows as a red negative (see the Net row below).
   const netRev = netRevenue ?? (revenue - taxCollected - tips - commission);
-  const [idx, setIdx] = useState(0);
+  const [idx, setIdxState] = useState(initialSlide);
+  const setIdx = (v: number | ((prev: number) => number)) => {
+    setIdxState(prev => {
+      const next = typeof v === "function" ? v(prev) : v;
+      onSlideChange?.(next);
+      return next;
+    });
+  };
   // Revenue card keeps a CALM default — Gross → − Stripe fees → Net — and tucks the
   // full breakdown (Collected, cash, tax, tips, commission) behind a tap.
   const [showBreakdown, setShowBreakdown] = useState(false);
   const hasBreakdown = cashIncluded > 0 || taxCollected > 0 || tips > 0 || commission > 0;
   const ref = useRef<HTMLDivElement>(null);
+
+  // On mount, jump straight to the restored slide (no animation, before paint)
+  // so a parent-level remount doesn't flash slide 1 before snapping over.
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el || initialSlide <= 0) return;
+    const card = el.children[Math.min(initialSlide, el.children.length - 1)] as HTMLElement | undefined;
+    const first = el.children[0] as HTMLElement | undefined;
+    if (card && first) el.scrollLeft = card.offsetLeft - first.offsetLeft;
+    // Restore-on-mount only — not a response to initialSlide changing later.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Datasets (from already-loaded data) ──
   const bookingsByDay = bookingChartDays(appointments, rangeStart, rangeEnd);
