@@ -76,4 +76,24 @@ assert(!html.includes(' more · '), 'no button once every row is shown');
 // load runs, instead of the blank "Loading payments…" screen.
 html = render({ loading: true, fromCache: true });
 assert(html.includes('$115.00') && html.includes('Updating…') && !html.includes('Loading payments…'), 'cached snapshot paints while refreshing');
+// Gross collected = what each charge took, not the booking total (the $39.75 case):
+// Aug-7 booking with a separately-charged tip + Sep-4 booking raised above its capture.
+{
+  const now = new Date().toISOString();
+  const ap = o => ({ status: 'completed', payment_status: 'captured', payment_method: 'card', tax_amount: 0, tip_amount: 0, gift_applied: 0, balance_due: null, created_at: now, paid_at: now, date: now.slice(0, 10), time_slot: '10:00', services: { name: 'Skin Fade' }, barbers: { name: 'B' }, client_name: 'C', ...o });
+  const rw = o => ({ client_name: 'C', service_name: 'Skin Fade', tax: 0, tip: 0, source: 'completion', payment_method: 'card', created_at: now, refunded: false, barber_id: 'barber', ...o });
+  const appts = [ap({ id: 'aug7', total_amount: 35, tip_amount: 5.25, payment_intent_id: 'pi_svc' }), ap({ id: 'sep4', total_amount: 74.75, tax_amount: 9.75, payment_intent_id: 'pi_cap' })];
+  const txs = [rw({ id: 't1', appointment_id: 'aug7', payment_intent_id: 'pi_svc', amount: 35, stripe_fee: 1.6 }), rw({ id: 't2', appointment_id: 'aug7', payment_intent_id: 'pi_tip', amount: 0, tip: 5.25, stripe_fee: 0.49 }),
+               rw({ id: 't3', appointment_id: 'sep4', payment_intent_id: 'pi_cap', amount: 35, tax: 5.25, stripe_fee: 1.79 })];
+  const byPi = { pi_svc: { gross: 35, fee: 1.6, net: 33.4 }, pi_tip: { gross: 5.25, fee: 0.49, net: 4.76 }, pi_cap: { gross: 40.25, fee: 1.79, net: 38.46 } };
+  // Confirmed fees: Gross 80.50 − fees 3.88 = Collected 76.62 (was Gross 120.25).
+  html = render({ appts, txs, stripeNet: { connected: true, byPi, available: 0, pending: 0 } });
+  assert(html.includes('$80.50') && html.includes('−$3.88') && html.includes('$76.62'), 'confirmed: gross − fees = collected');
+  assert(!html.includes('$120.25') && !html.includes('(est.)'));
+  // Estimated fees (summary unavailable, no ledger fee): same saved Gross, fees marked estimates.
+  const noFee = txs.map(t => ({ ...t, stripe_fee: 0 }));
+  html = render({ appts, txs: noFee, stripeNet: { connected: true, byPi: {}, available: 0, pending: 0 } });
+  // est: 35 → 1.32, 5.25 → 0.46, 40.25 → 1.47 = 3.25 → ≈ 77.25
+  assert(html.includes('$80.50') && html.includes('−$3.25') && html.includes('≈ $77.25') && html.includes('(est.)'), 'estimated: saved gross, labelled estimate');
+}
 console.log('PASS Payments UI missing/known card fees, cash-only, barber take-home, loading/error/shop scope');
