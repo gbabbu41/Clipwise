@@ -32,8 +32,32 @@ export function useMobileNavVisibility(route: string) {
       && /auto|scroll/.test(getComputedStyle(element).overflowY);
     document.querySelectorAll("main.cw-main .overflow-auto, main.cw-main .overflow-y-auto, [data-calendar-scroll]")
       .forEach(el => positions.set(el, el.scrollTop));
+    // Resolving which element a gesture scrolls walks up the DOM calling
+    // getComputedStyle — far too costly to repeat on every touchmove/wheel tick
+    // (it forces style recalcs mid-scroll and made scrolling + the nav janky).
+    // Resolve once per element per gesture and reuse it; the cache resets on a
+    // new touch or after a 100ms pause between events (a continuous scroll fires
+    // every ~16ms, so one gesture stays cached; layout changes between gestures
+    // are always re-read).
+    const mobile = matchMedia("(max-width: 1023px)");
+    let resolved = new Map<Element, Element | null>();
+    let resolvedAt = 0;
+    const resolveTarget = (element: Element): Element | null => {
+      const now = Date.now();
+      if (now - resolvedAt > 100) resolved = new Map();
+      resolvedAt = now;
+      if (resolved.has(element)) return resolved.get(element)!;
+      let result: Element | null = null;
+      if (allowed(element)) {
+        let target: Element = element;
+        while (target !== document.body && !scrollable(target)) target = target.parentElement ?? document.body;
+        result = target === document.body ? pageScroller : target;
+      }
+      resolved.set(element, result);
+      return result;
+    };
     const intent = (event: Event) => {
-      if (!matchMedia("(max-width: 1023px)").matches || !(event.target instanceof Element) || !allowed(event.target)) return;
+      if (!mobile.matches || !(event.target instanceof Element) || document.body.classList.contains("cw-modal-open")) return;
       if (event instanceof WheelEvent && Math.abs(event.deltaX) >= Math.abs(event.deltaY)) return;
       if (event instanceof KeyboardEvent && !["ArrowDown", "ArrowUp", "PageDown", "PageUp", "Home", "End", " "].includes(event.key)) return;
       if (typeof TouchEvent !== "undefined" && event instanceof TouchEvent) {
@@ -42,9 +66,8 @@ export function useMobileNavVisibility(route: string) {
         const previous = touch; touch = { x: point.clientX, y: point.clientY };
         if (!previous || Math.abs(point.clientX - previous.x) >= Math.abs(point.clientY - previous.y)) return;
       }
-      let target: Element = event.target;
-      while (target !== document.body && !scrollable(target)) target = target.parentElement ?? document.body;
-      if (target === document.body) target = pageScroller;
+      const target = resolveTarget(event.target);
+      if (!target) return;
       if (intended !== target) { intended = target; downward = 0; upward = 0; }
       if (!positions.has(target)) positions.set(target, target.scrollTop);
       intentUntil = Date.now() + 1500;
@@ -52,6 +75,7 @@ export function useMobileNavVisibility(route: string) {
     const touchStart = (event: TouchEvent) => {
       const point = event.touches[0];
       touch = point ? { x: point.clientX, y: point.clientY } : null;
+      resolved = new Map();
     };
     const scroll = (event: Event) => {
       const target = event.target === document ? pageScroller : event.target;

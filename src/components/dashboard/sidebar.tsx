@@ -852,6 +852,10 @@ export function Sidebar() {
 export function MobileNav() {
   const pathname = usePathname();
   const { navRef, hidden } = useMobileNavVisibility(pathname);
+  // Light the tapped tab immediately — the route only changes once the next page
+  // is ready, so without this a tap looked like it hadn't registered.
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
+  useEffect(() => { setPendingHref(null); }, [pathname]);
   const { shop, profile } = useAuth();
   const toggleDrawer = () => window.dispatchEvent(new Event("cw-toggle-sidebar"));
 
@@ -867,9 +871,12 @@ export function MobileNav() {
     const { href, label, icon: Icon } = item;
     // Light the tab for its own page and any nested route, with a "/" boundary so
     // e.g. /dashboard/payments never lights on a sibling like /dashboard/payroll.
-    const isActive = pathname === href || (href !== "/dashboard" && pathname.startsWith(href + "/"));
+    const isActive = pendingHref
+      ? pendingHref === href
+      : pathname === href || (href !== "/dashboard" && pathname.startsWith(href + "/"));
     return (
-      <Link key={href} href={href} aria-label={label} title={label} className={cn("cw-ni", isActive && "active")}>
+      <Link key={href} href={href} aria-label={label} title={label} className={cn("cw-ni", isActive && "active")}
+        onClick={() => { if (href !== pathname) setPendingHref(href); }}>
         <span className="cw-ni-icon"><Icon size={23} /></span>
       </Link>
     );

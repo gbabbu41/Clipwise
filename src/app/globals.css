@@ -1415,6 +1415,12 @@ textarea.form-control { min-height: 5rem; resize: vertical; }
   height: 60px;
   display: flex; align-items: center; padding: 0 8px; z-index: 30;
   box-shadow: 0 12px 34px rgba(0, 0, 0, 0.30);
+  /* Own compositing layer: scrolling content under the bar (and the bar's hide/
+     show slide) no longer forces the page behind it to repaint. */
+  transform: translateZ(0);
+  /* Tabs are buttons, not zoom targets — no double-tap-zoom wait before a tap
+     registers. */
+  touch-action: manipulation;
 }
 /* Liquid-glass treatment (iOS-style): heavy blur + saturation for the frosted
    refraction, plus a bright inset hairline along the top edge so the bar catches
@@ -1427,16 +1433,16 @@ textarea.form-control { min-height: 5rem; resize: vertical; }
     background:
       linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0) 45%),
       var(--nav-glass);
-    backdrop-filter: blur(34px) saturate(1.9);
-    -webkit-backdrop-filter: blur(34px) saturate(1.9);
+    /* 20px + light saturation reads the same as the old 34px/1.9 on a phone but
+       is far cheaper to recompute every scroll frame (the old value janked iOS). */
+    backdrop-filter: blur(20px) saturate(1.4);
+    -webkit-backdrop-filter: blur(20px) saturate(1.4);
     /* Refractive rim + depth: a bright top lip, a faint all-round inner edge and a
        soft inner base shadow, on top of the outer float shadow — the glass "solidity"
        that makes the transparency read as a pane, not just a faded bar. */
     box-shadow:
       0 14px 38px rgba(0, 0, 0, 0.32),
-      inset 0 1px 0 rgba(255, 255, 255, 0.20),
-      inset 0 0 0 1px rgba(255, 255, 255, 0.05),
-      inset 0 -10px 20px rgba(0, 0, 0, 0.10);
+      inset 0 1px 0 rgba(255, 255, 255, 0.20);
   }
 }
 /* Each tab centers one icon; the icon wrapper is both the tap target and the pill. */
@@ -1444,6 +1450,7 @@ textarea.form-control { min-height: 5rem; resize: vertical; }
   flex: 1; display: flex; align-items: center; justify-content: center;
   cursor: pointer; padding: 6px 0; min-width: 0;
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 /* While a modal is open, hide the bottom nav so cards never overlap it. */
 .cw-modal-open .cw-bnav { display: none; }

@@ -480,15 +480,21 @@ export function BarberSidebar() {
 export function BarberMobileNav() {
   const pathname = usePathname();
   const { navRef, hidden } = useMobileNavVisibility(pathname);
+  // Light the tapped tab immediately (see the owner MobileNav).
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
+  useEffect(() => { setPendingHref(null); }, [pathname]);
   const { barber } = useBarber();
   const perms = barber?.permissions ?? DEFAULT_BARBER_PERMISSIONS;
   const toggleDrawer = () => window.dispatchEvent(new Event("cw-toggle-sidebar"));
 
   const navLink = (href: string, label: string, Icon: typeof LayoutDashboard) => {
     // "/" boundary on the prefix so a tab never lights on a sibling route.
-    const isActive = pathname === href || (href !== "/barber-dashboard" && pathname.startsWith(href + "/"));
+    const isActive = pendingHref
+      ? pendingHref === href
+      : pathname === href || (href !== "/barber-dashboard" && pathname.startsWith(href + "/"));
     return (
-      <Link key={href} href={href} aria-label={label} title={label} className={cn("cw-ni", isActive && "active")}>
+      <Link key={href} href={href} aria-label={label} title={label} className={cn("cw-ni", isActive && "active")}
+        onClick={() => { if (href !== pathname) setPendingHref(href); }}>
         <span className="cw-ni-icon"><Icon size={23} /></span>
       </Link>
     );

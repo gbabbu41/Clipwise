@@ -1,4 +1,4 @@
-export default function DashboardLoading() {
+export default function BarberDashboardLoading() {
   return (
     <div className="p-6 space-y-6">
       <div className="h-8 w-48 animate-pulse bg-card rounded-xl" />
