@@ -841,7 +841,7 @@ export default function PaymentsPage() {
   // Collapsed, a card shows only the headline + the Stripe fee line; "More"
   // reveals the full receipt (avg, cash, gross, tax, net / commission, tips).
   const renderLedger = (p: PeriodCard) => {
-    const stripeRow = p.fees > 0 && <div className="cwp-lrow"><span className="cwp-lk">Stripe fees{p.feesKnown ? "" : " (est.)"}</span><span className="cwp-lv">−{formatCurrency(p.fees)}</span></div>;
+    const stripeRow = p.fees > 0 && <div className="cwp-lrow"><span className="cwp-lk">− Stripe fees{p.feesKnown ? "" : " (est.)"}</span><span className="cwp-lv">−{formatCurrency(p.fees)}</span></div>;
     const extras = (
       <div className="cwp-lrow"><span className="cwp-lk">Average per cut</span><span className="cwp-lv">{formatCurrency(p.avg)}</span></div>
     );
@@ -855,12 +855,10 @@ export default function PaymentsPage() {
             <div className="cwp-lrow cwp-ltotal"><span className="cwp-lk">Take-home</span><span className="cwp-lv">{formatCurrency(p.headline)}</span></div>
           </>
         ) : showDetails ? <>
-          {extras}
-          <div className="cwp-lrow"><span className="cwp-lk">Gross taken in</span><span className="cwp-lv">{formatCurrency(p.gross)}</span></div>
-          {p.cash > 0 && <div className="cwp-lrow cwp-lsub"><span className="cwp-lk">incl. cash</span><span className="cwp-lv">{formatCurrency(p.cash)}</span></div>}
-          {p.tax > 0 && <div className="cwp-lrow"><span className="cwp-lk">Sales tax</span><span className="cwp-lv">{formatCurrency(p.tax)}</span></div>}
+          <div className="cwp-lrow"><span className="cwp-lk">Gross</span><span className="cwp-lv">{formatCurrency(p.gross)}</span></div>
           {stripeRow}
-          <div className="cwp-lrow cwp-ltotal"><span className="cwp-lk">Net collected</span><span className="cwp-lv">{p.feesKnown ? "" : "≈ "}{formatCurrency(p.headline)}</span></div>
+          <div className="cwp-lrow cwp-ltotal"><span className="cwp-lk">Collected</span><span className="cwp-lv">{p.feesKnown ? "" : "≈ "}{formatCurrency(p.headline)}</span></div>
+          {p.cash > 0 && <div className="cwp-lrow cwp-lsub"><span className="cwp-lk">incl. cash</span><span className="cwp-lv">{formatCurrency(p.cash)}</span></div>}
         </> : stripeRow}
         <button type="button" className="cwp-more" aria-expanded={showDetails} onClick={() => setShowDetails(v => !v)}>
           {showDetails ? "Less" : "More"} <ChevronDown size={12} className={cn("transition-transform", showDetails && "rotate-180")} />
@@ -868,7 +866,7 @@ export default function PaymentsPage() {
       </div>
     );
   };
-  const cardCapLabel = barberMode ? "Take-home" : "Net collected";
+  const cardCapLabel = barberMode ? "Take-home" : "Collected";
 
   return (
     <div className="min-h-screen bg-background px-4 sm:px-6 max-w-2xl lg:max-w-4xl mx-auto lg:mx-0 pb-28">
