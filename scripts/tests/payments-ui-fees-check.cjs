@@ -90,6 +90,9 @@ assert(html.includes('$115.00') && html.includes('Updating…') && !html.include
   html = render({ appts, txs, stripeNet: { connected: true, byPi, available: 0, pending: 0 } });
   assert(html.includes('$80.50') && html.includes('−$3.88') && html.includes('$76.62'), 'confirmed: gross − fees = collected');
   assert(!html.includes('$120.25') && !html.includes('(est.)'));
+  // Cross-screen: Payments' Gross equals the shared rule the Dashboard/Analytics/weekly email use.
+  const { collectedTotals } = load('src/lib/revenue.ts');
+  assert.equal(Math.round(collectedTotals(appts, txs, byPi).gross * 100) / 100, 80.5, 'Payments Gross = shared collectedTotals gross');
   // Estimated fees (summary unavailable, no ledger fee): same saved Gross, fees marked estimates.
   const noFee = txs.map(t => ({ ...t, stripe_fee: 0 }));
   html = render({ appts, txs: noFee, stripeNet: { connected: true, byPi: {}, available: 0, pending: 0 } });

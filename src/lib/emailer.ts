@@ -335,7 +335,7 @@ function ownerWeeklyDigest(data: Record<string, string>) {
     <p>A quick look at how ${data.shopName} did over the past 7 days.</p>
     <div class="panel">
       <div class="row"><span class="label">Cuts completed</span><span class="val">${data.completed}</span></div>
-      <div class="row"><span class="label">Collected (before fees)</span><span class="val">${data.collected}</span></div>
+      <div class="row"><span class="label">Gross collected (before card fees)</span><span class="val">${data.collected}</span></div>
       <div class="row"><span class="label">No-shows</span><span class="val">${data.noShows}</span></div>
       <div class="row"><span class="label">Booked for this week</span><span class="val">${data.upcoming}</span></div>
     </div>

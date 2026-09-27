@@ -54,7 +54,11 @@ const txs = [
 ];
 const buckets = analyticsRevenueBuckets(appts, txs, week);
 const totals = revenue.collectedTotals(appts, txs, {}, 'owner');
-assert.equal(totals.gross, 156); // appointment 125 + POS service/tax/tip 26 + later tip 5
+// appointment 125 + POS service/tax/tip 26 + later tip 5 + the $20 cash balance row.
+// That balance has no booking link, so nothing else counts it; it was previously
+// left out of gross while counted in net/cash (net > gross). Now gross − fees = net.
+assert.equal(totals.gross, 176);
+assert.equal(totals.gross - totals.fees, totals.net);
 assert.equal(buckets.daily.length, 7); assert.equal(buckets.hourly.length, 24);
 assert.equal(buckets.daily.reduce((sum, row) => sum + row.revenue, 0), totals.gross);
 assert.equal(buckets.hourly.reduce((sum, row) => sum + row.revenue, 0), totals.gross);

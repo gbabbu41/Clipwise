@@ -84,11 +84,12 @@ const feeRows = rows => confirmedFeesFromRows(rows.map((r, i) => ({ id: `r${i}`,
   assert.equal(cents(t.gross), 31.05); reconciles(t);
 }
 
-// 7. Callers that don't load booking ids keep the previous rule (no silent change).
+// 7. Missing booking ids never select a different calculation: same saved-charge rule.
 {
   const appts = [{ ...appt({ total_amount: 74.75, tax_amount: 9.75, payment_intent_id: 'pi_cap' }), id: undefined }];
   const txs = [row({ payment_intent_id: 'pi_cap', amount: 35, tax: 5.25, fee: 1.79 })];
-  assert.equal(cents(collectedTotals(appts, txs).gross), 74.75);
+  assert.equal(cents(collectedTotals(appts, txs).gross), 40.25);
+  assert.equal(cents(collectedTotals(appts, txs).tax), 9.75, 'tax unchanged');
   assert.equal(savedChargeGross(txs).get('pi_cap'), 40.25);
 }
 
