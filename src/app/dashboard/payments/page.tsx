@@ -69,7 +69,7 @@ function statusInfo(s: string | null): { label: string; tone: "good" | "warn" | 
   }
 }
 const toneClass: Record<string, string> = {
-  good: "bg-[#00e5a0]/15 text-[#00e5a0]",
+  good: "bg-surface-overlay text-foreground",
   warn: "bg-amber-500/15 text-amber-400",
   active: "bg-surface-overlay text-foreground",
   muted: "bg-surface-overlay text-grey",
@@ -79,23 +79,6 @@ const fmtDate = (iso: string | null) => {
   if (!iso) return "";
   return new Date(iso).toLocaleDateString("en-CA", { month: "short", day: "numeric" });
 };
-
-// Mini CSS-bar sparkline for an earnings period card (green gradient bars,
-// tallest highlighted). Renders only when there's a real trend to show.
-function Spark({ data }: { data: { net: number }[] }) {
-  // Calendar buckets include zero days; show a trend after three earning periods.
-  const bars = data;
-  const active = bars.filter(d => d.net > 0);
-  if (active.length < 3) return null;
-  const max = Math.max(...bars.map(d => d.net), 1);
-  let peak = 0;
-  bars.forEach((d, i) => { if (d.net > bars[peak].net) peak = i; });
-  return (
-    <div className="cwp-spark">
-      {bars.map((d, i) => <i key={i} className={i === peak ? "cwp-peak" : ""} style={{ height: `${(d.net / max) * 100}%`, minHeight: 0, minWidth: 0 }} />)}
-    </div>
-  );
-}
 
 export default function PaymentsPage() {
   const { shop, accessToken, user } = useAuth();
@@ -876,7 +859,7 @@ export default function PaymentsPage() {
     <div className="min-h-screen bg-background px-4 sm:px-6 max-w-2xl lg:max-w-4xl mx-auto lg:mx-0 pb-28">
       {toast && (
         <div className={cn("fixed bottom-24 right-4 z-[200] flex items-center gap-2 px-5 py-3 rounded-xl border text-sm font-medium",
-          toast.ok ? "bg-emerald-900/80 border-emerald-500/40 text-emerald-300" : "bg-red-900/80 border-red-500/40 text-red-300")}>
+          toast.ok ? "bg-card-raised border-border text-foreground" : "bg-red-900/80 border-red-500/40 text-red-300")}>
           {toast.ok ? <Check size={15} /> : "✕"} {toast.msg}
         </div>
       )}
@@ -931,7 +914,6 @@ export default function PaymentsPage() {
                 ? <>{p.count} cut{p.count !== 1 ? "s" : ""} · {formatCurrency(p.avg)} avg{p.cash > 0 ? ` · incl. ${formatCurrency(p.cash)} cash` : ""}</>
                 : "No cuts in this period"}
             </div>
-            <Spark data={p.data} />
             {p.count > 0 && renderLedger(p)}
           </div>
         ))}
@@ -949,7 +931,6 @@ export default function PaymentsPage() {
                 ? <>{customLabel} · {customCard.count} cut{customCard.count !== 1 ? "s" : ""}{customCard.cash > 0 ? ` · incl. ${formatCurrency(customCard.cash)} cash` : ""}</>
                 : customLabel}
             </div>
-            <Spark data={customCard.data} />
             {customCard.count > 0 && renderLedger(customCard)}
           </div>
         ) : (
@@ -1255,7 +1236,7 @@ export default function PaymentsPage() {
               {generatedLink ? (
                 <div className="space-y-3">
                   <p className="text-sm text-foreground font-medium">Link ready</p>
-                  <div className="bg-card-raised border border-border rounded-xl p-2 text-xs text-sky-300 break-all">{generatedLink}</div>
+                  <div className="bg-card-raised border border-border rounded-xl p-2 text-xs text-foreground break-all">{generatedLink}</div>
                   <div className="grid grid-cols-2 gap-2">
                     <button type="button" className="btn btn-primary w-full"
                       onClick={async () => {

@@ -26,25 +26,6 @@ interface Tx {
 
 const grossOf = (t: Tx) => t.amount + (t.tip ?? 0);
 
-// Mini CSS-bar sparkline for an earnings period card — same look as the owner
-// Payments page. Zero calendar buckets stay flat; exact values are available below.
-function Spark({ data }: { data: { label: string; val: number }[] }) {
-  const bars = data;
-  const max = Math.max(...bars.map(d => d.val), 1);
-  let peak = 0;
-  bars.forEach((d, i) => { if (d.val > bars[peak].val) peak = i; });
-  return (
-    <div>
-      <div className="cwp-spark" role="img" aria-label="Take-home earnings over the full period; exact values in chart data below">
-        {bars.map((d, i) => <i key={d.label} title={`${d.label}: ${formatCurrency(d.val)}`} className={i === peak ? "cwp-peak" : ""} style={{ height: `${(d.val / max) * 100}%`, minHeight: 0, minWidth: 0 }} />)}
-      </div>
-      <details className="text-xs text-grey"><summary>Chart data</summary>
-        <div className="max-h-40 overflow-auto"><table className="w-full"><caption className="sr-only">Take-home by calendar period</caption><thead><tr><th scope="col">Period</th><th scope="col">Take-home</th></tr></thead><tbody>{bars.map(d => <tr key={d.label}><th scope="row">{d.label}</th><td>{formatCurrency(d.val)}</td></tr>)}</tbody></table></div>
-      </details>
-    </div>
-  );
-}
-
 export default function BarberPaymentsPage() {
   const { accessToken, profile } = useAuth();
   const { shop, barber } = useBarber();
@@ -297,7 +278,7 @@ export default function BarberPaymentsPage() {
       {unpaidError && <div role="alert" className="my-3 text-sm">{unpaidError} <button className="underline" onClick={() => loadUnpaid()}>Retry</button></div>}
       {toast && (
         <div className="fixed bottom-24 right-4 z-[200] bg-card-raised border border-border rounded-xl px-5 py-3 text-sm text-foreground shadow-xl">
-          <span className="text-emerald-400">✓</span> {toast}
+          <span className="text-grey">✓</span> {toast}
         </div>
       )}
 
@@ -329,10 +310,9 @@ export default function BarberPaymentsPage() {
               <div className="cwp-amt">{loading ? "—" : formatCurrency(s.earned)}</div>
               <div className={cn("cwp-meta", s.count === 0 && "cwp-flat")}>
                 {s.count > 0
-                  ? <>↑ {s.count} cut{s.count !== 1 ? "s" : ""} <span className="cwp-muted">· {formatCurrency(s.avg)} avg{s.tips > 0 ? ` · ${formatCurrency(s.tips)} tips` : ""}{s.cash > 0 ? ` · ${formatCurrency(s.cash)} cash` : ""}</span></>
+                  ? <>{s.count} cut{s.count !== 1 ? "s" : ""} <span className="cwp-muted">· {formatCurrency(s.avg)} avg{s.tips > 0 ? ` · ${formatCurrency(s.tips)} tips` : ""}{s.cash > 0 ? ` · ${formatCurrency(s.cash)} cash` : ""}</span></>
                   : "No cuts in this period"}
               </div>
-              <Spark data={s.data} />
             </div>
           );
         })}
@@ -347,7 +327,6 @@ export default function BarberPaymentsPage() {
             <div className={cn("cwp-meta", customSummary.count === 0 && "cwp-flat")}>
               {customLabel}{customSummary.count > 0 ? <span className="cwp-muted"> · {customSummary.count} cut{customSummary.count !== 1 ? "s" : ""}</span> : ""}
             </div>
-            <Spark data={customSummary.data} />
           </div>
         ) : (
           <div className="cwp-ecard cwp-ghost">
