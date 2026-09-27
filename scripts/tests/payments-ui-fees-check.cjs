@@ -41,6 +41,16 @@ html = render({ showDetails: false, stripeNet: { connected: true, byPi: {}, avai
 assert(html.includes('$111.36') && !html.includes('(est.)') && !html.includes('Stripe fees') && !html.includes('$115.00'));
 html = render({ stripeNet: { connected: true, byPi: { pi_test: { gross: 115, fee: 3, net: 112 } }, available: 0, pending: 0 } });
 assert(html.includes('$112.00')); assert(!html.includes('Unavailable'));
+// Platform fee ESTIMATE rate (super-admin setting) changes only the estimate:
+// 115 × 3.7% + $0.30 = $4.56 → ≈ $110.44 …
+html = render({ stripeNet: { connected: true, byPi: {}, available: 0, pending: 0, feeEstimate: { percent: 3.7, fixed: 0.3 } } });
+assert(html.includes('$110.44') && html.includes('(est.)') && !html.includes('$111.36'), 'estimate follows the platform rate');
+// … and never a confirmed Stripe fee.
+html = render({ stripeNet: { connected: true, byPi: { pi_test: { gross: 115, fee: 3, net: 112 } }, available: 0, pending: 0, feeEstimate: { percent: 9, fixed: 2 } } });
+assert(html.includes('$112.00') && !html.includes('(est.)'), 'confirmed fee ignores the estimate rate');
+// A malformed rate falls back to the default estimate (2.9% + $0.30).
+html = render({ stripeNet: { connected: true, byPi: {}, available: 0, pending: 0, feeEstimate: { percent: 50, fixed: -1 } } });
+assert(html.includes('$111.36'), 'out-of-range rate → default estimate');
 html = render({ txs: [{ ...tx, payment_method: 'cash', payment_intent_id: null }] });
 assert(html.includes('$115.00')); assert(!html.includes('Unavailable'));
 html = render({ selectedBarber: 'barber', barbers: [{ id: 'barber', name: 'QA barber', commission_percent: 50 }], stripeNet: null });

@@ -91,19 +91,23 @@ export function lineNetFee(pi: string | null | undefined, gross: number, byPi?: 
   return b ? { net: b.net, fee: b.fee } : { net: gross, fee: 0 };
 }
 
-// Stripe's standard card rate (CAD): 2.9% + $0.30. Used ONLY as a fallback to
-// keep Net computable while the REAL fee is still settling — or for an old charge
-// whose fee was never recorded (the fee is Stripe's, posted a beat after the
-// charge; see KNOWLEDGE-BOOK §3.8). Rounded UP to the cent so the estimate is
-// never below the real fee → Net only ever ticks UP when the exact fee lands,
-// never down. A confirmed fee (live Stripe or a recorded ledger fee > 0) always
-// wins; a card charge's real fee is never $0, so a stored 0 means "not captured
-// yet" and is treated as unknown → estimated.
-export const STRIPE_FEE_PCT = 0.029;
-export const STRIPE_FEE_FLAT = 0.30;
-export function estimateStripeFee(grossDollars: number): number {
+// ESTIMATED card fee — used ONLY as a fallback to keep Net computable while the
+// REAL fee is still settling, or for an old charge whose fee was never recorded
+// (see KNOWLEDGE-BOOK §3.8). A confirmed fee (live Stripe or a recorded ledger
+// fee > 0) always wins; a stored 0 means "not captured yet" → estimated. The rate
+// is a platform setting (super-admin, Platform Settings → Fee estimates; default
+// Stripe's standard CAD card rate 2.9% + $0.30). It never touches a confirmed fee
+// or a customer charge. Real Stripe fees vary by payment type (international
+// cards, Interac…), so an estimate can land above or below. Rounded UP to the cent.
+export const DEFAULT_CARD_FEE_ESTIMATE = { percent: 2.9, fixed: 0.3 } as const;
+export type CardFeeEstimate = { percent: number; fixed: number };
+export function estimateStripeFee(grossDollars: number, rate?: CardFeeEstimate | null): number {
   if (!(grossDollars > 0)) return 0;
-  return Math.ceil((grossDollars * STRIPE_FEE_PCT + STRIPE_FEE_FLAT) * 100) / 100;
+  const ok = (v: unknown, max: number): v is number => typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= max;
+  const percent = ok(rate?.percent, 10) ? rate!.percent : DEFAULT_CARD_FEE_ESTIMATE.percent;
+  const fixed = ok(rate?.fixed, 2) ? rate!.fixed : DEFAULT_CARD_FEE_ESTIMATE.fixed;
+  // Whole cents (gross $ × percent = cents) so 2.9% doesn't pick up float drift.
+  return Math.ceil(grossDollars * percent + fixed * 100 - 1e-6) / 100;
 }
 
 export type CollectedTotals = {

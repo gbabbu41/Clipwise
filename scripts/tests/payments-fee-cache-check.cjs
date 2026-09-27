@@ -48,6 +48,7 @@ const stripe = {
 };
 const mocks = {
   '@/lib/api-auth': { authorizeShop: async () => ({ isOwner: true, shop: { id: 'shop', stripe_account_id: 'acct_shop', stripe_connected: true } }) },
+  '@/lib/platform-settings': { getPlatformSettings: async () => ({ est_card_fee_percent: 3.7, est_card_fee_fixed: 0.3 }), cardFeeEstimateRate: st => ({ percent: st.est_card_fee_percent, fixed: st.est_card_fee_fixed }) },
   '@/lib/supabase-admin': { supabaseAdmin: db },
   '@/lib/stripe': { stripe, confirmedStripeFee: async (pi, account) => { lookups.push({ pi, account }); return pi === 'pi_zero' ? { gross: 115, fee: 0, net: 115 } : { gross: 115, fee: 3, net: 112 }; } },
   // Two reads per request: transaction fees, then cached appointment fees (phase66).
@@ -60,6 +61,7 @@ const call = async () => (await route.POST(new NextRequest('https://clipwise.ca/
 (async () => {
   let response = await call();
   assert.deepEqual(response.byPi.pi_saved, { gross: 115, fee: 3, net: 112 });
+  assert.deepEqual(response.feeEstimate, { percent: 3.7, fixed: 0.3 }, 'estimate rate delivered alongside (never mixed into) confirmed byPi');
   assert.equal(lookups.length, 0); assert.equal(writes.length, 0);
   response = await call();
   assert.equal(lookups.length, 0, 'Confirmed fee must never trigger another Stripe fee lookup');

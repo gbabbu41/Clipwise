@@ -57,10 +57,13 @@ interface PlatformSettings {
   maintenance_mode: boolean;
   maintenance_message: string;
   auto_approve_shops: boolean;
+  est_card_fee_percent: number;
+  est_card_fee_fixed: number;
 }
 const DEFAULTS: PlatformSettings = {
   platform_name: "ClipWise", support_email: "support@clipwise.ca",
   signups_enabled: true, maintenance_mode: false, maintenance_message: "", auto_approve_shops: false,
+  est_card_fee_percent: 2.9, est_card_fee_fixed: 0.3,
 };
 
 export default function AdminSettingsPage() {
@@ -71,6 +74,14 @@ export default function AdminSettingsPage() {
 
   const [settings, setSettings] = useState<PlatformSettings>(DEFAULTS);
   const [savingSettings, setSavingSettings] = useState(false);
+  // Fee-estimate inputs as text so partial decimals ("2.") can be typed; the
+  // server validates the numbers on save.
+  const [feePct, setFeePct] = useState(String(DEFAULTS.est_card_fee_percent));
+  const [feeFixed, setFeeFixed] = useState(String(DEFAULTS.est_card_fee_fixed));
+  useEffect(() => {
+    setFeePct(String(settings.est_card_fee_percent));
+    setFeeFixed(String(settings.est_card_fee_fixed));
+  }, [settings.est_card_fee_percent, settings.est_card_fee_fixed]);
 
   const [plans, setPlans] = useState<EditablePlan[]>([]);
   const [loadingPlans, setLoadingPlans] = useState(true);
@@ -199,6 +210,40 @@ export default function AdminSettingsPage() {
               </div>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Card fee ESTIMATE — only fills in fees Stripe hasn't confirmed yet */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Card fee estimates</CardTitle>
+          <p className="text-xs text-[#8f8f8f] max-w-xl">
+            Estimate only. Used to approximate a card fee on Payments (shown with &ldquo;≈&rdquo; / &ldquo;est.&rdquo;) until Stripe
+            confirms the real one. Never changes a confirmed Stripe fee or what a customer is charged. Actual
+            Stripe fees vary by payment type (e.g. international cards, Interac).
+          </p>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap items-end gap-3">
+            <label className="text-xs text-[#8f8f8f] font-medium">
+              Estimated % per payment
+              <input type="number" inputMode="decimal" min={0} max={10} step={0.01} value={feePct}
+                onChange={e => setFeePct(e.target.value)}
+                className="mt-1.5 block w-32 bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-gold/50" />
+            </label>
+            <label className="text-xs text-[#8f8f8f] font-medium">
+              Estimated fixed $ per payment
+              <input type="number" inputMode="decimal" min={0} max={2} step={0.01} value={feeFixed}
+                onChange={e => setFeeFixed(e.target.value)}
+                className="mt-1.5 block w-32 bg-surface-raised border border-border rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-gold/50" />
+            </label>
+            {/* Blank → NaN → sent as null → rejected by the server (never saved as 0). */}
+            <Button size="sm" loading={savingSettings}
+              onClick={() => saveSettings({ est_card_fee_percent: feePct.trim() ? Number(feePct) : NaN, est_card_fee_fixed: feeFixed.trim() ? Number(feeFixed) : NaN })}>
+              Save estimate
+            </Button>
+          </div>
+          <p className="text-xs text-[#8f8f8f] mt-2">Allowed: 0–10% and $0–$2. Default: 2.9% + $0.30 (Stripe&rsquo;s standard Canadian card rate).</p>
         </CardContent>
       </Card>
 
