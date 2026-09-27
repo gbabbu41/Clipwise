@@ -1154,11 +1154,18 @@ export default function PaymentsPage() {
                   ) : i.settled && i.method !== "cash" && feeOf(i) > 0 ? (
                     <>
                       <div className="flex justify-between"><span className="text-grey">Gross (paid)</span><span className="text-foreground">{formatCurrency(counted(i))}</span></div>
+                      {i.tax > 0 && <div className="flex justify-between"><span className="text-grey">Sales tax (incl.)</span><span className="text-grey">{formatCurrency(i.tax)}</span></div>}
                       <div className="flex justify-between"><span className="text-grey">Stripe fee{feeExact(i) ? "" : " (est.)"}</span><span className="text-grey">−{formatCurrency(feeOf(i))}</span></div>
                       <div className="flex justify-between"><span className="text-grey">Net (you keep)</span><span className="text-foreground font-bold">{feeExact(i) ? "" : "≈ "}{formatCurrency(netOf(i))}</span></div>
                     </>
                   ) : (
-                    <div className="flex justify-between"><span className="text-grey">Amount</span><span className="text-foreground font-semibold">{formatCurrency(statementAmount(i))}</span></div>
+                    <>
+                      {/* Sales tax is baked into the total for both cash and card; spell it out
+                          so a cash sale is as transparent as a card one (cash just has no
+                          Stripe fee to deduct). */}
+                      {i.tax > 0 && <div className="flex justify-between"><span className="text-grey">Sales tax (incl.)</span><span className="text-foreground">{formatCurrency(i.tax)}</span></div>}
+                      <div className="flex justify-between"><span className="text-grey">Amount</span><span className="text-foreground font-semibold">{formatCurrency(statementAmount(i))}</span></div>
+                    </>
                   )}
                   {dt && (
                     <div className="flex justify-between gap-3">
