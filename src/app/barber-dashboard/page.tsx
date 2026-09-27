@@ -256,7 +256,7 @@ export default function BarberOverviewPage() {
               <p className="text-[28px] font-extrabold text-foreground mt-2 font-mono tracking-tighter leading-none">{stat.value}</p>
               <p className={cn(
                 "text-[11px] mt-2 font-medium",
-                stat.tone === "up"    && "text-emerald-400",
+                stat.tone === "up"    && "text-grey",
                 stat.tone === "down"  && "text-red-400",
                 stat.tone === "muted" && "text-grey",
               )}>{stat.sub}</p>
