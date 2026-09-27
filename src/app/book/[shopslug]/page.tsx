@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import BookingClient from "./booking-client";
+import ShopfrontClient from "../../shop-preview/[shopslug]/preview-client";
+import "../../shop-preview/[shopslug]/shopfront.css";
 
 // Server gate in front of the (client) booking page. An unknown slug must return
 // a real HTTP 404 — a client component always renders 200 (its fetch runs after
@@ -46,5 +47,5 @@ export default async function BookingPage({ params }: { params: { shopslug: stri
   // own retry screen).
   if (!error && !data) notFound();
 
-  return <BookingClient key={params.shopslug} />;
+  return <ShopfrontClient key={params.shopslug} />;
 }

@@ -1,0 +1,1 @@
+import React from "react";import{createRoot}from"react-dom/client";import PreviewClient from "../../../../src/app/shop-preview/[shopslug]/preview-client";import BookingClient from "../../../../src/app/book/[shopslug]/booking-client";createRoot(document.getElementById("root")!).render(new URLSearchParams(location.search).has("canonical")?<BookingClient/>:<PreviewClient/>);

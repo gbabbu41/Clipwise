@@ -27,6 +27,7 @@ export async function POST(request: NextRequest) {
   const booking = await request.json() as {
     shop_id: string;
     shop_slug: string;
+    presentation?: "luxury"; // allowlisted view only; never a caller-supplied redirect URL
     barber_id: string | null;
     service_id: string;
     service_ids?: string[]; // full multiset — server recomputes the real price from these
@@ -51,6 +52,8 @@ export async function POST(request: NextRequest) {
     sms_reminder_consent?: boolean; // CASL: transactional reminder texts (pre-checked)
     promo_consent?: boolean;        // CASL: express opt-in for promotional messages
   };
+
+  const bookingPath = `/book/${encodeURIComponent(booking.shop_slug)}`;
 
   // Bound every free-text field from this PUBLIC route before it reaches Stripe
   // metadata or the DB (mirrors /api/book/in-person) — an unbounded payload is the
@@ -281,8 +284,8 @@ export async function POST(request: NextRequest) {
           payment_method_types: ["card"],
           metadata,
           setup_intent_data: { metadata },
-          success_url: `${BASE_URL}/book/${booking.shop_slug}?paid=1&session_id={CHECKOUT_SESSION_ID}`,
-          cancel_url: `${BASE_URL}/book/${booking.shop_slug}?cancelled=1`,
+          success_url: `${BASE_URL}${bookingPath}?paid=1&session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${BASE_URL}${bookingPath}?cancelled=1`,
         },
         acctOpts,
       );
@@ -313,8 +316,8 @@ export async function POST(request: NextRequest) {
           quantity: 1,
         }],
         metadata,
-        success_url: `${BASE_URL}/book/${booking.shop_slug}?paid=1&session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${BASE_URL}/book/${booking.shop_slug}?cancelled=1`,
+        success_url: `${BASE_URL}${bookingPath}?paid=1&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${BASE_URL}${bookingPath}?cancelled=1`,
       },
       acctOpts,
     );
