@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { authorizeShop } from "@/lib/api-auth";
 import { enforceRateLimit } from "@/lib/rate-limit";
-import { findExistingClient } from "@/lib/ensure-client";
+import { findExistingClient, AmbiguousClientError } from "@/lib/ensure-client";
 
 /**
  * The ONE authenticated door for creating a client from inside the portal
@@ -15,7 +15,8 @@ import { findExistingClient } from "@/lib/ensure-client";
  *      the shop they're adding a client to. You can't add a client to a shop
  *      that isn't yours by POSTing its id.
  *   3. DEDUPE — email → phone → name, via the shared findExistingClient, so the
- *      same person is never saved twice (an existing match is returned instead).
+ *      an unambiguous existing match is returned instead. Concurrent inserts
+ *      still require a database constraint/atomic resolver to prevent races.
  *
  * On SQL injection: there is no string-built SQL here. Every value is passed to
  * Supabase as a bound parameter (never concatenated into a query), so a "'; DROP
@@ -61,7 +62,7 @@ export async function POST(request: NextRequest) {
     const existing = await findExistingClient(body.shop_id, { name, email, phone });
     if (existing) {
       const { data: dup } = await supabaseAdmin
-        .from("clients").select("id, name, email, phone").eq("id", existing).maybeSingle();
+        .from("clients").select("id, name, email, phone").eq("shop_id", body.shop_id).eq("id", existing).maybeSingle();
       return NextResponse.json({ ok: true, id: existing, duplicate: true, client: dup ?? { id: existing } });
     }
 
@@ -88,6 +89,7 @@ export async function POST(request: NextRequest) {
     }
     return NextResponse.json({ ok: true, id: data.id, duplicate: false, client: data });
   } catch (err) {
+    if (err instanceof AmbiguousClientError) return NextResponse.json({ ok: false, error: err.message }, { status: 409 });
     console.error("[clients/create] error:", err instanceof Error ? err.message : err);
     return NextResponse.json({ ok: false, error: "Couldn't save the client. Please try again." }, { status: 500 });
   }

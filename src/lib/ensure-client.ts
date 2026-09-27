@@ -1,5 +1,9 @@
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { normPhone } from "@/lib/client-identity";
+import { normPhone, identityCandidates } from "@/lib/client-identity";
+
+export class AmbiguousClientError extends Error {
+  constructor() { super("More than one client matches. Select an existing client or provide a unique email."); }
+}
 
 // Find an existing client for a shop by the app's identity rule: email →
 // normalized phone → name (name only when there's no email/phone to key on, so
@@ -13,18 +17,31 @@ export async function findExistingClient(
   const email = (c.email ?? "").trim().slice(0, 120);
   const phone = (c.phone ?? "").trim().slice(0, 30);
   const name = (c.name ?? "").trim().slice(0, 80);
+  const choose = (rows: { id: string; name?: string | null; email?: string | null; phone?: string | null }[]) => {
+    const matches = identityCandidates(rows, { name, email, phone });
+    if (matches.length > 1) throw new AmbiguousClientError();
+    return matches[0]?.id ?? null;
+  };
+  const fields = "id, name, email, phone";
   if (email) {
-    const { data } = await supabaseAdmin.from("clients").select("id").eq("shop_id", shopId).ilike("email", email).maybeSingle();
-    if (data) return data.id;
+    // Escape LIKE metacharacters: a literal underscore must not match another email.
+    const pattern = email.replace(/[\\%_]/g, "\\$&");
+    const { data, error } = await supabaseAdmin.from("clients").select(fields).eq("shop_id", shopId).ilike("email", pattern);
+    if (error) throw new Error("Client lookup failed");
+    const id = choose(data ?? []);
+    if (id) return id;
   }
   const np = normPhone(phone);
   if (np) {
-    const { data } = await supabaseAdmin.from("clients").select("id").eq("shop_id", shopId).eq("phone_normalized", np).limit(1);
-    if (data?.[0]) return data[0].id;
+    const { data, error } = await supabaseAdmin.from("clients").select(fields).eq("shop_id", shopId).eq("phone_normalized", np);
+    if (error) throw new Error("Client lookup failed");
+    return choose(data ?? []);
   }
   if (!email && !np && name) {
-    const { data } = await supabaseAdmin.from("clients").select("id").eq("shop_id", shopId).ilike("name", name).limit(1);
-    if (data?.[0]) return data[0].id;
+    const pattern = name.replace(/[\\%_]/g, "\\$&");
+    const { data, error } = await supabaseAdmin.from("clients").select(fields).eq("shop_id", shopId).ilike("name", pattern);
+    if (error) throw new Error("Client lookup failed");
+    return choose(data ?? []);
   }
   return null;
 }

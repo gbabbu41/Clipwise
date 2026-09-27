@@ -3,7 +3,7 @@ const root = path.resolve(__dirname, '../..'), appReq = Module.createRequire(pat
 const ts = appReq('typescript'), { NextRequest } = appReq('next/server');
 let rows, sends, queries, writes, failed, providerFailure, actor, plan;
 function reset() {
-  rows = [{ id: 'client', shop_id: 'shop', email: 'Saved@example.invalid', name: 'Saved Name', phone_normalized: '15555550100', promo_consent_status: 'granted' }];
+  rows = [{ id: 'client', shop_id: 'shop', email: 'Saved@example.invalid', name: 'Saved Name', phone: '+1 5555550100', phone_normalized: '5555550100', promo_consent_status: 'granted' }];
   sends = []; queries = []; writes = []; failed = ''; providerFailure = false; actor = 'owner'; plan = 'pro';
 }
 const db = { auth: { getUser: async token => ({ data: { user: token === 'valid' ? { id: actor } : null } }) }, from(table) {
@@ -28,6 +28,7 @@ function load(relative) {
   m.require = id => id === '@/lib/consent' ? load('src/lib/consent-rules.ts') : mocks[id] ?? appReq(id);
   m._compile(ts.transpileModule(fs.readFileSync(file,'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText,file); return m.exports;
 }
+mocks['@/lib/client-identity'] = load('src/lib/client-identity.ts');
 const { POST } = load('src/app/api/marketing/send/route.ts');
 const call = async (recipient = { clientId: 'client', email: 'saved@example.invalid' }, token = 'valid') => {
   const res = await POST(new NextRequest('https://clipwise.ca/api/marketing/send', { method: 'POST', headers: token ? { Authorization: `Bearer ${token}` } : {}, body: JSON.stringify({ shop_id: 'shop', subject: 'Campaign', body: 'Hi {name}', recipients: [recipient] }) }));
