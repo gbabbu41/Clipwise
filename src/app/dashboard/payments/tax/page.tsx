@@ -35,10 +35,10 @@ export default function TaxCollectedPage() {
     const to = `${year}-12-31`;
     const [a, t] = await Promise.all([
       supabase.from("appointments")
-        .select("client_name, total_amount, tax_amount, payment_status, payment_method, payment_intent_id, status, date")
+        .select("id, client_name, total_amount, tax_amount, payment_status, payment_method, payment_intent_id, status, date")
         .eq("shop_id", shop.id).gte("date", from).lte("date", to),
       supabase.from("transactions")
-        .select("client_name, service_name, amount, tip, tax, payment_method, payment_intent_id, stripe_session_id, source, refunded, created_at")
+        .select("client_name, service_name, amount, tip, tax, payment_method, payment_intent_id, stripe_session_id, source, refunded, created_at, appointment_id")
         .eq("shop_id", shop.id).gte("created_at", from).lte("created_at", `${to}T23:59:59`),
     ]);
     setAppts((a.data ?? []) as (RevAppt & { date: string })[]);

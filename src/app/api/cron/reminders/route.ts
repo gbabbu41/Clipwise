@@ -357,10 +357,10 @@ async function run() {
       const yesterday = shiftYmd(today, -1);
       const [{ data: lwAppts }, { data: lwTxs }] = await Promise.all([
         supabaseAdmin.from("appointments")
-          .select("client_name, total_amount, tax_amount, tip_amount, gift_applied, balance_due, payment_status, payment_method, payment_intent_id, status, barber_id")
+          .select("id, client_name, total_amount, tax_amount, tip_amount, gift_applied, balance_due, payment_status, payment_method, payment_intent_id, status, barber_id")
           .eq("shop_id", shop.id).gte("date", weekAgo).lte("date", yesterday),
         supabaseAdmin.from("transactions")
-          .select("client_name, amount, tip, tax, payment_method, created_at, payment_intent_id, source, refunded, barber_id")
+          .select("client_name, amount, tip, tax, payment_method, created_at, payment_intent_id, source, refunded, barber_id, appointment_id")
           .eq("shop_id", shop.id).gte("created_at", `${weekAgo}T00:00:00`),
       ]);
       const lastWeekAppts = (lwAppts ?? []) as RevAppt[];

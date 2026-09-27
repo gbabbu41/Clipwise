@@ -155,7 +155,7 @@ export default function AnalyticsPage() {
   const revenueApptsInRange = useMemo(() => revenueAppts.filter(a =>
     (barberFilter === "all" || a.barber_id === barberFilter) && timestampInPeriod(a.paid_at ?? a.created_at, range)
   ), [revenueAppts, barberFilter, range]);
-  const buckets = useMemo(() => analyticsRevenueBuckets(revenueApptsInRange, filteredTx as RevTx[], range), [revenueApptsInRange, filteredTx, range]);
+  const buckets = useMemo(() => analyticsRevenueBuckets(revenueApptsInRange, filteredTx as RevTx[], range, byPi), [revenueApptsInRange, filteredTx, range, byPi]);
   const revenueByDay = buckets.daily;
   const hourlyRevenue = buckets.hourly;
   const dataReady = !loading && !loadError && loadedKey === dataKey;
