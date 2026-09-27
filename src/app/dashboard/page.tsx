@@ -1,11 +1,10 @@
 "use client";
-import { useState, useEffect, useCallback, useMemo, useRef, Fragment } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { useRouter } from "next/navigation";
 import {
   Calendar, DollarSign, Users, Star, Plus, X, ChevronDown,
-  ChevronRight, ChevronLeft, AlertCircle, TrendingUp, UserX, Bell, Banknote,
+  ChevronRight, AlertCircle, TrendingUp, UserX, Bell, Banknote,
   CreditCard, BarChart3,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -25,7 +24,7 @@ import { cacheGet, cacheSet } from "@/lib/view-cache";
 import { useLiveRefresh } from "@/lib/use-live-refresh";
 import { hasMissingCardFees } from "@/lib/analytics-period";
 import { useSheetDrag } from "@/hooks/use-sheet-drag";
-import { cn, formatCurrency, getDateRange, DATE_FILTER_LABELS, formatDateForDb, DateFilterKey, friendlyDate, timeToMinutes, timeAgo } from "@/lib/utils";
+import { cn, formatCurrency, getDateRange, DATE_FILTER_LABELS, formatDateForDb, DateFilterKey, timeToMinutes, timeAgo } from "@/lib/utils";
 import { PaymentTag } from "@/components/payment-tag";
 import { supabase } from "@/lib/supabase";
 import { fetchShopNotifications, notifBelongsToShop } from "@/lib/notify";
@@ -133,17 +132,6 @@ function StatCard({ label, value, sub, icon: Icon, color = "gold", cta, prominen
   );
 }
 
-// The 7 days (Sun→Sat) of the current calendar week — powers the compact week
-// calendar on the dashboard home.
-function currentWeekDays(offset = 0): Date[] {
-  const t = new Date(); t.setHours(0, 0, 0, 0);
-  const start = new Date(t); start.setDate(t.getDate() - t.getDay() + offset * 7);
-  return Array.from({ length: 7 }, (_, i) => { const d = new Date(start); d.setDate(start.getDate() + i); return d; });
-}
-// Hour-gutter label for the week grid ("9a" / "12p" / "5p").
-const hourLabel = (h: number) => h === 0 ? "12a" : h < 12 ? `${h}a` : h === 12 ? "12p" : `${h - 12}p`;
-// "Jul 20" pill label for a YYYY-MM-DD date (vs the raw ISO string).
-
 const apptMins = (a: AppointmentWithDetails): number =>
   (a.duration_minutes && a.duration_minutes > 0)
     ? a.duration_minutes
@@ -152,11 +140,6 @@ const apptMins = (a: AppointmentWithDetails): number =>
 export default function DashboardPage() {
   const { shop, profile, accessToken } = useAuth();
   const unreadCount = useShopUnreadCount(profile?.id, shop?.id);
-  const router = useRouter();
-  // Dashboard week calendar navigation: 0 = this week, ±n = weeks away (swipe/arrows).
-  const [weekOffset, setWeekOffset] = useState(0);
-  const calTouch = useRef<{ x: number; y: number } | null>(null);
-  const calSwiped = useRef(false);
   const [visibleAppts, setVisibleAppts] = useState(20); // Today's Schedule list: show 20, +20 per "Load more"
 
   // ── Filter state ────────────────────────────────────────────────────────────
@@ -167,11 +150,6 @@ export default function DashboardPage() {
   // popover for picking a single specific date.
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
-
-  // ── Calendar state ──────────────────────────────────────────────────────────
-  const [calYear, setCalYear] = useState(new Date().getFullYear());
-  const [calMonth, setCalMonth] = useState(new Date().getMonth());
-  const [selectedCalDate, setSelectedCalDate] = useState<string | null>(null);
 
   // ── Data state ──────────────────────────────────────────────────────────────
   const [loadingAppts, setLoadingAppts] = useState(true);
@@ -218,17 +196,8 @@ export default function DashboardPage() {
   // the Gross/fees rows instead of briefly showing Gross == Collected (no fees)
   // and then visibly changing once the fees load.
   const [feesLoading, setFeesLoading] = useState(true);
-  // Appointments fetched specifically for the calendar-selected date, so
-  // clicking a day outside the active dateFilter range still surfaces the
-  // bookings underneath (the main `appointments` array is bound to dateFilter).
-  const [selectedDayAppts, setSelectedDayAppts] = useState<AppointmentWithDetails[]>([]);
-  const [loadingSelectedDay, setLoadingSelectedDay] = useState(false);
-  // Whole-week appointments for the compact week calendar (independent of the
-  // date filter, so the grid always shows the full current week).
-  const [weekAppts, setWeekAppts] = useState<AppointmentWithDetails[]>([]);
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [apptCounts, setApptCounts] = useState<Record<string, number>>({});
   // Client rows (id + created_at) for the "New Clients" KPI — a client is "new"
   // in a period if their record was first created (their first booking/POS
   // auto-registers them) in that window. Loaded once per shop; filtered by date
@@ -441,27 +410,6 @@ export default function DashboardPage() {
     return () => { active = false; };
   }, [shop, accessToken, feeRetry]);
 
-  // ── Load the current week's appointments (for the compact calendar) ─────────
-  const loadWeekAppts = useCallback(async () => {
-    if (!shop) return;
-    const days = currentWeekDays(weekOffset);
-    let q = supabase
-      .from("appointments")
-      .select("*, barbers(id, name), services(id, name, price, category, duration_minutes)")
-      .eq("shop_id", shop.id)
-      .gte("date", formatDateForDb(days[0]))
-      .lte("date", formatDateForDb(days[6]))
-      .order("time_slot", { ascending: true });
-    if (profile?.role === "barber" && myBarberId) q = q.eq("barber_id", myBarberId);
-    const ck = `home_week_${JSON.stringify([shop.id, profile?.id, myBarberId, formatDateForDb(days[0])])}`;
-    const snap = cacheGet<AppointmentWithDetails[]>(ck);
-    if (snap) setWeekAppts(snap);
-    const { data, error } = await q;
-    if (error) return; // keep what's shown
-    setWeekAppts((data ?? []) as AppointmentWithDetails[]);
-    cacheSet(ck, data ?? []);
-  }, [shop, profile, myBarberId, weekOffset]);
-
   // ── Load barbers & notifications ────────────────────────────────────────────
   const loadSideData = useCallback(async () => {
     const sequence = ++sideSequence.current;
@@ -491,31 +439,6 @@ export default function DashboardPage() {
     }
     if (cli && !notifRes.error) cacheSet(ck, { clients: cli as SideSnap["clients"], notifications: (notifRes.data ?? []) as unknown as Notification[], avgRating, totalReviews: rev?.length ?? 0 } satisfies SideSnap);
   }, [shop, profile]);
-
-  // ── Load calendar appointment counts for current month ─────────────────────
-  const loadCalendarCounts = useCallback(async () => {
-    if (!shop) return;
-    const firstDay = formatDateForDb(new Date(calYear, calMonth, 1));
-    const lastDay = formatDateForDb(new Date(calYear, calMonth + 1, 0));
-    let calQ = supabase
-      .from("appointments")
-      .select("date")
-      .eq("shop_id", shop.id)
-      .gte("date", firstDay)
-      .lte("date", lastDay);
-    if (profile?.role === "barber" && myBarberId) {
-      calQ = calQ.eq("barber_id", myBarberId);
-    }
-    const ck = `home_cal_${JSON.stringify([shop.id, profile?.id, myBarberId, calYear, calMonth])}`;
-    const snap = cacheGet<Record<string, number>>(ck);
-    if (snap) setApptCounts(snap);
-    const { data, error } = await calQ;
-    if (error) return; // keep what's shown
-    const counts: Record<string, number> = {};
-    (data ?? []).forEach((a: { date: string }) => { counts[a.date] = (counts[a.date] ?? 0) + 1; });
-    setApptCounts(counts);
-    cacheSet(ck, counts);
-  }, [shop, calYear, calMonth, profile, myBarberId]);
 
   // Instant paint: show the last snapshot for this period / today's schedule
   // (memory, or device when small), then the loaders below refresh it. Kept
@@ -548,7 +471,7 @@ export default function DashboardPage() {
     shop?.id ? ["appointments", "transactions", "clients"].map(table => ({ table, filter: `shop_id=eq.${shop.id}` })) : [],
     () => {
       setRepFromCache(true); setSchedFromCache(true);
-      void loadAppointments(); void loadSchedule(); void loadWeekAppts(); void loadSideData(); void loadCalendarCounts();
+      void loadAppointments(); void loadSchedule(); void loadSideData();
     });
   useEffect(() => {
     if (!homeRepKey || loadingAppts || loadError || loadedReportKey !== reportKey) return;
@@ -561,45 +484,13 @@ export default function DashboardPage() {
     setSchedFromCache(false);
   }, [homeSchedKey, loadingSchedule, scheduleError, loadedScheduleKey, scheduleKey, scheduleAppts, barbers]);
   useEffect(() => { loadSideData(); return () => { sideSequence.current++; }; }, [loadSideData]);
-  useEffect(() => { loadCalendarCounts(); }, [loadCalendarCounts]);
-  useEffect(() => { loadWeekAppts(); }, [loadWeekAppts]);
-
-  // ── Load appointments for the calendar-selected date ───────────────────────
-  // Independent of the main dateFilter — clicking June 15 should always
-  // surface June 15's bookings underneath, even if the filter is "today".
-  useEffect(() => {
-    if (!shop || !selectedCalDate) { setSelectedDayAppts([]); return; }
-    setLoadingSelectedDay(true);
-    let q = supabase
-      .from("appointments")
-      .select("*, barbers(id, name), services(id, name, price, category, duration_minutes)")
-      .eq("shop_id", shop.id)
-      .eq("date", selectedCalDate)
-      .order("time_slot", { ascending: true });
-    if (profile?.role === "barber" && myBarberId) {
-      q = q.eq("barber_id", myBarberId);
-    }
-    q.then(({ data }) => {
-      setSelectedDayAppts((data ?? []) as AppointmentWithDetails[]);
-      setLoadingSelectedDay(false);
-    });
-  }, [shop, selectedCalDate, profile, myBarberId]);
-
   // ── Computed stats ──────────────────────────────────────────────────────────
-  // When the user clicks a day in the calendar we serve the date-specific
-  // fetch (selectedDayAppts) so the picked date's bookings always render,
-  // independent of the page-level dateFilter.
-  const displayAppts = selectedCalDate ? selectedDayAppts : scheduleAppts;
-  // Reset the "Today's Schedule" list cap when a different calendar day is picked
-  // (the carousel's date filter no longer affects this list).
-  useEffect(() => { setVisibleAppts(20); }, [selectedCalDate]);
   const todayStr = formatDateForDb(new Date());
 
   // ── Today's Schedule → full appointment actions (reuse the shared modal) ─────
   const patchAppt = useCallback((id: string, p: Partial<AppointmentWithDetails>) => {
     setAppointments(prev => prev.map(a => (a.id === id ? { ...a, ...p } as AppointmentWithDetails : a)));
     setScheduleAppts(prev => prev.map(a => (a.id === id ? { ...a, ...p } as AppointmentWithDetails : a)));
-    setSelectedDayAppts(prev => prev.map(a => (a.id === id ? { ...a, ...p } as AppointmentWithDetails : a)));
     setSelectedAppt(prev => (prev && prev.id === id ? { ...prev, ...p } as AppointmentWithDetails : prev));
   }, []);
   const { confirm } = useConfirm();
@@ -720,9 +611,6 @@ export default function DashboardPage() {
   // dilutes the rate (industry convention).
   const scheduledCount = appointments.filter((a) => a.status !== "cancelled").length;
   const noShowRate = scheduledCount > 0 ? (noShows / scheduledCount * 100) : 0;
-
-  // (Calendar rendering is now handled by the shared <CalendarPicker>; we
-  // only keep apptCounts keyed by YYYY-MM-DD for the day-badge slot.)
 
   const filterDateRange = getDateRange(dateFilter, customStart, customEnd);
 
@@ -853,7 +741,7 @@ export default function DashboardPage() {
         <div className="flex items-center justify-between gap-3 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 mb-2">
           <p className="text-sm text-red-300">Couldn&apos;t load your latest data — it may be out of date.</p>
           <button
-            onClick={() => { setLoadError(false); loadAppointments(); loadSchedule(); loadSideData(); loadWeekAppts(); }}
+            onClick={() => { setLoadError(false); loadAppointments(); loadSchedule(); loadSideData(); }}
             className="text-xs font-semibold text-foreground bg-red-500/20 hover:bg-red-500/30 rounded-lg px-3 py-1.5 flex-shrink-0 transition-colors"
           >
             Retry
@@ -894,7 +782,7 @@ export default function DashboardPage() {
                   <div className="flex gap-2 overflow-x-auto pb-3 -mx-1 px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                     {DAILY.map((k) => (
                       <button key={k} type="button" className={pill(dateFilter === k)}
-                        onClick={() => { setDateFilter(k); setSelectedCalDate(null); }}>
+                        onClick={() => { setDateFilter(k); }}>
                         {DATE_FILTER_LABELS[k]}
                       </button>
                     ))}
@@ -909,7 +797,7 @@ export default function DashboardPage() {
                       <div className="cwd-menu cwd-menu--right" style={{ zIndex: 50 }}>
                         {MORE.map((k) => (
                           <button key={k} type="button" className={dateFilter === k ? "on" : undefined}
-                            onClick={() => { setDateFilter(k); setSelectedCalDate(null); setFilterMenuOpen(false); }}>
+                            onClick={() => { setDateFilter(k); setFilterMenuOpen(false); }}>
                             {DATE_FILTER_LABELS[k]}
                           </button>
                         ))}
@@ -934,7 +822,6 @@ export default function DashboardPage() {
                             setCustomStart(ds);
                             setCustomEnd(ds);
                             setDateFilter("custom" as DateFilterKey);
-                            setSelectedCalDate(null);
                             setShowDatePicker(false);
                           }}
                         />
@@ -986,116 +873,25 @@ export default function DashboardPage() {
 
       <div className="cwd-body">
         <div className="cwd-col">
-          {/* Compact week calendar — tap to open the full Calendar tab */}
-          {(() => {
-            const weekDays = currentWeekDays(weekOffset);
-            const todayKey = formatDateForDb(new Date());
-            const hrs = weekAppts.map(a => { const m = timeToMinutes(a.time_slot ?? ""); return m > 0 ? Math.floor(m / 60) : -1; }).filter(h => h >= 0);
-            // Always show a full day window (9a–5p) so the grid keeps a consistent
-            // height — expand earlier/later only when appointments fall outside it.
-            // (Otherwise a week with one appointment collapsed to a single row.)
-            const minH = Math.min(9, ...hrs);
-            const maxH = Math.max(17, ...hrs);
-            const calHours = Array.from({ length: Math.max(1, maxH - minH + 1) }, (_, i) => minH + i);
-            // Fluid columns (minmax 0) so the whole week fits ANY screen width —
-            // phone/tablet/iPad — instead of a fixed 620px grid that overflowed
-            // and clipped Thu–Sat on a phone.
-            const cols = { gridTemplateColumns: "40px repeat(7, minmax(0, 1fr))" };
-  return (
-    <div
-                className="cwd-cal"
-                data-no-swipe
-                style={{ cursor: "pointer" }}
-                onClick={() => { if (calSwiped.current) { calSwiped.current = false; return; } router.push("/dashboard/calendar"); }}
-                onTouchStart={(e) => { const t = e.touches[0]; calTouch.current = { x: t.clientX, y: t.clientY }; calSwiped.current = false; }}
-                onTouchEnd={(e) => {
-                  const s = calTouch.current; calTouch.current = null;
-                  if (!s) return;
-                  const t = e.changedTouches[0];
-                  const dx = t.clientX - s.x, dy = t.clientY - s.y;
-                  // Mostly-horizontal swipe → change week (left = next, right = prev).
-                  if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.3) { calSwiped.current = true; setWeekOffset(o => o + (dx < 0 ? 1 : -1)); }
-                }}
-              >
-                <div className="cwd-caltop">
-                  <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                    <button aria-label="Previous week" onClick={(e) => { e.stopPropagation(); setWeekOffset(o => o - 1); }}
-                      className="w-6 h-6 flex items-center justify-center rounded-md text-[#8a8a8a] hover:text-foreground hover:bg-white/10 transition-colors">
-                      <ChevronLeft size={16} />
-                    </button>
-                    <button onClick={(e) => { e.stopPropagation(); setWeekOffset(0); }} className="cwd-calm"
-                      title="Back to this week" style={{ background: "none", border: 0, padding: "0 4px", cursor: "pointer", whiteSpace: "nowrap" }}>
-                      {weekDays[3].toLocaleDateString("en-CA", { month: "short", year: "numeric" })}
-                    </button>
-                    <button aria-label="Next week" onClick={(e) => { e.stopPropagation(); setWeekOffset(o => o + 1); }}
-                      className="w-6 h-6 flex items-center justify-center rounded-md text-[#8a8a8a] hover:text-foreground hover:bg-white/10 transition-colors">
-                      <ChevronRight size={16} />
-                    </button>
-                  </div>
-                  <div className="cwd-seg"><span>Day</span><span className="on">Week</span><span>Month</span></div>
-                </div>
-                <div className="cwd-calscroll">
-                  <div className="cwd-calgrid" style={cols}>
-                    <div style={{ borderBottom: "1px solid var(--cwd-div)" }} />
-                    {weekDays.map(d => {
-                      const isToday = formatDateForDb(d) === todayKey;
-                      return (
-                        <div key={formatDateForDb(d)} className={cn("cwd-hd", isToday && "today")}>
-                          <div className="cwd-hdw">{d.toLocaleDateString("en-CA", { weekday: "short" })}</div>
-                          <div className="cwd-hdn">{d.getDate()}</div>
-                        </div>
-                      );
-                    })}
-                    {calHours.map(h => (
-                      <Fragment key={h}>
-                        <div className="cwd-tcell">{hourLabel(h)}</div>
-                        {weekDays.map(d => {
-                          const dk = formatDateForDb(d);
-                          const evs = weekAppts.filter(a => a.date === dk && a.status !== "cancelled" && Math.floor(timeToMinutes(a.time_slot ?? "") / 60) === h);
-                          return (
-                            <div key={dk} className="cwd-cell">
-                              {evs.map(a => (
-                                <Link
-                                  key={a.id}
-                                  href={`/dashboard/calendar?date=${dk}&appt=${a.id}`}
-                                  onClick={(e) => { if (calSwiped.current) e.preventDefault(); e.stopPropagation(); }}
-                                  className={cn("cwd-ev block", a.status === "pending" && "pend")}
-                                >
-                                  {(a.services?.name ?? "Service")} · {(a.client_name ?? "—").split(" ")[0]}
-                                </Link>
-                              ))}
-                            </div>
-                          );
-                        })}
-                      </Fragment>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            );
-          })()}
-
           {/* Today's Schedule */}
           <div className="cwd-card tint">
             <div className="cwd-cardh">
-              <span className="cwd-ct">{selectedCalDate ? `Appointments — ${friendlyDate(selectedCalDate)}` : "Today's Schedule"}</span>
+              <span className="cwd-ct">Today's Schedule</span>
               <Link href="/dashboard/appointments" className="cwd-ca">View all</Link>
             </div>
             <div className="cwd-cardb">
-              {!selectedCalDate && scheduleError ? (
+              {scheduleError ? (
                 <p role="alert" className="text-sm text-grey">Couldn&apos;t load the schedule. <button className="underline" onClick={() => void loadSchedule()}>Retry</button></p>
-              ) : (selectedCalDate ? loadingSelectedDay : (loadingSchedule && !schedFromCache) || loadedScheduleKey !== scheduleKey) ? (
+              ) : (loadingSchedule && !schedFromCache) || loadedScheduleKey !== scheduleKey ? (
                 <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-14" />)}</div>
-              ) : displayAppts.length === 0 ? (
+              ) : scheduleAppts.length === 0 ? (
                 <div className="py-8 text-center text-grey">
                   <Calendar size={32} className="mx-auto mb-2 opacity-30" />
-                  <p>No appointments{selectedCalDate ? " on this date" : " today"}</p>
-                  {!selectedCalDate && (
-                    <Link href="/dashboard/share" className="inline-block mt-3 text-sm font-semibold text-accent-soft hover:text-foreground transition-colors">Share your booking link →</Link>
-                  )}
+                  <p>No appointments today</p>
+                  <Link href="/dashboard/share" className="inline-block mt-3 text-sm font-semibold text-accent-soft hover:text-foreground transition-colors">Share your booking link →</Link>
                 </div>
               ) : (() => {
-                const sorted = [...displayAppts].sort((x, y) => timeToMinutes(x.time_slot ?? "") - timeToMinutes(y.time_slot ?? ""));
+                const sorted = [...scheduleAppts].sort((x, y) => timeToMinutes(x.time_slot ?? "") - timeToMinutes(y.time_slot ?? ""));
                 const remaining = sorted.length - visibleAppts;
                 return (
                   <>
@@ -1165,43 +961,25 @@ export default function DashboardPage() {
           <div className="cwd-card">
             <div className="cwd-cardh">
               <span className="cwd-ct">Recent Alerts</span>
-              <Link href="/dashboard/notifications" className="cwd-ca">See all ({notifications.filter((n) => !n.is_read).length})</Link>
+              <Link href="/dashboard/notifications" className="cwd-ca">View all</Link>
             </div>
             <div className="cwd-cardb cwd-ledgerb">
               {notifications.length === 0 ? (
                 <p className="text-sm text-grey text-center py-4">No notifications</p>
               ) : notifications.map((n) => {
-                const text = `${n.title} ${n.message}`;
-                // A FAILED charge (no money moved) and a REFUND / chargeback (money OUT)
-                // both mention "payment/charge/refund", so they were wrongly painted as
-                // green "+income". Split them out: fail → warn (no +), refund/chargeback →
-                // out (−, red), only a genuine collection → pay (+, green).
-                const isFail = /fail|could\S*t charge|declin|unpaid/i.test(text);
-                const isOut = /refund|chargeback|charge.?back|dispute|returned/i.test(text);
-                const isPay = !isFail && !isOut && /payment|paid|charged|collected/i.test(text);
-                const kind = n.type === "no-show" ? "warn"
-                  : n.type === "review" ? "rev"
-                  : isFail ? "warn"
-                  : isOut ? "out"
-                  : isPay ? "pay"
-                  : "book";
-                // Pull an amount out of the title (or message), show it aligned
-                // right in tabular figures; strip it from the shown text so it
-                // isn't duplicated. Payments read green with a "+".
-                const money = /\$[\d,]+(?:\.\d{1,2})?/;
-                const amt = (n.title.match(money) || n.message.match(money) || [])[0] || null;
-                const title = n.title.replace(/\s*·?\s*\$[\d,]+(?:\.\d{1,2})?\s*$/, "").trim() || n.title;
-                const message = amt ? n.message.replace(amt, "").replace(/\s{2,}/g, " ").replace(/\(\s+/g, "(").trim() : n.message;
+                const title = n.title;
+                const preview = n.message.toLowerCase().startsWith(title.toLowerCase())
+                  ? n.message.slice(title.length).replace(/^[\s:·—–-]+/, "")
+                  : n.message;
                 return (
                   <div key={n.id} className={cn("cwd-lrow", n.is_read && "read")}>
-                    <span className={cn("cwd-led", kind)} />
+                    <span className="cwd-led" />
                     <div className="cwd-lgrow">
                       <div className="cwd-l1">
                         <span className="cwd-lnm">{title}</span>
-                        {amt && <span className={cn("cwd-lamt cwd-num", kind === "pay" ? "pay" : kind === "out" ? "out" : "hold")}>{kind === "pay" ? `+${amt}` : kind === "out" ? `−${amt}` : amt}</span>}
                       </div>
                       <div className="cwd-l2">
-                        <span className="cwd-lam">{message}</span>
+                        <span className="cwd-lam">{preview}</span>
                         <span className="cwd-lrt">{timeAgo(n.created_at)}</span>
                       </div>
                     </div>

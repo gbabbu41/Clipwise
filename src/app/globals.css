@@ -152,14 +152,12 @@ html[data-theme="light"] .portal .card,
 html[data-theme="light"] .portal .cwd-card,
 html[data-theme="light"] .portal .cwd-kpi,
 html[data-theme="light"] .portal .cwd-hero,
-html[data-theme="light"] .portal .cwd-qa,
-html[data-theme="light"] .portal .cwd-cal {
+html[data-theme="light"] .portal .cwd-qa {
   border-color: transparent;
   box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 6px 16px rgba(16, 24, 40, 0.07), 0 18px 36px rgba(16, 24, 40, 0.06);
 }
 
-/* The revenue carousel/hero, quick-action tiles, tinted cards and the calendar
-   segmented control default to the grey "raised" surface — force them to WHITE
+/* The revenue carousel/hero and quick-action tiles default to the grey "raised" surface — force them to WHITE
    in light so they read as cards, not grey blocks blending into the page
    (this is the "you left the carousel color" fix). */
 html[data-theme="light"] .portal .card,
@@ -167,9 +165,7 @@ html[data-theme="light"] .portal .cwd-hero,
 html[data-theme="light"] .portal .cwd-card,
 html[data-theme="light"] .portal .cwd-kpi,
 html[data-theme="light"] .portal .cwd-qa,
-html[data-theme="light"] .portal .cwd-card.tint,
-html[data-theme="light"] .portal .cwd-cal,
-html[data-theme="light"] .portal .cwd-seg { background: var(--card); }
+html[data-theme="light"] .portal .cwd-card.tint { background: var(--card); }
 
 /* Stats carousel slides default to the grey "raised" surface — in light, match
    the white KPI cards exactly (white + borderless + soft shadow). Dark keeps
@@ -285,9 +281,6 @@ html[data-theme="light"] .portal .cwd-lamt.pay { color:#157a4a; }
 html[data-theme="light"] .portal .cwd-lamt.out { color:#b23127; }
 
 /* Calendar appointment pills: dark readable text on a soft tint (was pale-on-pale). */
-html[data-theme="light"] .portal .cwd-ev { color:#157a4a; background:#e7f4ed; border-left-color:#2f9e6b; }
-html[data-theme="light"] .portal .cwd-ev.pend { color:#966412; background:#faf1de; border-left-color:#d19a2e; }
-
 /* Translucent-WHITE chrome (hover fills, faint dividers) → light neutral so it
    doesn't vanish on white. */
 html[data-theme="light"] .portal :is(.bg-white\/10,.bg-white\/5,.bg-white\/15,.bg-white\/\[0\.04\],.bg-white\/\[0\.05\],.bg-white\/\[0\.06\],.bg-white\/\[0\.07\],.bg-white\/\[0\.02\],.bg-white\/\[0\.03\]) { background-color: rgba(20,22,28,0.05); }
@@ -513,8 +506,6 @@ html[data-theme="light"] .portal .cw-apptblock { background: var(--card); box-sh
 html[data-theme="light"] .portal .bg-accent { background-color: #4a86d8; }
 html[data-theme="light"] .portal .bg-accent.text-foreground { color: #ffffff; }
 html[data-theme="light"] .portal .bg-accent-muted { background-color: rgba(74,134,216,.12); }
-html[data-theme="light"] .portal .cwd-hd.today .cwd-hdw { color: #3f6fb2; }
-html[data-theme="light"] .portal .cwd-hd.today .cwd-hdn { background: #4a86d8; color: #ffffff; }
 
 /* Calendar: unmapped red hexes on freed / cancelled markers. */
 html[data-theme="light"] .portal .text-\[\#ff8a8a\] { color: #b23127; }
@@ -1753,48 +1744,17 @@ html[data-theme="light"] .portal .cwd-act.cwd-act--muted { background:var(--surf
 .cwd-qa a, .cwd-qa button { background:transparent; border:0; border-radius:14px; padding:8px 4px; text-align:center; display:flex; flex-direction:column; align-items:center; gap:9px; transition:background-color .15s; }
 .cwd-qa a:hover, .cwd-qa button:hover { background:color-mix(in srgb, var(--foreground) 5%, transparent); }
 .cwd-qic { width:52px; height:52px; border-radius:16px; background:var(--surface-overlay); display:flex; align-items:center; justify-content:center; color:var(--foreground); }
-.cwd-qa > *:first-child .cwd-qic { background:#6ea8fe; color:#04122e; }
-.cwd-qa > *:first-child .cwd-qlb { color:#a9c6ff; }
 .cwd-qlb { font-size:12px; font-weight:600; color:var(--grey); }
 
-.cwd-body { display:grid; grid-template-columns:2fr 1fr; gap:18px; }
+.cwd-body { display:grid; grid-template-columns:1.4fr 1fr; gap:18px; }
 .cwd-col { display:flex; flex-direction:column; gap:16px; min-width:0; }
 .cwd-card { background:var(--card); border:0; border-radius:20px; overflow:hidden; box-shadow:var(--cwd-lift); }
 .cwd-card.tint { background:var(--card); }
 .cwd-cardh { display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid var(--cwd-div); }
 .cwd-ct { font-size:14px; font-weight:700; color:var(--foreground); }
-.cwd-ca { font-size:12px; color:#a9c6ff; }
+.cwd-ca { font-size:12px; color:var(--grey); }
+.cwd-ca:hover { color:var(--foreground); }
 .cwd-cardb { padding:12px 16px; }
-
-.cwd-cal { display:block; background:var(--card); border:0; border-radius:20px; overflow:hidden; box-shadow:var(--cwd-lift); }
-.cwd-cal:hover { box-shadow:0 1px 2px rgba(0,0,0,.3), 0 22px 46px -22px rgba(0,0,0,.7); }
-.cwd-caltop { display:flex; align-items:center; justify-content:space-between; padding:12px 14px; border-bottom:1px solid var(--cwd-div); }
-.cwd-calm { font-size:13px; font-weight:700; color:var(--foreground); }
-.cwd-seg { display:flex; background:var(--card); border:1px solid var(--cwd-div); border-radius:9px; overflow:hidden; }
-.cwd-seg span { font-size:11px; padding:5px 11px; color:var(--grey); }
-.cwd-seg span.on { background:var(--foreground); color:var(--background); font-weight:700; }
-.cwd-calscroll { overflow-x:auto; }
-.cwd-calgrid { display:grid; min-width:0; }
-.cwd-hd { text-align:center; padding:8px 0; border-bottom:1px solid var(--cwd-div); }
-.cwd-hdw { font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--grey-2); }
-.cwd-hd.today .cwd-hdw { color:#a9c6ff; font-weight:700; }
-.cwd-hdn { display:inline-flex; align-items:center; justify-content:center; font-size:14px; color:var(--foreground); margin-top:2px; }
-.cwd-hd.today .cwd-hdn { width:24px; height:24px; border-radius:999px; background:#6ea8fe; font-weight:700; }
-.cwd-tcell { font-size:9.5px; color:var(--grey-2); text-align:right; padding:6px 6px 0 0; border-right:1px solid var(--cwd-div); }
-.cwd-cell { border-right:1px solid var(--cwd-div); border-bottom:1px solid var(--cwd-div); min-height:34px; min-width:0; padding:3px; }
-.cwd-ev { border-radius:6px; font-size:9.5px; padding:3px 5px; line-height:1.2; color:#c9f7e8; border-left:2px solid #00e5a0; background:rgba(0,229,160,.12); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-bottom:2px; }
-.cwd-ev.pend { color:#ffe6bd; border-left-color:#f59e0b; background:rgba(245,158,11,.12); }
-
-/* Narrow phones: tighten the week grid so 7 columns stay legible once fluid. */
-@media (max-width: 640px) {
-  .cwd-tcell { font-size:9px; padding:5px 3px 0 0; }
-  .cwd-hd { padding:7px 0; }
-  .cwd-hdw { font-size:9px; letter-spacing:.02em; }
-  .cwd-hdn { font-size:12px; }
-  .cwd-hd.today .cwd-hdn { width:20px; height:20px; }
-  .cwd-cell { min-height:30px; padding:2px; }
-  .cwd-ev { font-size:8px; padding:2px 3px; }
-}
 
 .cwd-sch { display:flex; align-items:center; gap:12px; padding:11px 0; border-bottom:1px solid var(--cwd-div); width:100%; text-align:left; }
 .cwd-sch:last-child { border-bottom:0; }
@@ -1852,9 +1812,9 @@ html[data-theme="light"] .portal .cwd-act.cwd-act--muted { background:var(--surf
 .cwd-lamt.pay  { color:#00e5a0; }
 .cwd-lamt.hold { color:var(--grey); }
 .cwd-lamt.out  { color:#f43f5e; }   /* refund / chargeback — money OUT, shown as −$ */
-.cwd-l2 { display:flex; align-items:baseline; justify-content:space-between; gap:8px; margin-top:1px; }
-.cwd-lam { font-size:11.5px; color:var(--grey); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.cwd-lrt { font-size:11px; color:var(--grey); opacity:.7; white-space:nowrap; flex-shrink:0; }
+.cwd-l2 { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; margin-top:2px; }
+.cwd-lam { font-size:11.5px; color:var(--grey); min-width:0; overflow:hidden; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; line-clamp:2; }
+.cwd-lrt { font-size:11px; color:var(--grey); white-space:nowrap; flex-shrink:0; }
 .cwd-lrow.read .cwd-lnm { color:var(--grey); font-weight:500; }
 .cwd-lrow.read .cwd-led { opacity:.45; }
 .cwd-num { font-variant-numeric:tabular-nums; }
