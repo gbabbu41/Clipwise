@@ -1413,7 +1413,10 @@ textarea.form-control { min-height: 5rem; resize: vertical; }
    ~68px the page content already reserves at the bottom, so nothing hides behind it. */
 .cw-bnav {
   position: fixed;
-  bottom: calc(env(safe-area-inset-bottom) + 6px);
+  /* Sit low — just above the home indicator. On a notched phone the safe-area
+     inset is ~34px, so we pull BACK into it (~18px gap) instead of stacking on top
+     of it (which floated the bar too high); clamped to 8px on non-notched screens. */
+  bottom: max(8px, calc(env(safe-area-inset-bottom) - 16px));
   left: 12px; right: 12px;
   background: var(--surface);
   border: 1px solid var(--border);
