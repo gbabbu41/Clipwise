@@ -33,11 +33,12 @@ function payments(source, failure) {
   for (const name of ['setLoading','setLoadError','setAppts','setTxs','setLoadedShop','setLoadedScope','setStripeNet','setFeesStatus']) env[name] = value => { const key = name.slice(3); state[key] = typeof value === 'function' ? value(state[key]) : value; state.events.push({ key, time: c.now }); };
   return { c, state, env, ...compile(source, ['syncStripe','loadData'], env) };
 }
-function home(source, failure) {
+function home(source, failure, names = ['loadAppointments', 'loadSchedule']) {
   const c = clock(), state = { events: [] }, env = { shop: { id: 'shop' }, profile: { id: 'owner', role: 'shop_owner' }, myBarberId: null, dateFilter: 'today', customStart: '', customEnd: '', reportKey: 'scope', reportScopeRef: { current: 'scope' }, loadSequence: { current: 0 }, useCallback: fn => fn,
+    scheduleKey: 'sched', scheduleScopeRef: { current: 'sched' }, scheduleSequence: { current: 0 }, formatDateForDb: () => '2026-09-26',
     getDateRange: () => ['2026-09-26','2026-09-26'], supabase: database(c, true, failure), readAllRows: fn => fn(0,499) };
   for (const name of ['setLoadingAppts','setLoadError','setLoadingSchedule','setScheduleError','setScheduleAppts','setLoadedScheduleKey','setAppointments','setTxns','setRevenueAppts','setFinancialBarbers','setBarbers','setLoadedReportKey']) env[name] = value => { const key = name.slice(3); state[key] = value; state.events.push({ key, time: c.now }); };
-  return { c, state, env, ...compile(source, ['loadAppointments'], env) };
+  return { c, state, env, ...compile(source, names, env) };
 }
 (async () => {
   const pfile = 'src/app/dashboard/payments/page.tsx', hfile = 'src/app/dashboard/page.tsx', psource = read(pfile), hsource = read(hfile);
@@ -79,7 +80,9 @@ function home(source, failure) {
   assert.equal(brokenDB.state.LoadError, true); assert.equal(brokenDB.state.Txs, undefined);
   const brokenStripe = payments(psource, 'stripe'), successfulDB = brokenStripe.loadData(); await brokenStripe.c.advance(300); await successfulDB;
   assert.equal(brokenStripe.state.FeesStatus, 'error'); assert.equal(brokenStripe.state.Txs.length, 1); assert.equal(brokenStripe.state.Loading, false);
-  const hOld = home(baseline(hfile)), hNew = home(hsource), ho = hOld.loadAppointments(), hn = hNew.loadAppointments();
+  // Today's Schedule is keyed without the carousel date filter (it always shows today).
+  assert(!expression(hsource, 'scheduleKey').includes('dateFilter'), 'schedule must not reload on filter change');
+  const hOld = home(baseline(hfile), undefined, ['loadAppointments']), hNew = home(hsource), ho = hOld.loadAppointments(), hn = Promise.all([hNew.loadAppointments(), hNew.loadSchedule()]);
   await hOld.c.advance(60); await hNew.c.advance(60);
   assert.equal(hOld.state.Appointments, undefined); assert.equal(hNew.state.ScheduleAppts.length, 1);
   assert.equal(hNew.state.LoadingSchedule, false); assert.equal(hNew.state.Appointments, undefined, 'financial snapshot remains unpublished');
@@ -88,13 +91,13 @@ function home(source, failure) {
   assert.deepEqual(hNew.state.Appointments, hOld.state.Appointments); assert.deepEqual(hNew.state.Txns, hOld.state.Txns);
   assert.deepEqual(hNew.state.RevenueAppts, hOld.state.RevenueAppts); assert.deepEqual(hNew.state.FinancialBarbers, hOld.state.FinancialBarbers);
   for (const mode of ['scope','unmount']) {
-    const h = home(hsource), pending = h.loadAppointments();
-    if (mode === 'scope') h.env.reportScopeRef.current = 'other'; else h.env.loadSequence.current++;
+    const h = home(hsource), pending = Promise.all([h.loadAppointments(), h.loadSchedule()]);
+    if (mode === 'scope') { h.env.reportScopeRef.current = 'other'; h.env.scheduleScopeRef.current = 'other'; } else { h.env.loadSequence.current++; h.env.scheduleSequence.current++; }
     await h.c.advance(300); await pending; assert.equal(h.state.ScheduleAppts, undefined); assert.equal(h.state.Appointments, undefined);
   }
-  const financeFail = home(hsource, 'transactions'), failedFinance = financeFail.loadAppointments(); await financeFail.c.advance(300); await failedFinance;
+  const financeFail = home(hsource, 'transactions'), failedFinance = Promise.all([financeFail.loadAppointments(), financeFail.loadSchedule()]); await financeFail.c.advance(300); await failedFinance;
   assert.equal(financeFail.state.ScheduleAppts.length, 1); assert.equal(financeFail.state.LoadError, true); assert.equal(financeFail.state.Appointments, undefined);
-  const staffFail = home(hsource, 'barbers'), failedStaff = staffFail.loadAppointments(); await staffFail.c.advance(300); await failedStaff;
+  const staffFail = home(hsource, 'barbers'), failedStaff = Promise.all([staffFail.loadAppointments(), staffFail.loadSchedule()]); await staffFail.c.advance(300); await failedStaff;
   assert.equal(staffFail.state.ScheduleError, true); assert.equal(staffFail.state.ScheduleAppts, undefined); assert.equal(staffFail.state.LoadError, true);
   console.log('PASS simulated same-delay comparison: Payments exact-fee readiness 300 -> 200ms; Home usable fresh schedule/staff 200 -> 60ms; unchanged financial snapshots, coalescing/trailing refresh, errors and stale account/shop/unmount guards');
 })().catch(error => { console.error(error); process.exitCode = 1; });

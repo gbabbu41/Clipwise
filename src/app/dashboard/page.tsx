@@ -185,6 +185,12 @@ export default function DashboardPage() {
   const [loadingSchedule, setLoadingSchedule] = useState(true);
   const [scheduleError, setScheduleError] = useState(false);
   const [loadedScheduleKey, setLoadedScheduleKey] = useState("");
+  // Today's Schedule + Staff Status are always TODAY — keyed without the date
+  // filter so switching the carousel period never reloads or changes them.
+  const scheduleKey = JSON.stringify([shop?.id, profile?.id, accessToken, myBarberId]);
+  const scheduleScopeRef = useRef(scheduleKey);
+  scheduleScopeRef.current = scheduleKey;
+  const scheduleSequence = useRef(0);
   // Survives the loading-skeleton swap below (which unmounts StatsCarousel on
   // every filter change) so switching the date filter doesn't bounce the
   // carousel back to its first slide.
@@ -321,8 +327,6 @@ export default function DashboardPage() {
     if (!shop) { setLoadingAppts(false); return; }
     setLoadingAppts(true);
     setLoadError(false);
-    setLoadingSchedule(true);
-    setScheduleError(false);
     const current = () => sequence === loadSequence.current && reportScopeRef.current === reportKey;
     try {
     const [start, end] = getDateRange(dateFilter, customStart, customEnd);
@@ -366,20 +370,8 @@ export default function DashboardPage() {
     const scheduleReq = Promise.all([
       readAllRows((from, to) => q.order("id").range(from, to)),
       readAllRows((from, to) => supabase.from("barbers").select("*").eq("shop_id", shop.id).order("id").range(from, to)),
-    ]).then(([data, staffData]) => {
-      if (current()) {
-        setScheduleAppts(data as AppointmentWithDetails[]);
-        setBarbers((staffData as Barber[]).filter(b => b.is_active));
-        setLoadedScheduleKey(reportKey);
-        setLoadingSchedule(false);
-      }
-      return { data, staffData };
-    }).catch(error => {
-      if (current()) { setScheduleError(true); setLoadingSchedule(false); }
-      throw error;
-    });
-    // Fresh operational rows need only their own complete prerequisites. Financial
-    // publication still waits for ALL rows and uses a separate atomic snapshot.
+    ]).then(([data, staffData]) => ({ data, staffData }));
+    // Financial publication waits for ALL rows and uses a separate atomic snapshot.
     const [schedule, txData, revData] = await Promise.all([
       scheduleReq, txReq, readAllRows((from, to) => revQ.range(from, to)),
     ]);
@@ -395,6 +387,35 @@ export default function DashboardPage() {
       if (current()) setLoadingAppts(false);
     }
   }, [shop, dateFilter, customStart, customEnd, profile, myBarberId, reportKey]);
+
+  const loadSchedule = useCallback(async () => {
+    const sequence = ++scheduleSequence.current;
+    if (!shop) { setLoadingSchedule(false); return; }
+    setLoadingSchedule(true);
+    setScheduleError(false);
+    const current = () => sequence === scheduleSequence.current && scheduleScopeRef.current === scheduleKey;
+    const today = formatDateForDb(new Date());
+    let q = supabase
+      .from("appointments")
+      .select("*, barbers(id, name), services(id, name, price, category, duration_minutes)")
+      .eq("shop_id", shop.id)
+      .eq("date", today)
+      .order("time_slot", { ascending: true });
+    if (profile?.role === "barber" && myBarberId) q = q.eq("barber_id", myBarberId);
+    try {
+      const [data, staffData] = await Promise.all([
+        readAllRows((from, to) => q.order("id").range(from, to)),
+        readAllRows((from, to) => supabase.from("barbers").select("*").eq("shop_id", shop.id).order("id").range(from, to)),
+      ]);
+      if (!current()) return;
+      setScheduleAppts(data as AppointmentWithDetails[]);
+      setBarbers((staffData as Barber[]).filter(b => b.is_active));
+      setLoadedScheduleKey(scheduleKey);
+      setLoadingSchedule(false);
+    } catch {
+      if (current()) { setScheduleError(true); setLoadingSchedule(false); }
+    }
+  }, [shop, profile, myBarberId, scheduleKey]);
 
   // Live Stripe net/fees (same endpoint the Payments page uses — the money source
   // of truth). Bearer-authorized; owner or active barber of the shop. Lets the
@@ -475,6 +496,7 @@ export default function DashboardPage() {
   }, [shop, calYear, calMonth, profile, myBarberId]);
 
   useEffect(() => { loadAppointments(); return () => { loadSequence.current++; }; }, [loadAppointments]);
+  useEffect(() => { loadSchedule(); return () => { scheduleSequence.current++; }; }, [loadSchedule]);
   useEffect(() => { loadSideData(); return () => { sideSequence.current++; }; }, [loadSideData]);
   useEffect(() => { loadCalendarCounts(); }, [loadCalendarCounts]);
   useEffect(() => { loadWeekAppts(); }, [loadWeekAppts]);
@@ -505,8 +527,9 @@ export default function DashboardPage() {
   // fetch (selectedDayAppts) so the picked date's bookings always render,
   // independent of the page-level dateFilter.
   const displayAppts = selectedCalDate ? selectedDayAppts : scheduleAppts;
-  // Reset the "Today's Schedule" list cap whenever the range/day changes.
-  useEffect(() => { setVisibleAppts(20); }, [dateFilter, customStart, customEnd, selectedCalDate]);
+  // Reset the "Today's Schedule" list cap when a different calendar day is picked
+  // (the carousel's date filter no longer affects this list).
+  useEffect(() => { setVisibleAppts(20); }, [selectedCalDate]);
   const todayStr = formatDateForDb(new Date());
 
   // ── Today's Schedule → full appointment actions (reuse the shared modal) ─────
@@ -521,7 +544,7 @@ export default function DashboardPage() {
     () => makeApptActions({ shop, accessToken, patch: patchAppt, setBusy: setDetailBusy, toast: showToast, onDone: () => setSelectedAppt(null), confirm: (m) => confirm({ message: m }) }),
     [shop, accessToken, patchAppt, confirm],
   );
-  const todayAppts = loadedScheduleKey === reportKey ? scheduleAppts.filter((a) => a.date === todayStr) : [];
+  const todayAppts = loadedScheduleKey === scheduleKey ? scheduleAppts.filter((a) => a.date === todayStr) : [];
 
   const completed = appointments.filter((a) => a.status === "completed");
   // Revenue figures count only PAID/captured completed appts (money actually
@@ -771,7 +794,7 @@ export default function DashboardPage() {
         <div className="flex items-center justify-between gap-3 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 mb-2">
           <p className="text-sm text-red-300">Couldn&apos;t load your latest data — it may be out of date.</p>
           <button
-            onClick={() => { setLoadError(false); loadAppointments(); loadSideData(); loadWeekAppts(); }}
+            onClick={() => { setLoadError(false); loadAppointments(); loadSchedule(); loadSideData(); loadWeekAppts(); }}
             className="text-xs font-semibold text-foreground bg-red-500/20 hover:bg-red-500/30 rounded-lg px-3 py-1.5 flex-shrink-0 transition-colors"
           >
             Retry
@@ -1000,8 +1023,8 @@ export default function DashboardPage() {
             </div>
             <div className="cwd-cardb">
               {!selectedCalDate && scheduleError ? (
-                <p role="alert" className="text-sm text-grey">Couldn&apos;t load the schedule. <button className="underline" onClick={() => void loadAppointments()}>Retry</button></p>
-              ) : (selectedCalDate ? loadingSelectedDay : loadingSchedule || loadedScheduleKey !== reportKey) ? (
+                <p role="alert" className="text-sm text-grey">Couldn&apos;t load the schedule. <button className="underline" onClick={() => void loadSchedule()}>Retry</button></p>
+              ) : (selectedCalDate ? loadingSelectedDay : loadingSchedule || loadedScheduleKey !== scheduleKey) ? (
                 <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-14" />)}</div>
               ) : displayAppts.length === 0 ? (
                 <div className="py-8 text-center text-grey">
@@ -1056,7 +1079,7 @@ export default function DashboardPage() {
           <div className="cwd-card">
             <div className="cwd-cardh"><span className="cwd-ct">Staff Status</span></div>
             <div className="cwd-cardb cwd-ledgerb">
-              {scheduleError ? <p role="alert" className="text-sm text-grey">Staff status unavailable. Retry the schedule.</p> : loadingSchedule || loadedScheduleKey !== reportKey ? <Skeleton className="h-14" /> : barbers.length === 0 ? (
+              {scheduleError ? <p role="alert" className="text-sm text-grey">Staff status unavailable. Retry the schedule.</p> : loadingSchedule || loadedScheduleKey !== scheduleKey ? <Skeleton className="h-14" /> : barbers.length === 0 ? (
                 <div className="text-center py-4">
                   <p className="text-sm text-grey">No active staff</p>
                   <Link href="/dashboard/staff" className="inline-block mt-1.5 text-sm font-semibold text-accent-soft hover:text-foreground transition-colors">Add a barber →</Link>
