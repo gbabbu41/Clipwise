@@ -901,7 +901,7 @@ export default function PaymentsPage() {
           {stripeRow}
           <div className="cwp-lrow cwp-ltotal"><span className="cwp-lk">Collected</span><span className="cwp-lv">{p.feesKnown ? "" : "≈ "}{formatCurrency(p.headline)}</span></div>
           {p.cash > 0 && <div className="cwp-lrow cwp-lsub"><span className="cwp-lk">incl. cash</span><span className="cwp-lv">{formatCurrency(p.cash)}</span></div>}
-        </> : stripeRow}
+        </> : null}
         <button type="button" className="cwp-more" aria-expanded={showDetails} onClick={() => setShowDetails(v => !v)}>
           {showDetails ? "Less" : "More"} <ChevronDown size={12} className={cn("transition-transform", showDetails && "rotate-180")} />
         </button>
