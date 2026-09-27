@@ -203,7 +203,7 @@ export default function BookingClient({ Landing = ShopLanding, presentation }: {
   // Optional barber FILTER on the When step (null = Anyone). It only narrows which
   // times are shown; the actual barber is set when a slot is tapped, so it never
   // dead-ends the customer — Anyone is always one tap away.
-  const [barberFilter, setBarberFilter] = useState<string | null>(null);
+  const [barberFilterChoice, setBarberFilter] = useState<string | null>(null);
   // Multi-service: customer can pick more than one (e.g. cut + beard, or
   // two haircuts for parent + child). They get booked back-to-back with the
   // same barber. selectedServices[0] is the legacy "primary" for code paths
@@ -455,6 +455,11 @@ export default function BookingClient({ Landing = ShopLanding, presentation }: {
   const lockedBarber =
     (lockedBarberId ? barbers.find((b) => b.id === lockedBarberId) ?? null : null) ??
     (barbers.length === 1 ? barbers[0] : null);
+  const barberFilter = lockedBarber?.id ?? barberFilterChoice;
+  useEffect(() => {
+    // Only an active barber loaded for this shop may bypass the storefront.
+    if (lockedBarberId && lockedBarber?.id === lockedBarberId) setView("book");
+  }, [lockedBarberId, lockedBarber?.id]);
   useEffect(() => {
     if (!lockedBarber) return;
     // A one-barber shop / ?barber= link just pre-selects that barber; the barber
@@ -1979,7 +1984,7 @@ export default function BookingClient({ Landing = ShopLanding, presentation }: {
                   <div className="m-4 py-5 text-center bg-orange-500/5 border border-orange-500/20 rounded-xl px-4">
                     <p className="text-orange-300 text-sm font-medium">
                       {barberFilter
-                        ? `${barbers.find(b => b.id === barberFilter)?.name?.split(" ")[0] ?? "This barber"} has no openings this day — try Anyone, or another day`
+                        ? `${barbers.find(b => b.id === barberFilter)?.name?.split(" ")[0] ?? "This barber"} has no openings this day — ${lockedBarber ? "try another day" : "try Anyone, or another day"}`
                         : servicesPicked.length > 1
                           ? `No barber has ${totalDuration} min open on this day`
                           : "No more openings on this day"}
