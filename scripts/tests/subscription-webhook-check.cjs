@@ -34,6 +34,7 @@ const db = { from(table) {
 } };
 const stripe = { webhooks: { constructEvent() { if (failure === 'signature') throw Error('Invalid'); return event; } }, subscriptions: { async retrieve(id) { if (!subs[id]) throw Error('Stripe unavailable'); return subs[id]; } } };
 const mocks = {
+  '@/lib/ledger-log': { logLedgerSaveFailure: async () => {} },
   '@/lib/supabase-admin': { supabaseAdmin: db },
   '@/lib/stripe': { stripe },
   '@/lib/plans-server': { ensurePlansHydrated: async () => [] },

@@ -14,6 +14,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { effectivePlan, isPaidPlan } from "@/lib/validation";
 import { FeatureLock } from "@/components/dashboard/feature-lock";
 import { collectedTotals, countablePosTxs, isNoShowTx, isPaid, type RevAppt, type RevTx, type ByPi } from "@/lib/revenue";
+import { loadLinkedEvidence } from "@/lib/revenue-evidence";
 import { analyticsPeriod, analyticsRevenueBuckets, analyticsFeesKnown, timestampInPeriod, topServicesWithOther } from "@/lib/analytics-period";
 import { readAllRows } from "@/lib/read-all-rows";
 import { safeCommission } from "@/lib/barber-earnings";
@@ -155,7 +156,19 @@ export default function AnalyticsPage() {
   const revenueApptsInRange = useMemo(() => revenueAppts.filter(a =>
     (barberFilter === "all" || a.barber_id === barberFilter) && timestampInPeriod(a.paid_at ?? a.created_at, range)
   ), [revenueAppts, barberFilter, range]);
-  const buckets = useMemo(() => analyticsRevenueBuckets(revenueApptsInRange, filteredTx as RevTx[], range, byPi), [revenueApptsInRange, filteredTx, range, byPi]);
+  // Linked-payment evidence for these bookings from any date (lookup only, never
+  // counted) — same as the Dashboard, so headline + chart resolve each booking alike.
+  const [linkedEvidence, setLinkedEvidence] = useState<RevTx[]>([]);
+  const evidenceKey = shop?.id ? `${shop.id}|${revenueApptsInRange.map(a => a.id).join(",")}` : "";
+  useEffect(() => {
+    if (!evidenceKey || !shop?.id) { setLinkedEvidence([]); return; }
+    let active = true;
+    loadLinkedEvidence(supabase, shop.id, revenueApptsInRange as RevAppt[]).then(rows => { if (active) setLinkedEvidence(rows); });
+    return () => { active = false; };
+    // Keyed on shop + the window's booking ids; the list itself is derived state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [evidenceKey]);
+  const buckets = useMemo(() => analyticsRevenueBuckets(revenueApptsInRange, filteredTx as RevTx[], range, byPi, linkedEvidence), [revenueApptsInRange, filteredTx, range, byPi, linkedEvidence]);
   const revenueByDay = buckets.daily;
   const hourlyRevenue = buckets.hourly;
   const dataReady = !loading && !loadError && loadedKey === dataKey;
@@ -168,7 +181,7 @@ export default function AnalyticsPage() {
     // Owner-barber's own tips are the owner's money (like their 0-commission chair),
     // so split them out and keep them IN net revenue — see the Dashboard fix.
     const ownerBarberId = (barbers.find(b => (b as { user_id?: string | null }).user_id === shop?.owner_id)?.id) ?? null;
-    const t = collectedTotals(revenueApptsInRange as RevAppt[], filteredTx as RevTx[], byPi, ownerBarberId);
+    const t = collectedTotals(revenueApptsInRange as RevAppt[], filteredTx as RevTx[], byPi, ownerBarberId, linkedEvidence);
     // Barber commission tallied over the SAME sales `collected` counts (same as the
     // Dashboard + Payroll), so Net reconciles: paid appointments → (total − tax) ×
     // that barber's rate; counted POS sales with a barber → the stored cut.
@@ -197,7 +210,7 @@ export default function AnalyticsPage() {
     const paidOutTips = Math.max(0, t.tips - t.ownerTips);
     const netRevenue = t.net - t.tax - paidOutTips - commission;
     return { gross: t.gross, fees: t.fees, collected: t.net, tax: t.tax, tips: paidOutTips, totalTips: t.tips, commission, netRevenue };
-  }, [revenueApptsInRange, filteredTx, byPi, barbers, shop?.owner_id]);
+  }, [revenueApptsInRange, filteredTx, byPi, barbers, shop?.owner_id, linkedEvidence]);
   const totalRevenue = money.gross;
   const totalAppts = filteredAppts.length;
   const completedAppts = filteredAppts.filter(a => a.status === "completed").length;

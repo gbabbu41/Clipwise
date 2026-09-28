@@ -100,7 +100,7 @@ const mocks = {
   '@/lib/auth-context': { useAuth: () => auth }, '@/lib/supabase': { supabase: db },
   '@/lib/utils': { cn: (...xs) => xs.join(' '), formatCurrency: v => `$${v.toFixed(2)}` },
   '@/lib/validation': { effectivePlan: p => p, isPaidPlan: () => true },
-  '@/lib/revenue': revenue, '@/lib/analytics-period': periods, '@/lib/barber-earnings': { safeCommission: () => 0 },
+  '@/lib/revenue': revenue, '@/lib/revenue-evidence': { loadLinkedEvidence: async () => [] }, '@/lib/analytics-period': periods, '@/lib/barber-earnings': { safeCommission: () => 0 },
   '@/lib/read-all-rows': load('src/lib/read-all-rows.ts'),
   '@/components/ui/avatar-image': { AvatarImage: passthrough('img') },
   '@/components/ui/button': { Button: passthrough('button') },

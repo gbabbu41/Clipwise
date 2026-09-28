@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe, stripeFeeCents, STRIPE_LIVE_MODE } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { logLedgerSaveFailure } from "@/lib/ledger-log";
 import { sendPaymentReceipt, notifyChargeFailed, notifyNoShowCharged } from "@/lib/payment-notify";
 import { isCheckoutAllowed, CHECKOUT_LEAD_HOURS } from "@/lib/utils";
 import { safeTz, todayInTz, nowMinutesInTz } from "@/lib/timezone";
@@ -293,18 +294,25 @@ export async function POST(request: NextRequest) {
       ? await supabaseAdmin.from("transactions").select("id").eq("payment_intent_id", piId).limit(1).maybeSingle()
       : { data: null };
     if (!existingTx) {
-      const txRes = await supabaseAdmin.from("transactions")
-        .insert({ ...txBase, amount: txAmount, tax: txTax, stripe_fee: feeDollars });
-      if (txRes.error && /column|does not exist|schema cache/i.test(txRes.error.message)) {
-        // `stripe_fee` (phase38) or `tax` (phase30) may lag on prod — drop the
-        // missing column(s) and retry so the row + totals still reconcile.
-        const res2 = await supabaseAdmin.from("transactions")
-          .insert({ ...txBase, amount: txAmount, tax: txTax });
-        if (res2.error && /column|does not exist|schema cache/i.test(res2.error.message)) {
-          await supabaseAdmin.from("transactions")
-            .insert({ ...txBase, amount: amountReceived / 100 - tipDollars }).then(null, () => null);
+      // The capture already succeeded: a failed save is logged (never silent).
+      let saveError: unknown = null;
+      try {
+        const txRes = await supabaseAdmin.from("transactions")
+          .insert({ ...txBase, amount: txAmount, tax: txTax, stripe_fee: feeDollars });
+        saveError = txRes.error;
+        if (txRes.error && /column|does not exist|schema cache/i.test(txRes.error.message)) {
+          // `stripe_fee` (phase38) or `tax` (phase30) may lag on prod — drop the
+          // missing column(s) and retry so the row + totals still reconcile.
+          const res2 = await supabaseAdmin.from("transactions")
+            .insert({ ...txBase, amount: txAmount, tax: txTax });
+          saveError = res2.error;
+          if (res2.error && /column|does not exist|schema cache/i.test(res2.error.message)) {
+            saveError = (await supabaseAdmin.from("transactions")
+              .insert({ ...txBase, amount: amountReceived / 100 - tipDollars })).error;
+          }
         }
-      }
+      } catch (e) { saveError = e; }
+      if (saveError) await logLedgerSaveFailure("capture-appointment", { shopId: appt.shop_id, appointmentId: appointment_id, paymentIntentId: piId }, saveError);
     }
     await sendPaymentReceipt(baseUrl, {
       clientEmail: appt.client_email,

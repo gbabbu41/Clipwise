@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { confirmedStripeFee, stripe, stripeFeeCents } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { logLedgerSaveFailure } from "@/lib/ledger-log";
 import { sendPaymentReceipt, notifyNoShowCharged, notifyDuplicatePayment, notifyRefundIssued, notifyBalancePaid, notifyDispute } from "@/lib/payment-notify";
 import { recordOnlinePaymentTx } from "@/lib/finalize-appointment-payment";
 import { recordTipFromCheckout } from "@/lib/finalize-tip";
@@ -105,11 +106,17 @@ export async function POST(request: NextRequest) {
               appointment_id: apptId, payment_intent_id: balPi,
               source: "balance", stripe_fee: fee,
             };
-            const res = await supabaseAdmin.from("transactions").insert(row);
-            if (res.error && /column|does not exist|schema cache/i.test(res.error.message)) {
-              const { stripe_fee: _f, tax: _t, ...base } = row; void _f; void _t;
-              await supabaseAdmin.from("transactions").insert({ ...base, amount: balService + balTax }).then(null, () => null);
-            }
+            // The balance charge already succeeded: a failed save is logged (never silent).
+            let saveError: unknown = null;
+            try {
+              const res = await supabaseAdmin.from("transactions").insert(row);
+              saveError = res.error;
+              if (res.error && /column|does not exist|schema cache/i.test(res.error.message)) {
+                const { stripe_fee: _f, tax: _t, ...base } = row; void _f; void _t;
+                saveError = (await supabaseAdmin.from("transactions").insert({ ...base, amount: balService + balTax })).error;
+              }
+            } catch (e) { saveError = e; }
+            if (saveError) await logLedgerSaveFailure("webhook-balance", { shopId: session.metadata.shop_id, appointmentId: apptId, paymentIntentId: balPi }, saveError);
 
             // The balance link is usually paid when nobody's in the app, so the
             // money would otherwise land silently (no chime, no receipt, no owner

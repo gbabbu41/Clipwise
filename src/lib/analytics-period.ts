@@ -40,7 +40,7 @@ export function timestampInPeriod(value: string, range: ReturnType<typeof analyt
 
 type DatedAppt = RevAppt & { paid_at?: string | null; created_at: string };
 /** Attribute shared collected gross to days/hours, deduplicating across the whole period first. */
-export function analyticsRevenueBuckets(appts: DatedAppt[], txs: RevTx[], range: ReturnType<typeof analyticsPeriod>, byPi?: ByPi) {
+export function analyticsRevenueBuckets(appts: DatedAppt[], txs: RevTx[], range: ReturnType<typeof analyticsPeriod>, byPi?: ByPi, evidence: RevTx[] = []) {
   const daily = new Map<string, number>();
   for (const d = new Date(range.start); d < range.end; d.setDate(d.getDate() + 1)) daily.set(localDateKey(d), 0);
   const hourly = Array.from({ length: 24 }, (_, hour) => ({ hour: `${hour % 12 || 12} ${hour < 12 ? "AM" : "PM"}`, revenue: 0 }));
@@ -51,22 +51,18 @@ export function analyticsRevenueBuckets(appts: DatedAppt[], txs: RevTx[], range:
   };
   const paidPis = new Set(appts.filter(a => isPaid(a.payment_status) && a.status !== "no-show").map(a => a.payment_intent_id).filter(Boolean));
   // Same collected-gross rule as the headline (collectedTotals), so the bars sum to it.
-  const ctx = grossContext(appts, txs, byPi);
-  const bookingAmountAppts = new Set<string>();
+  const ctx = grossContext(appts, txs, byPi, evidence);
   for (const a of appts) {
     if (!isPaid(a.payment_status) || a.status === "no-show") continue;
-    const g = appointmentGross(a, ctx);
-    if (!g.fromCharge && a.id) bookingAmountAppts.add(a.id);
-    add(a.paid_at ?? a.created_at, g.gross);
+    add(a.paid_at ?? a.created_at, appointmentGross(a, ctx).gross);
   }
   const countable = new Set(countablePosTxs(appts, txs));
   for (const tx of txs) {
     if (!countable.has(tx) && tx.source !== "completion" && tx.source !== "balance") continue;
     if (tx.source === "completion" && tx.payment_intent_id && paidPis.has(tx.payment_intent_id)) continue;
-    // A later-collected balance lands on its own day, unless its booking fell back
-    // to the booking amount (which already includes it).
+    // A later-collected balance lands on its own day (the booking line excludes it).
     const g = tx.source === "balance"
-      ? (tx.refunded || (tx.appointment_id && bookingAmountAppts.has(tx.appointment_id)) ? 0 : transactionCollectedAmount(tx))
+      ? (tx.refunded ? 0 : transactionCollectedAmount(tx))
       : collectedTotals([], [tx]).gross;
     add(tx.created_at, g);
   }

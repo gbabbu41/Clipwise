@@ -5,6 +5,7 @@ function reset() { appt = { payment_status: 'paid', payment_intent_id: 'pi_old',
 const event = { type: 'checkout.session.completed', data: { object: { payment_intent: 'pi_new', metadata: { flow: 'post_booking_payment', appointment_id: 'appt' } } } };
 const mocks = {
   '@/lib/stripe': { stripe: { webhooks: { constructEvent() { if (mode === 'bad-signature') throw Error('invalid'); return event; } }, refunds: { create: async (...args) => { refunds.push(args); if (mode === 'refund-failed') throw Error('unavailable'); return {}; } } } },
+  '@/lib/ledger-log': { logLedgerSaveFailure: async () => {} },
   '@/lib/supabase-admin': { supabaseAdmin: { from(table) { const q = { select() { return q; }, eq() { return q; }, maybeSingle: async () => ({ data: table === 'appointments' ? appt : shop, error: null }) }; return q; } } },
   '@/lib/payment-notify': { notifyDuplicatePayment: async data => alerts.push(data) },
   '@/lib/emailer': { sendAppEmail: async (type, data) => { sends.push({ type, data }); if (mode === 'held') await new Promise(resolve => { release = resolve; }); if (mode === 'email-throw') throw Error('offline'); return mode === 'email-error' ? { error: 'unavailable' } : { success: true }; } },

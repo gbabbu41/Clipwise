@@ -34,6 +34,7 @@ import { useShopUnreadCount } from "@/hooks/use-unread-count";
 import { useAuth } from "@/lib/auth-context";
 import { isNativeApp } from "@/lib/native-app";
 import { collectedTotals, countablePosTxs, isNoShowTx, isPaid, type RevTx, type RevAppt, type ByPi } from "@/lib/revenue";
+import { loadLinkedEvidence } from "@/lib/revenue-evidence";
 import { safeCommission } from "@/lib/barber-earnings";
 import type { AppointmentWithDetails, Barber, Notification } from "@/lib/database.types";
 
@@ -322,7 +323,7 @@ export default function DashboardPage() {
       ? Promise.resolve([] as RevTx[])
       : readAllRows((from, to) => supabase
           .from("transactions")
-          .select("client_name, service_name, amount, tip, tax, payment_method, payment_intent_id, created_at, stripe_session_id, source, refunded, barber_id, commission_amount, appointment_id")
+          .select("id, client_name, service_name, amount, tip, tax, payment_method, payment_intent_id, created_at, stripe_session_id, source, refunded, barber_id, commission_amount, appointment_id")
           .eq("shop_id", shop.id)
           .gte("created_at", new Date(`${start}T00:00:00`).toISOString())
           .lte("created_at", new Date(`${end}T23:59:59.999`).toISOString())
@@ -526,11 +527,26 @@ export default function DashboardPage() {
     const d = formatDateForDb(new Date(ts));
     return d >= rangeStart && d <= rangeEnd;
   });
+  // Linked-payment EVIDENCE for the window's bookings from any date — a capture
+  // saved just after midnight, a prepaid charge, a separate tip or balance — so
+  // each booking's collected gross resolves the same way regardless of window.
+  // Lookup only (never counted as income). Owners only: barbers are redirected to
+  // their own portal and load no shop transactions here, so none are fetched.
+  const [linkedEvidence, setLinkedEvidence] = useState<RevTx[]>([]);
+  const evidenceKey = shop?.id && profile?.role !== "barber" ? `${shop.id}|${revenueApptsInRange.map((a) => a.id).join(",")}` : "";
+  useEffect(() => {
+    if (!evidenceKey || !shop?.id) { setLinkedEvidence([]); return; }
+    let active = true;
+    loadLinkedEvidence(supabase, shop.id, revenueApptsInRange as RevAppt[]).then((rows) => { if (active) setLinkedEvidence(rows); });
+    return () => { active = false; };
+    // Keyed on shop + the window's booking ids; the list itself is derived state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [evidenceKey]);
   // The owner-barber's own chair: their tips are the owner's money (like their
   // 0-commission service), so collectedTotals splits them out and they're NOT
   // subtracted from net revenue. Identified by user_id === the shop owner.
   const ownerBarberId = (financialBarbers.find((b) => (b as { user_id?: string | null }).user_id === shop?.owner_id)?.id) ?? null;
-  const collected = collectedTotals(revenueApptsInRange, txnsInRange, stripeByPi, ownerBarberId);
+  const collected = collectedTotals(revenueApptsInRange, txnsInRange, stripeByPi, ownerBarberId, linkedEvidence);
   const feesUnavailable = feesLoading || feesError || hasMissingCardFees(revenueApptsInRange, txnsInRange, stripeByPi);
   // Count on the SAME money-moved basis as Collected (paid appts, dated by paid_at,
   // no-show fees excluded) so the sub-line under Collected reconciles with the
