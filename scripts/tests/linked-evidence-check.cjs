@@ -123,27 +123,51 @@ const zero = t => ['gross', 'net', 'fees', 'tax', 'tips', 'cash'].every(k => t[k
     const cron = fs.readFileSync(path.join(root, 'src/app/api/cron/reminders/route.ts'), 'utf8');
     assert(/loadLinkedEvidence\(supabaseAdmin, shop\.id,/.test(cron), 'weekly email evidence scoped to its shop');
   }
-  // 9. Evidence-read FAILURE: never a silent recalculation without it.
+  // 9. States: first load, window switch, refresh, failure — evidence only ever reused
+  //    for the SAME shop + window, and never presented as verified before it is.
   {
     const { evidenceView } = load('src/lib/revenue-evidence.ts');
-    const good = { key: 'shop_A|a1', rows: [{ id: 'r1' }] };
-    assert.deepEqual(evidenceView('shop_A|a1', good, null), { rows: good.rows, stale: false, unavailable: false }, 'verified');
-    assert.deepEqual(evidenceView('shop_A|a1', good, 'shop_A|a1'), { rows: good.rows, stale: true, unavailable: false }, 'reload failed → previous valid result, marked stale');
-    assert.deepEqual(evidenceView('shop_A|a1,a2', good, 'shop_A|a1,a2'), { rows: good.rows, stale: false, unavailable: true }, 'no valid result for this window → unavailable');
-    assert.deepEqual(evidenceView('shop_A|a1,a2', good, null), { rows: good.rows, stale: false, unavailable: false }, 'loading → previous same-shop rows');
-    assert.deepEqual(evidenceView('shop_B|b1', good, null).rows, [], "another shop's rows are never reused");
-    assert.deepEqual(evidenceView('shop_A|a1', null, 'shop_A|a1'), { rows: [], stale: false, unavailable: true }, 'first load failed → unavailable');
-    // The unverified recalculation that failure must NOT present as a figure (the midnight case):
+    const st = v => v.status;
+    const K1 = 'shop_A|a1', K2 = 'shop_A|a1,a2';
+    const good1 = { key: K1, version: 'v1', rows: [{ id: 'r1' }] };
+    // First load: no valid result → loading (existing loading state), no rows.
+    assert.deepEqual(evidenceView(K1, 'v1', null, null), { rows: [], status: 'loading', loading: true, updating: false, stale: false, unavailable: false });
+    assert.equal(st(evidenceView(K1, 'v1', good1, null)), 'verified', 'loaded for this window + data');
+    // Window switch: previous window's evidence is NOT reused.
+    const sw = evidenceView(K2, 'v2', good1, null);
+    assert.equal(st(sw), 'loading'); assert.deepEqual(sw.rows, [], 'no other-window rows');
+    assert.equal(st(evidenceView(K2, 'v2', { key: K2, version: 'v2', rows: [] }, null)), 'verified');
+    // Refresh (same shop + window, new data version): previous result, marked Updating…
+    const rf = evidenceView(K1, 'v2', good1, null);
+    assert.equal(st(rf), 'updating'); assert.deepEqual(rf.rows, good1.rows);
+    // Revisit with a cached snapshot from an earlier session → updating, not verified.
+    assert.equal(st(evidenceView(K1, 'v9', { ...good1, version: 'old-session' }, null)), 'updating');
+    // Failure: refresh failed → stale (previous kept); no valid result → unavailable.
+    const stale = evidenceView(K1, 'v2', good1, { key: K1, version: 'v2' });
+    assert.equal(st(stale), 'stale'); assert.deepEqual(stale.rows, good1.rows);
+    assert.equal(st(evidenceView(K2, 'v2', good1, { key: K2, version: 'v2' })), 'unavailable');
+    assert.equal(st(evidenceView(K1, 'v1', null, { key: K1, version: 'v1' })), 'unavailable', 'first load failed');
+    // A failure recorded for older data doesn't mark the current data as failed.
+    assert.equal(st(evidenceView(K1, 'v3', good1, { key: K1, version: 'v2' })), 'updating');
+    // Shop isolation + empty window.
+    const other = evidenceView('shop_B|a1', 'v1', good1, null);
+    assert.equal(st(other), 'loading'); assert.deepEqual(other.rows, []);
+    assert.equal(st(evidenceView('shop_A|', 'v1', null, null)), 'verified', 'no bookings → nothing to verify');
+    // What the loading/unavailable states protect against (the midnight case):
     const a = appt({ id: 'a9', total_amount: 74.75, tax_amount: 9.75, payment_intent_id: 'pi_9' });
-    assert.equal(cents(collectedTotals([a], [], undefined, null, evidenceView('shop_A|a9', null, 'shop_A|a9').rows).gross), 74.75, 'what would have shown without evidence');
-    // Wiring: each screen honours stale/unavailable with its existing error pattern.
+    assert.equal(cents(collectedTotals([a], [], undefined, null, evidenceView('shop_A|a9', 'v1', null, null).rows).gross), 74.75, 'unverified recalculation — must not be shown');
+    // Wiring: loading → existing skeleton; updating → "Updating…"; failures → banner/card.
     const read = f => fs.readFileSync(path.join(root, f), 'utf8');
     const dash = read('src/app/dashboard/page.tsx');
-    assert(/\{loadError \|\| evidence\.unavailable \? null :/.test(dash), 'Dashboard hides collected figures when unavailable');
+    assert(/\{loadError \|\| evidence\.unavailable \? null : [^?]*\|\| evidence\.loading \? \(/.test(dash), 'Dashboard: loading → skeleton, unavailable → hidden');
+    assert(/\(\(repFromCache && loadingAppts\) \|\| evidence\.updating\) && <p[^>]*role="status">Updating…<\/p>/.test(dash), 'Dashboard: reused figures marked Updating…');
     assert(dash.includes('collected figures are unavailable') && dash.includes('collected figures may be out of date') && /setEvidenceRetry\(\(v\) => v \+ 1\)/.test(dash), 'Dashboard banner + Retry');
+    assert(/setEvidenceVersion\(`[^`]*`\); \}, \[txns, revenueAppts\]\)/.test(dash), 'Dashboard: every data load/refresh re-verifies');
     const an = read('src/app/dashboard/analytics/page.tsx');
-    assert(/const dataReady = [^;]*!evidence\.unavailable;/.test(an) && an.includes('revenue figures are unavailable') && an.includes('revenue figures may be out of date'), 'Analytics withholds / flags revenue figures');
-    assert(/collected: evidence\.ok \? [^:]+ : "Unavailable"/.test(read('src/app/api/cron/reminders/route.ts')), 'weekly email sends "Unavailable" instead of an unverified figure');
+    assert(/const dataReady = [^;]*!evidence\.unavailable && !evidence\.loading;/.test(an), 'Analytics: loading/unavailable → not ready (skeleton / card)');
+    assert(/dataReady && evidence\.updating && <p role="status"[^>]*>Updating…<\/p>/.test(an), 'Analytics: Updating… marker');
+    assert(an.includes('revenue figures are unavailable') && an.includes('revenue figures may be out of date'), 'Analytics failure card');
+    assert(/collected: evidence\.ok \? [^:]+ : "Unavailable"/.test(read('src/app/api/cron/reminders/route.ts')), 'weekly email: "Unavailable" on failure');
   }
-  console.log('PASS linked evidence: evidence-read failure → stale or unavailable (never silent), midnight boundary, prepaid, separate tip + balance on other payment ids, never counted, shop-scoped chunked reads, chart = headline, barbers excluded');
+  console.log('PASS linked evidence: first load/window switch → loading, refresh → Updating… (same shop+window only), failure → stale/unavailable, midnight boundary, prepaid, separate tip + balance on other payment ids, never counted, shop-scoped chunked reads, chart = headline, barbers excluded');
 })().catch(e => { console.error(e); process.exitCode = 1; });

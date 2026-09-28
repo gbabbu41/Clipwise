@@ -160,28 +160,32 @@ export default function AnalyticsPage() {
   // counted) — same as the Dashboard, so headline + chart resolve each booking alike.
   // A failed read never silently falls back (see evidenceView): stale notice, or
   // revenue figures unavailable when there's no valid result for this window.
+  // Same shop + window only; new data re-verified ("Updating…"); new window → loading.
   const [evidenceGood, setEvidenceGood] = useState<EvidenceSnapshot | null>(null);
-  const [evidenceFailedKey, setEvidenceFailedKey] = useState<string | null>(null);
+  const [evidenceFailed, setEvidenceFailed] = useState<{ key: string; version: string } | null>(null);
   const [evidenceRetry, setEvidenceRetry] = useState(0);
+  const [evidenceVersion, setEvidenceVersion] = useState("");
+  useEffect(() => { setEvidenceVersion(`${Date.now()}:${Math.random()}`); }, [transactions, revenueAppts]);
   const evidenceKey = shop?.id ? `${shop.id}|${revenueApptsInRange.map(a => a.id).join(",")}` : "";
   useEffect(() => {
-    if (!evidenceKey || !shop?.id) return;
+    if (!evidenceKey || !shop?.id || !evidenceVersion) return;
     let active = true;
+    const key = evidenceKey, version = evidenceVersion;
     loadLinkedEvidence(supabase, shop.id, revenueApptsInRange as RevAppt[]).then(({ ok, rows }) => {
       if (!active) return;
-      if (ok) { setEvidenceGood({ key: evidenceKey, rows }); setEvidenceFailedKey(null); }
-      else setEvidenceFailedKey(evidenceKey);
+      if (ok) { setEvidenceGood({ key, version, rows }); setEvidenceFailed(null); }
+      else setEvidenceFailed({ key, version });
     });
     return () => { active = false; };
-    // Keyed on shop + the window's booking ids (+ Retry); the list itself is derived state.
+    // Keyed on shop + the window's booking ids, the data version (+ Retry); the list is derived.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [evidenceKey, evidenceRetry]);
-  const evidence = evidenceView(evidenceKey, evidenceGood, evidenceFailedKey);
+  }, [evidenceKey, evidenceVersion, evidenceRetry]);
+  const evidence = evidenceView(evidenceKey, evidenceVersion, evidenceGood, evidenceFailed);
   const linkedEvidence = evidence.rows;
   const buckets = useMemo(() => analyticsRevenueBuckets(revenueApptsInRange, filteredTx as RevTx[], range, byPi, linkedEvidence), [revenueApptsInRange, filteredTx, range, byPi, linkedEvidence]);
   const revenueByDay = buckets.daily;
   const hourlyRevenue = buckets.hourly;
-  const dataReady = !loading && !loadError && loadedKey === dataKey && !evidence.unavailable;
+  const dataReady = !loading && !loadError && loadedKey === dataKey && !evidence.unavailable && !evidence.loading;
   const feesKnown = useMemo(() => analyticsFeesKnown(revenueApptsInRange, filteredTx as RevTx[], byPi), [revenueApptsInRange, filteredTx, byPi]);
 
   // KPIs — the money waterfall, all from the SAME shared calculator the Dashboard
@@ -367,6 +371,7 @@ export default function AnalyticsPage() {
       {loadError && <Card><CardContent className="py-6"><p role="alert" className="text-sm text-grey">{loadError}</p><Button variant="outline" size="sm" className="mt-3" onClick={() => void loadData()}>Retry analytics</Button></CardContent></Card>}
       {!loadError && (evidence.unavailable || evidence.stale) && <Card><CardContent className="py-6"><p role="alert" className="text-sm text-grey">{evidence.unavailable ? "Couldn\u2019t verify linked payment records — revenue figures are unavailable." : "Couldn\u2019t refresh linked payment records — revenue figures may be out of date."}</p><Button variant="outline" size="sm" className="mt-3" onClick={() => setEvidenceRetry(v => v + 1)}>Retry</Button></CardContent></Card>}
       {/* KPI Cards */}
+      {dataReady && evidence.updating && <p role="status" className="text-xs text-grey">Updating…</p>}
       {!dataReady && !loadError && !evidence.unavailable ? (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)}

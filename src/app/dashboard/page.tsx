@@ -532,25 +532,38 @@ export default function DashboardPage() {
   // each booking's collected gross resolves the same way regardless of window.
   // Lookup only (never counted as income). Owners only: barbers are redirected to
   // their own portal and load no shop transactions here, so none are fetched.
-  // A failed read never silently falls back: the last good result stays with a
-  // stale notice, or — with none for this window — the figures show unavailable.
+  // Evidence is only reused for the SAME shop + window: a valid previous result is
+  // shown marked "Updating…" while the latest data is re-verified; a new window or
+  // first load shows the loading state; a failed read → stale or unavailable (see
+  // evidenceView). `evidenceVersion` changes on every report data load/refresh.
   const [evidenceGood, setEvidenceGood] = useState<EvidenceSnapshot | null>(null);
-  const [evidenceFailedKey, setEvidenceFailedKey] = useState<string | null>(null);
+  const [evidenceFailed, setEvidenceFailed] = useState<{ key: string; version: string } | null>(null);
   const [evidenceRetry, setEvidenceRetry] = useState(0);
+  const [evidenceVersion, setEvidenceVersion] = useState("");
+  useEffect(() => { setEvidenceVersion(`${Date.now()}:${Math.random()}`); }, [txns, revenueAppts]);
+  const evidenceCacheKey = shop?.id && profile?.id ? `home_ev_${shop.id}_${profile.id}` : "";
+  useEffect(() => {
+    // Instant paint on revisit: last verified evidence (same key only is ever used).
+    if (evidenceCacheKey) setEvidenceGood(cacheGet<EvidenceSnapshot>(evidenceCacheKey));
+  }, [evidenceCacheKey]);
   const evidenceKey = shop?.id && profile?.role !== "barber" ? `${shop.id}|${revenueApptsInRange.map((a) => a.id).join(",")}` : "";
   useEffect(() => {
-    if (!evidenceKey || !shop?.id) return;
+    if (!evidenceKey || !shop?.id || !evidenceVersion) return;
     let active = true;
+    const key = evidenceKey, version = evidenceVersion;
     loadLinkedEvidence(supabase, shop.id, revenueApptsInRange as RevAppt[]).then(({ ok, rows }) => {
       if (!active) return;
-      if (ok) { setEvidenceGood({ key: evidenceKey, rows }); setEvidenceFailedKey(null); }
-      else setEvidenceFailedKey(evidenceKey);
+      if (ok) {
+        const snap: EvidenceSnapshot = { key, version, rows };
+        setEvidenceGood(snap); setEvidenceFailed(null);
+        if (evidenceCacheKey) cacheSet(evidenceCacheKey, snap);
+      } else setEvidenceFailed({ key, version });
     });
     return () => { active = false; };
-    // Keyed on shop + the window's booking ids (+ Retry); the list itself is derived state.
+    // Keyed on shop + the window's booking ids, the data version (+ Retry); the list is derived.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [evidenceKey, evidenceRetry]);
-  const evidence = evidenceView(evidenceKey, evidenceGood, evidenceFailedKey);
+  }, [evidenceKey, evidenceVersion, evidenceRetry]);
+  const evidence = evidenceView(evidenceKey, evidenceVersion, evidenceGood, evidenceFailed);
   const linkedEvidence = evidence.rows;
   // The owner-barber's own chair: their tips are the owner's money (like their
   // 0-commission service), so collectedTotals splits them out and they're NOT
@@ -793,7 +806,7 @@ export default function DashboardPage() {
       )}
 
       {/* Never label previous-period figures with the newly selected range. */}
-      {loadError || evidence.unavailable ? null : (loadingAppts && !repFromCache) || loadedReportKey !== reportKey ? (
+      {loadError || evidence.unavailable ? null : (loadingAppts && !repFromCache) || loadedReportKey !== reportKey || evidence.loading ? (
         <div className="mb-3"><Skeleton className="h-44 rounded-2xl" /></div>
       ) : (() => {
         // New Clients = distinct client RECORDS first created in the window (each
@@ -875,7 +888,7 @@ export default function DashboardPage() {
               );
             })()}
 
-            {repFromCache && loadingAppts && <p className="text-xs text-grey mb-2" role="status">Updating…</p>}
+            {((repFromCache && loadingAppts) || evidence.updating) && <p className="text-xs text-grey mb-2" role="status">Updating…</p>}
             {/* Revenue hero (swipeable — revenue, bookings, top barbers, status) */}
             <StatsCarousel revenue={feesUnavailable ? collected.gross : collected.net} taxCollected={collected.tax} cashIncluded={collected.cash} feesPaid={collected.fees} tips={paidOutTips} commission={commission} netRevenue={netRevenue} feesLoading={feesLoading} feesUnavailable={feesUnavailable} paidVisits={paidVisits} appointments={appointments} completed={completed} topBarbers={topBarbers} periodLabel={DATE_FILTER_LABELS[dateFilter]} rangeStart={rangeStart} rangeEnd={rangeEnd} initialSlide={statsSlide} onSlideChange={setStatsSlide} />
             {feesUnavailable && !feesLoading && <button type="button" className="mb-3 border border-border rounded-lg px-4 py-2 text-sm" onClick={() => setFeeRetry(v => v + 1)}>Retry processing fees</button>}

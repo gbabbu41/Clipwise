@@ -38,20 +38,32 @@ export async function loadLinkedEvidence(
   }
 }
 
-export type EvidenceSnapshot = { key: string; rows: RevTx[] };
+export type EvidenceSnapshot = { key: string; version: string; rows: RevTx[] };
+export type EvidenceView = { rows: RevTx[]; status: "verified" | "updating" | "stale" | "loading" | "unavailable";
+  loading: boolean; updating: boolean; stale: boolean; unavailable: boolean };
+
 /**
- * What a report may show for its current evidence `key`, given the last
- * SUCCESSFUL load and the key whose latest load FAILED:
- *  - success for this key → its rows; if a later reload failed, `stale` (show the
- *    previous valid result with a stale notice);
- *  - failed with no valid result for this key → `unavailable` (don't show the
- *    collected figures — they'd be recomputed without the payment evidence);
- *  - still loading → the previous valid rows (lookup-only, valid per booking).
+ * What a report may show. `key` = "<shop>|<booking ids>" (the report window);
+ * `version` = token of the report data currently on screen (changes on every
+ * load/refresh); `good` = last SUCCESSFUL evidence load; `failed` = the load that
+ * last failed. Evidence is only ever reused for the SAME shop and window:
+ *  - verified    → loaded for this window and this data version;
+ *  - updating    → valid result for this window, newer data not yet verified:
+ *                  show it marked "Updating…";
+ *  - stale       → that refresh failed: keep the previous result, flag it;
+ *  - loading     → no valid result for this window yet (first load / new window):
+ *                  show the loading state, never another window's evidence;
+ *  - unavailable → failed with no valid result: don't show the figures.
+ * A window with no bookings needs no evidence (verified).
  */
-export function evidenceView(key: string, good: EvidenceSnapshot | null, failedKey: string | null): { rows: RevTx[]; stale: boolean; unavailable: boolean } {
-  const failed = !!key && failedKey === key;
-  if (good && good.key === key) return { rows: good.rows, stale: failed, unavailable: false };
-  // Keys start with the shop id — never reuse another shop's rows.
-  const sameShop = !!good && good.key.split("|")[0] === key.split("|")[0];
-  return { rows: sameShop ? good!.rows : [], stale: false, unavailable: failed };
+export function evidenceView(key: string, version: string, good: EvidenceSnapshot | null, failed: { key: string; version: string } | null): EvidenceView {
+  const make = (status: EvidenceView["status"], rows: RevTx[] = []): EvidenceView =>
+    ({ rows, status, loading: status === "loading", updating: status === "updating", stale: status === "stale", unavailable: status === "unavailable" });
+  if (!key || key.endsWith("|")) return make("verified");
+  const failedNow = !!failed && failed.key === key && failed.version === version;
+  if (good && good.key === key) {
+    if (good.version === version) return make("verified", good.rows);
+    return make(failedNow ? "stale" : "updating", good.rows);
+  }
+  return make(failedNow ? "unavailable" : "loading");
 }
