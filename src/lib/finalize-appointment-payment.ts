@@ -3,6 +3,7 @@
 // (owner-side catch-up). Flips unpaid→paid idempotently and fires the receipt +
 // owner/barber alerts ONLY on the real transition, so it can't double-notify.
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { logLedgerSaveFailure } from "@/lib/ledger-log";
 import { sendPaymentReceipt, notifyNoShowCharged } from "@/lib/payment-notify";
 import { stripeFeeCents } from "@/lib/stripe";
 import { runServerCompletionEffects } from "@/lib/completion-server";
@@ -97,13 +98,20 @@ export async function recordOnlinePaymentTx(args: {
   // `tax` (phase30) + `stripe_fee` (phase38) may lag on prod until the migration
   // runs — drop the missing column(s) and retry so the revenue row is never lost.
   const full = { ...base, tax: taxDollars, stripe_fee: feeDollars };
-  const res = await supabaseAdmin.from("transactions").insert(full);
-  if (res.error && /column|does not exist|schema cache/i.test(res.error.message)) {
-    const res2 = await supabaseAdmin.from("transactions").insert({ ...base, tax: taxDollars });
-    if (res2.error && /column|does not exist|schema cache/i.test(res2.error.message)) {
-      await supabaseAdmin.from("transactions").insert(base).then(null, () => null);
+  // The charge already succeeded: a failed save is logged (never silent), never retried as a charge.
+  let saveError: unknown = null;
+  try {
+    const res = await supabaseAdmin.from("transactions").insert(full);
+    saveError = res.error;
+    if (res.error && /column|does not exist|schema cache/i.test(res.error.message)) {
+      const res2 = await supabaseAdmin.from("transactions").insert({ ...base, tax: taxDollars });
+      saveError = res2.error;
+      if (res2.error && /column|does not exist|schema cache/i.test(res2.error.message)) {
+        saveError = (await supabaseAdmin.from("transactions").insert(base)).error;
+      }
     }
-  }
+  } catch (e) { saveError = e; }
+  if (saveError) await logLedgerSaveFailure("recordOnlinePaymentTx", { shopId, appointmentId, paymentIntentId }, saveError);
 }
 
 /**

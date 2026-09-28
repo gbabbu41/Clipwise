@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe, stripeFeeCents, STRIPE_LIVE_MODE } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { logLedgerSaveFailure } from "@/lib/ledger-log";
 import { authorizeAppointment } from "@/lib/api-auth";
 
 /**
@@ -95,12 +96,18 @@ export async function POST(request: NextRequest) {
     source: "balance",
     stripe_fee: stripeFee,
   };
-  const res = await supabaseAdmin.from("transactions").insert(row);
-  if (res.error && /column|does not exist|schema cache/i.test(res.error.message)) {
-    const { stripe_fee: _f, tax: _t, ...base } = row;
-    void _f; void _t;
-    await supabaseAdmin.from("transactions").insert({ ...base, amount: balService + balTax }).then(null, () => null);
-  }
+  // The payment already succeeded: a failed save is logged (never silent).
+  let saveError: unknown = null;
+  try {
+    const res = await supabaseAdmin.from("transactions").insert(row);
+    saveError = res.error;
+    if (res.error && /column|does not exist|schema cache/i.test(res.error.message)) {
+      const { stripe_fee: _f, tax: _t, ...base } = row;
+      void _f; void _t;
+      saveError = (await supabaseAdmin.from("transactions").insert({ ...base, amount: balService + balTax })).error;
+    }
+  } catch (e) { saveError = e; }
+  if (saveError) await logLedgerSaveFailure("collect-balance", { shopId: appt.shop_id, appointmentId: appt.id, paymentIntentId: piId }, saveError);
 
   await supabaseAdmin.from("appointments").update({ balance_due: 0 }).eq("id", appt.id).then(null, () => null);
 

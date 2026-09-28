@@ -26,6 +26,7 @@ export type RevAppt = {
 };
 
 export type RevTx = {
+  id?: string;                    // de-duplicates a row seen in both window and evidence
   client_name: string | null;
   service_name?: string | null;
   amount: number | null;
@@ -79,10 +80,31 @@ export function separatelyTippedAppts(appts: RevAppt[], txs: RevTx[]): Set<strin
   return ids;
 }
 
-export type GrossContext = { saved: Map<string, number>; sepTipped: Set<string>; byPi?: ByPi };
-/** Everything the collected-gross rule needs, built once per screen/report. */
-export function grossContext(appts: RevAppt[], txs: RevTx[], byPi?: ByPi): GrossContext {
-  return { saved: savedChargeGross(txs), sepTipped: separatelyTippedAppts(appts, txs), byPi };
+/** Balances collected later on a booking (source "balance", own charge or cash),
+ * summed per booking. Each balance counts as income on its OWN date, so a booking
+ * that falls back to its booking amount must not include them again. */
+export function collectedBalances(txs: RevTx[]): Map<string, number> {
+  const byAppt = new Map<string, number>();
+  for (const t of txs) {
+    if (t.source !== "balance" || t.refunded || !t.appointment_id) continue;
+    const amt = transactionCollectedAmount(t);
+    if (amt > 0) byAppt.set(t.appointment_id, (byAppt.get(t.appointment_id) ?? 0) + amt);
+  }
+  return byAppt;
+}
+
+const rowKey = (t: RevTx) => t.id ?? [t.payment_intent_id, t.source, t.created_at, t.amount, t.tax, t.tip, t.appointment_id].join("|");
+
+export type GrossContext = { saved: Map<string, number>; sepTipped: Set<string>; balances: Map<string, number>; byPi?: ByPi };
+/** Everything the collected-gross rule needs, built once per screen/report.
+ * `evidence` = ledger rows LINKED to the report's bookings (same payment id or
+ * same booking) loaded regardless of the report's date window. It is only ever
+ * looked up — never counted as income — so date semantics stay the same. */
+export function grossContext(appts: RevAppt[], txs: RevTx[], byPi?: ByPi, evidence: RevTx[] = []): GrossContext {
+  const seen = new Set<string>();
+  const rows: RevTx[] = [];
+  for (const t of [...txs, ...evidence]) { const k = rowKey(t); if (!seen.has(k)) { seen.add(k); rows.push(t); } }
+  return { saved: savedChargeGross(rows), sepTipped: separatelyTippedAppts(appts, rows), balances: collectedBalances(rows), byPi };
 }
 
 /** THE collected-gross rule for one paid booking, shared by every screen and
@@ -90,12 +112,14 @@ export function grossContext(appts: RevAppt[], txs: RevTx[], byPi?: ByPi): Gross
  * what its own charge took — the confirmed Stripe gross, else the saved ledger
  * amount — whether the fee is confirmed or estimated. Only a booking with no
  * saved charge (cash, or no ledger row) falls back to the booking amount
- * (service + tax − gift − balance still due, + tip unless paid on its own charge).
- * Booking ids never change which rule applies. */
+ * (service + tax − gift − balance still due − balances collected on their own
+ * dates, + tip unless paid on its own charge). Booking ids never change which
+ * rule applies; they only link a booking to its separate tip/balance rows. */
 export function appointmentGross(a: RevAppt, ctx: GrossContext): { gross: number; tip: number; fromCharge: boolean } {
   const total = a.total_amount ?? 0;
   const bal = Math.min(Math.max(0, a.balance_due ?? 0), total);
-  const svcTax = Math.max(0, total - bal - (a.gift_applied ?? 0));
+  const later = a.id ? ctx.balances.get(a.id) ?? 0 : 0;
+  const svcTax = Math.max(0, total - bal - (a.gift_applied ?? 0) - later);
   const tip = a.id && ctx.sepTipped.has(a.id) ? 0 : Math.max(0, a.tip_amount ?? 0);
   const pi = a.payment_intent_id;
   const charged = pi && a.payment_method !== "cash" ? (ctx.byPi?.[pi]?.gross ?? ctx.saved.get(pi)) : undefined;
@@ -182,9 +206,11 @@ export type CollectedTotals = {
 /**
  * Total collected across appointments + transactions for whatever slice the
  * caller passes in (already date-filtered). Pass the Stripe `byPi` map to get
- * exact net/fees; omit it and net === gross (fees 0).
+ * exact net/fees; omit it and net === gross (fees 0). `evidence` = ledger rows
+ * linked to these bookings loaded outside the window (see grossContext) — looked
+ * up for each booking's charge/tip/balance links, NEVER counted as income.
  */
-export function collectedTotals(appts: RevAppt[], txs: RevTx[], byPi?: ByPi, ownerBarberId?: string | null): CollectedTotals {
+export function collectedTotals(appts: RevAppt[], txs: RevTx[], byPi?: ByPi, ownerBarberId?: string | null, evidence: RevTx[] = []): CollectedTotals {
   // Same income rule the Payments page uses (shared, so they can't disagree).
   const posTxs = countablePosTxs(appts, txs);
 
@@ -200,10 +226,7 @@ export function collectedTotals(appts: RevAppt[], txs: RevTx[], byPi?: ByPi, own
   // Gross = what each charge actually took (confirmed Stripe gross, else the saved
   // ledger amount), never the booking total: an uncaptured remainder isn't
   // collected, and a tip paid on its own charge is counted once (its own line).
-  const ctx = grossContext(appts, txs, byPi);
-  // Bookings that fell back to the booking amount — that amount already includes
-  // any balance collected later, so those balances must not add gross again.
-  const bookingAmountAppts = new Set<string>();
+  const ctx = grossContext(appts, txs, byPi, evidence);
 
   // Settled appointments — exclude paid no-shows (represented by a tx row so it
   // isn't double-counted).
@@ -226,8 +249,7 @@ export function collectedTotals(appts: RevAppt[], txs: RevTx[], byPi?: ByPi, own
     const bal = Math.min(Math.max(0, a.balance_due ?? 0), total);
     const collectedSvcTax = Math.max(0, total - bal);
     const pi = a.payment_intent_id;
-    const { gross: lineGross, tip: apptTip, fromCharge } = appointmentGross(a, ctx);
-    if (!fromCharge && a.id) bookingAmountAppts.add(a.id);
+    const { gross: lineGross, tip: apptTip } = appointmentGross(a, ctx);
     const { net: n, fee: f } = lineNetFee(pi, lineGross, byPi);
     gross += lineGross; net += n; fees += f;
     // Tax keeps its existing rule (booking tax scaled by recorded balance_due) —
@@ -273,20 +295,18 @@ export function collectedTotals(appts: RevAppt[], txs: RevTx[], byPi?: ByPi, own
   }
 
   // Collected BALANCES (source "balance") — money taken later on an appointment
-  // whose card charge fell short (a price raised above the hold). Once collected,
-  // balance_due is 0, so the appointment above already counts the FULL total in
-  // GROSS + TAX. Here we add only the balance's real NET money + fee (and cash),
-  // which the appointment's own PaymentIntent never saw — so gross − fees = net
-  // reconciles without double-counting the gross/tax.
+  // whose card charge fell short (a price raised above the hold). Each balance is
+  // income on its OWN date: the booking line above counts only its own charge (or
+  // its booking amount minus balances collected later), so the balance adds its
+  // own gross + net + fee here — gross − fees = net, nothing counted twice. Tax
+  // keeps its existing rule (booked on the appointment).
   for (const t of txs) {
     if (t.source !== "balance" || t.refunded) continue;
     const amt = (t.amount ?? 0) + (t.tax ?? 0) + (t.tip ?? 0);
     if (amt <= 0) continue;
     const { net: n, fee: f } = lineNetFee(t.payment_intent_id ?? null, amt, byPi);
     net += n; fees += f;
-    // The booking counted only its own charge → the balance adds its own gross
-    // (unless the booking fell back to the booking amount, which already has it).
-    if (!(t.appointment_id && bookingAmountAppts.has(t.appointment_id))) gross += amt;
+    gross += amt;
     if (t.payment_method === "cash") cash += amt;
   }
 

@@ -14,6 +14,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { effectivePlan, isPaidPlan } from "@/lib/validation";
 import { FeatureLock } from "@/components/dashboard/feature-lock";
 import { collectedTotals, countablePosTxs, isNoShowTx, isPaid, type RevAppt, type RevTx, type ByPi } from "@/lib/revenue";
+import { evidenceView, loadLinkedEvidence, type EvidenceSnapshot } from "@/lib/revenue-evidence";
 import { analyticsPeriod, analyticsRevenueBuckets, analyticsFeesKnown, timestampInPeriod, topServicesWithOther } from "@/lib/analytics-period";
 import { readAllRows } from "@/lib/read-all-rows";
 import { safeCommission } from "@/lib/barber-earnings";
@@ -155,10 +156,36 @@ export default function AnalyticsPage() {
   const revenueApptsInRange = useMemo(() => revenueAppts.filter(a =>
     (barberFilter === "all" || a.barber_id === barberFilter) && timestampInPeriod(a.paid_at ?? a.created_at, range)
   ), [revenueAppts, barberFilter, range]);
-  const buckets = useMemo(() => analyticsRevenueBuckets(revenueApptsInRange, filteredTx as RevTx[], range, byPi), [revenueApptsInRange, filteredTx, range, byPi]);
+  // Linked-payment evidence for these bookings from any date (lookup only, never
+  // counted) — same as the Dashboard, so headline + chart resolve each booking alike.
+  // A failed read never silently falls back (see evidenceView): stale notice, or
+  // revenue figures unavailable when there's no valid result for this window.
+  // Same shop + window only; new data re-verified ("Updating…"); new window → loading.
+  const [evidenceGood, setEvidenceGood] = useState<EvidenceSnapshot | null>(null);
+  const [evidenceFailed, setEvidenceFailed] = useState<{ key: string; version: string } | null>(null);
+  const [evidenceRetry, setEvidenceRetry] = useState(0);
+  const [evidenceVersion, setEvidenceVersion] = useState("");
+  useEffect(() => { setEvidenceVersion(`${Date.now()}:${Math.random()}`); }, [transactions, revenueAppts]);
+  const evidenceKey = shop?.id ? `${shop.id}|${revenueApptsInRange.map(a => a.id).join(",")}` : "";
+  useEffect(() => {
+    if (!evidenceKey || !shop?.id || !evidenceVersion) return;
+    let active = true;
+    const key = evidenceKey, version = evidenceVersion;
+    loadLinkedEvidence(supabase, shop.id, revenueApptsInRange as RevAppt[]).then(({ ok, rows }) => {
+      if (!active) return;
+      if (ok) { setEvidenceGood({ key, version, rows }); setEvidenceFailed(null); }
+      else setEvidenceFailed({ key, version });
+    });
+    return () => { active = false; };
+    // Keyed on shop + the window's booking ids, the data version (+ Retry); the list is derived.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [evidenceKey, evidenceVersion, evidenceRetry]);
+  const evidence = evidenceView(evidenceKey, evidenceVersion, evidenceGood, evidenceFailed);
+  const linkedEvidence = evidence.rows;
+  const buckets = useMemo(() => analyticsRevenueBuckets(revenueApptsInRange, filteredTx as RevTx[], range, byPi, linkedEvidence), [revenueApptsInRange, filteredTx, range, byPi, linkedEvidence]);
   const revenueByDay = buckets.daily;
   const hourlyRevenue = buckets.hourly;
-  const dataReady = !loading && !loadError && loadedKey === dataKey;
+  const dataReady = !loading && !loadError && loadedKey === dataKey && !evidence.unavailable && !evidence.loading;
   const feesKnown = useMemo(() => analyticsFeesKnown(revenueApptsInRange, filteredTx as RevTx[], byPi), [revenueApptsInRange, filteredTx, byPi]);
 
   // KPIs — the money waterfall, all from the SAME shared calculator the Dashboard
@@ -168,7 +195,7 @@ export default function AnalyticsPage() {
     // Owner-barber's own tips are the owner's money (like their 0-commission chair),
     // so split them out and keep them IN net revenue — see the Dashboard fix.
     const ownerBarberId = (barbers.find(b => (b as { user_id?: string | null }).user_id === shop?.owner_id)?.id) ?? null;
-    const t = collectedTotals(revenueApptsInRange as RevAppt[], filteredTx as RevTx[], byPi, ownerBarberId);
+    const t = collectedTotals(revenueApptsInRange as RevAppt[], filteredTx as RevTx[], byPi, ownerBarberId, linkedEvidence);
     // Barber commission tallied over the SAME sales `collected` counts (same as the
     // Dashboard + Payroll), so Net reconciles: paid appointments → (total − tax) ×
     // that barber's rate; counted POS sales with a barber → the stored cut.
@@ -197,7 +224,7 @@ export default function AnalyticsPage() {
     const paidOutTips = Math.max(0, t.tips - t.ownerTips);
     const netRevenue = t.net - t.tax - paidOutTips - commission;
     return { gross: t.gross, fees: t.fees, collected: t.net, tax: t.tax, tips: paidOutTips, totalTips: t.tips, commission, netRevenue };
-  }, [revenueApptsInRange, filteredTx, byPi, barbers, shop?.owner_id]);
+  }, [revenueApptsInRange, filteredTx, byPi, barbers, shop?.owner_id, linkedEvidence]);
   const totalRevenue = money.gross;
   const totalAppts = filteredAppts.length;
   const completedAppts = filteredAppts.filter(a => a.status === "completed").length;
@@ -342,8 +369,10 @@ export default function AnalyticsPage() {
       </div>
 
       {loadError && <Card><CardContent className="py-6"><p role="alert" className="text-sm text-grey">{loadError}</p><Button variant="outline" size="sm" className="mt-3" onClick={() => void loadData()}>Retry analytics</Button></CardContent></Card>}
+      {!loadError && (evidence.unavailable || evidence.stale) && <Card><CardContent className="py-6"><p role="alert" className="text-sm text-grey">{evidence.unavailable ? "Couldn\u2019t verify linked payment records — revenue figures are unavailable." : "Couldn\u2019t refresh linked payment records — revenue figures may be out of date."}</p><Button variant="outline" size="sm" className="mt-3" onClick={() => setEvidenceRetry(v => v + 1)}>Retry</Button></CardContent></Card>}
       {/* KPI Cards */}
-      {!dataReady && !loadError ? (
+      {dataReady && evidence.updating && <p role="status" className="text-xs text-grey">Updating…</p>}
+      {!dataReady && !loadError && !evidence.unavailable ? (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)}
         </div>

@@ -34,6 +34,7 @@ import { useShopUnreadCount } from "@/hooks/use-unread-count";
 import { useAuth } from "@/lib/auth-context";
 import { isNativeApp } from "@/lib/native-app";
 import { collectedTotals, countablePosTxs, isNoShowTx, isPaid, type RevTx, type RevAppt, type ByPi } from "@/lib/revenue";
+import { evidenceView, loadLinkedEvidence, type EvidenceSnapshot } from "@/lib/revenue-evidence";
 import { safeCommission } from "@/lib/barber-earnings";
 import type { AppointmentWithDetails, Barber, Notification } from "@/lib/database.types";
 
@@ -322,7 +323,7 @@ export default function DashboardPage() {
       ? Promise.resolve([] as RevTx[])
       : readAllRows((from, to) => supabase
           .from("transactions")
-          .select("client_name, service_name, amount, tip, tax, payment_method, payment_intent_id, created_at, stripe_session_id, source, refunded, barber_id, commission_amount, appointment_id")
+          .select("id, client_name, service_name, amount, tip, tax, payment_method, payment_intent_id, created_at, stripe_session_id, source, refunded, barber_id, commission_amount, appointment_id")
           .eq("shop_id", shop.id)
           .gte("created_at", new Date(`${start}T00:00:00`).toISOString())
           .lte("created_at", new Date(`${end}T23:59:59.999`).toISOString())
@@ -526,11 +527,49 @@ export default function DashboardPage() {
     const d = formatDateForDb(new Date(ts));
     return d >= rangeStart && d <= rangeEnd;
   });
+  // Linked-payment EVIDENCE for the window's bookings from any date — a capture
+  // saved just after midnight, a prepaid charge, a separate tip or balance — so
+  // each booking's collected gross resolves the same way regardless of window.
+  // Lookup only (never counted as income). Owners only: barbers are redirected to
+  // their own portal and load no shop transactions here, so none are fetched.
+  // Evidence is only reused for the SAME shop + window: a valid previous result is
+  // shown marked "Updating…" while the latest data is re-verified; a new window or
+  // first load shows the loading state; a failed read → stale or unavailable (see
+  // evidenceView). `evidenceVersion` changes on every report data load/refresh.
+  const [evidenceGood, setEvidenceGood] = useState<EvidenceSnapshot | null>(null);
+  const [evidenceFailed, setEvidenceFailed] = useState<{ key: string; version: string } | null>(null);
+  const [evidenceRetry, setEvidenceRetry] = useState(0);
+  const [evidenceVersion, setEvidenceVersion] = useState("");
+  useEffect(() => { setEvidenceVersion(`${Date.now()}:${Math.random()}`); }, [txns, revenueAppts]);
+  const evidenceCacheKey = shop?.id && profile?.id ? `home_ev_${shop.id}_${profile.id}` : "";
+  useEffect(() => {
+    // Instant paint on revisit: last verified evidence (same key only is ever used).
+    if (evidenceCacheKey) setEvidenceGood(cacheGet<EvidenceSnapshot>(evidenceCacheKey));
+  }, [evidenceCacheKey]);
+  const evidenceKey = shop?.id && profile?.role !== "barber" ? `${shop.id}|${revenueApptsInRange.map((a) => a.id).join(",")}` : "";
+  useEffect(() => {
+    if (!evidenceKey || !shop?.id || !evidenceVersion) return;
+    let active = true;
+    const key = evidenceKey, version = evidenceVersion;
+    loadLinkedEvidence(supabase, shop.id, revenueApptsInRange as RevAppt[]).then(({ ok, rows }) => {
+      if (!active) return;
+      if (ok) {
+        const snap: EvidenceSnapshot = { key, version, rows };
+        setEvidenceGood(snap); setEvidenceFailed(null);
+        if (evidenceCacheKey) cacheSet(evidenceCacheKey, snap);
+      } else setEvidenceFailed({ key, version });
+    });
+    return () => { active = false; };
+    // Keyed on shop + the window's booking ids, the data version (+ Retry); the list is derived.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [evidenceKey, evidenceVersion, evidenceRetry]);
+  const evidence = evidenceView(evidenceKey, evidenceVersion, evidenceGood, evidenceFailed);
+  const linkedEvidence = evidence.rows;
   // The owner-barber's own chair: their tips are the owner's money (like their
   // 0-commission service), so collectedTotals splits them out and they're NOT
   // subtracted from net revenue. Identified by user_id === the shop owner.
   const ownerBarberId = (financialBarbers.find((b) => (b as { user_id?: string | null }).user_id === shop?.owner_id)?.id) ?? null;
-  const collected = collectedTotals(revenueApptsInRange, txnsInRange, stripeByPi, ownerBarberId);
+  const collected = collectedTotals(revenueApptsInRange, txnsInRange, stripeByPi, ownerBarberId, linkedEvidence);
   const feesUnavailable = feesLoading || feesError || hasMissingCardFees(revenueApptsInRange, txnsInRange, stripeByPi);
   // Count on the SAME money-moved basis as Collected (paid appts, dated by paid_at,
   // no-show fees excluded) so the sub-line under Collected reconciles with the
@@ -749,8 +788,25 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {/* Linked payment records couldn't be verified: keep the last good figures with
+          a stale notice, or hide them (unavailable) rather than show an unverified
+          recalculation. Same banner + Retry pattern as the load-failure above. */}
+      {!loadError && (evidence.stale || evidence.unavailable) && (
+        <div role="alert" className="flex items-center justify-between gap-3 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 mb-2">
+          <p className="text-sm text-red-300">{evidence.unavailable
+            ? "Couldn\u2019t verify linked payment records — collected figures are unavailable."
+            : "Couldn\u2019t refresh linked payment records — collected figures may be out of date."}</p>
+          <button
+            onClick={() => setEvidenceRetry((v) => v + 1)}
+            className="text-xs font-semibold text-foreground bg-red-500/20 hover:bg-red-500/30 rounded-lg px-3 py-1.5 flex-shrink-0 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* Never label previous-period figures with the newly selected range. */}
-      {loadError ? null : (loadingAppts && !repFromCache) || loadedReportKey !== reportKey ? (
+      {loadError || evidence.unavailable ? null : (loadingAppts && !repFromCache) || loadedReportKey !== reportKey || evidence.loading ? (
         <div className="mb-3"><Skeleton className="h-44 rounded-2xl" /></div>
       ) : (() => {
         // New Clients = distinct client RECORDS first created in the window (each
@@ -832,7 +888,7 @@ export default function DashboardPage() {
               );
             })()}
 
-            {repFromCache && loadingAppts && <p className="text-xs text-grey mb-2" role="status">Updating…</p>}
+            {((repFromCache && loadingAppts) || evidence.updating) && <p className="text-xs text-grey mb-2" role="status">Updating…</p>}
             {/* Revenue hero (swipeable — revenue, bookings, top barbers, status) */}
             <StatsCarousel revenue={feesUnavailable ? collected.gross : collected.net} taxCollected={collected.tax} cashIncluded={collected.cash} feesPaid={collected.fees} tips={paidOutTips} commission={commission} netRevenue={netRevenue} feesLoading={feesLoading} feesUnavailable={feesUnavailable} paidVisits={paidVisits} appointments={appointments} completed={completed} topBarbers={topBarbers} periodLabel={DATE_FILTER_LABELS[dateFilter]} rangeStart={rangeStart} rangeEnd={rangeEnd} initialSlide={statsSlide} onSlideChange={setStatsSlide} />
             {feesUnavailable && !feesLoading && <button type="button" className="mb-3 border border-border rounded-lg px-4 py-2 text-sm" onClick={() => setFeeRetry(v => v + 1)}>Retry processing fees</button>}

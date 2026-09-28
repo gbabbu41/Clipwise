@@ -12,6 +12,7 @@ import { sendAppEmail } from "@/lib/emailer";
 import { processTrials } from "@/lib/process-trials";
 import { reconcileSubscriptions } from "@/lib/reconcile-subscriptions";
 import { backfillAppointmentStripeFees, backfillMissingStripeFees } from "@/lib/backfill-fees";
+import { loadLinkedEvidence } from "@/lib/revenue-evidence";
 import { backfillTerminalLocations } from "@/lib/terminal";
 
 /**
@@ -360,7 +361,7 @@ async function run() {
           .select("id, client_name, total_amount, tax_amount, tip_amount, gift_applied, balance_due, payment_status, payment_method, payment_intent_id, status, barber_id")
           .eq("shop_id", shop.id).gte("date", weekAgo).lte("date", yesterday),
         supabaseAdmin.from("transactions")
-          .select("client_name, amount, tip, tax, payment_method, created_at, payment_intent_id, source, refunded, barber_id, appointment_id")
+          .select("id, client_name, amount, tip, tax, payment_method, created_at, payment_intent_id, source, refunded, barber_id, appointment_id")
           .eq("shop_id", shop.id).gte("created_at", `${weekAgo}T00:00:00`),
       ]);
       const lastWeekAppts = (lwAppts ?? []) as RevAppt[];
@@ -368,7 +369,11 @@ async function run() {
       const noShows = lastWeekAppts.filter(a => a.status === "no-show").length;
       const txCount = lwTxs?.length ?? 0;
       if (completed > 0 || noShows > 0 || txCount > 0) {
-        const totals = collectedTotals(lastWeekAppts, (lwTxs ?? []) as RevTx[]);
+        // Prepaid bookings were charged before this week — load their linked ledger
+        // rows (same shop only) as evidence; the week's income window is unchanged.
+        // If that read fails the figure is sent as "Unavailable", never recomputed without it.
+        const evidence = await loadLinkedEvidence(supabaseAdmin, shop.id, lastWeekAppts);
+        const totals = collectedTotals(lastWeekAppts, (lwTxs ?? []) as RevTx[], undefined, null, evidence.rows);
         const { count: upcoming } = await supabaseAdmin.from("appointments")
           .select("id", { count: "exact", head: true })
           .eq("shop_id", shop.id).gte("date", today).lte("date", shiftYmd(today, 6)).in("status", ["pending", "confirmed"]);
@@ -381,7 +386,7 @@ async function run() {
           await sendEmail("owner_weekly_digest", {
             ownerEmail, shopName: shop.name,
             completed: String(completed), noShows: String(noShows),
-            collected: `$${totals.gross.toFixed(2)}`, upcoming: String(upcoming ?? 0),
+            collected: evidence.ok ? `$${totals.gross.toFixed(2)}` : "Unavailable", upcoming: String(upcoming ?? 0),
           });
           emails++; sends++;
         }
