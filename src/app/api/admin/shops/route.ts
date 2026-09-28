@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
 
   const [{ data: shops }, { data: transactions }, { data: appointments }, { count: userCount }] = await Promise.all([
     supabaseAdmin.from("shops").select("*, users(name, email)").order("created_at", { ascending: false }),
-    supabaseAdmin.from("transactions").select("amount"),
+    supabaseAdmin.from("transactions").select("amount").or("source.is.null,source.neq.refund"), // refund records are audit-only, never GMV
     supabaseAdmin.from("appointments").select("id"),
     supabaseAdmin.from("users").select("id", { count: "exact", head: true }),
   ]);

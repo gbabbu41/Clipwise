@@ -19,7 +19,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
   const [{ data: barbers }, { data: txAll }, { count: apptCount }, { data: recentTx }, { data: meta }, plans] = await Promise.all([
     supabaseAdmin.from("barbers").select("id, name, is_active, rating, total_reviews").eq("shop_id", id).order("created_at", { ascending: true }),
-    supabaseAdmin.from("transactions").select("amount").eq("shop_id", id),
+    supabaseAdmin.from("transactions").select("amount").eq("shop_id", id).or("source.is.null,source.neq.refund"), // refund records are audit-only, never GMV
     supabaseAdmin.from("appointments").select("id", { count: "exact", head: true }).eq("shop_id", id),
     supabaseAdmin.from("transactions").select("id, amount, tip, payment_method, type, client_name, service_name, created_at").eq("shop_id", id).order("created_at", { ascending: false }).limit(10),
     supabaseAdmin.from("shop_admin_meta").select("note, updated_at").eq("shop_id", id).maybeSingle(),
