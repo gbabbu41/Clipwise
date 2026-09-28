@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { stripe, stripeFeeCents, STRIPE_LIVE_MODE } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { logLedgerSaveFailure } from "@/lib/ledger-log";
+import { resolveDuplicateCharge } from "@/lib/ledger-insert";
 import { authorizeAppointment } from "@/lib/api-auth";
 
 /**
@@ -107,7 +108,10 @@ export async function POST(request: NextRequest) {
       saveError = (await supabaseAdmin.from("transactions").insert({ ...base, amount: balService + balTax })).error;
     }
   } catch (e) { saveError = e; }
-  if (saveError) await logLedgerSaveFailure("collect-balance", { shopId: appt.shop_id, appointmentId: appt.id, paymentIntentId: piId }, saveError);
+  // A double tap charges once (same idempotency key → same payment); the save that
+  // lost the race resolves to the verified row the other one wrote.
+  const { error: unresolved } = await resolveDuplicateCharge(saveError, { shopId: appt.shop_id, appointmentId: appt.id, paymentIntentId: piId });
+  if (unresolved) await logLedgerSaveFailure("collect-balance", { shopId: appt.shop_id, appointmentId: appt.id, paymentIntentId: piId }, unresolved);
 
   await supabaseAdmin.from("appointments").update({ balance_due: 0 }).eq("id", appt.id).then(null, () => null);
 

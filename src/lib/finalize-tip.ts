@@ -37,7 +37,7 @@ export async function recordTipFromCheckout(args: {
   // Ledger row so the barber portal + analytics see the tip (source=completion,
   // so the owner feed de-dupes it against the appointment). amount is 0 — a tip
   // is pure tip, not service revenue.
-  await recordOnlinePaymentTx({
+  const saved = await recordOnlinePaymentTx({
     appointmentId,
     shopId,
     barberId: barberId || null,
@@ -47,6 +47,8 @@ export async function recordTipFromCheckout(args: {
     tipDollars,
     paymentIntentId,
   });
+  // The other path (webhook vs. customer return) recorded it at the same moment.
+  if (saved?.duplicate) return { recorded: false };
 
   // NOTE: we deliberately do NOT roll this tip into the appointment's tip_amount.
   // A post-visit tip is its OWN Stripe charge and is fully represented by the

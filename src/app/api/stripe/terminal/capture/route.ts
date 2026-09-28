@@ -95,6 +95,8 @@ export async function POST(req: NextRequest) {
     // the (already done) capture and records the sale once.
     const ins = await insertLedgerRow(fullRow, ["tax", "stripe_fee", "source"]);
     if (ins.error) return NextResponse.json({ error: ins.error.message }, { status: 500 });
+    // A concurrent capture of this payment saved it first (and adjusts inventory).
+    if (ins.duplicate) return NextResponse.json({ recorded: true, transactionId: ins.data.id });
 
     // Decrement inventory for any product line items in the sale.
     let products: { id: string; qty: number }[] = [];

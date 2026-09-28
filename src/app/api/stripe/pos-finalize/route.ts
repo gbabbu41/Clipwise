@@ -88,6 +88,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Couldn't record the sale. Please try again." }, { status: 500 });
     }
     const txRow = ins.data;
+    // A concurrent finalize of this session saved it first and runs the promo,
+    // loyalty, inventory, client and receipt steps — answer like the idempotency check.
+    if (ins.duplicate) {
+      return NextResponse.json({ paid: true, transactionId: txRow!.id, sale: { subtotal, tip, discount, total, tax, method: "card", client_name: m.client_name || "Walk-in", service_name: m.service_name || "Sale" } });
+    }
 
     // Consume the promo now that the sale is recorded — draws down uses_left +
     // records the redemption (once-per-customer). Only reached on a NEW insert
