@@ -4,6 +4,7 @@
 // owner/barber alerts ONLY on the real transition, so it can't double-notify.
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { logLedgerSaveFailure } from "@/lib/ledger-log";
+import { resolveDuplicateCharge } from "@/lib/ledger-insert";
 import { sendPaymentReceipt, notifyNoShowCharged } from "@/lib/payment-notify";
 import { stripeFeeCents } from "@/lib/stripe";
 import { runServerCompletionEffects } from "@/lib/completion-server";
@@ -59,18 +60,18 @@ export async function recordOnlinePaymentTx(args: {
   paymentIntentId: string | null;
   tipDollars?: number;        // tip collected (0 if none)
   taxDollars?: number;        // sales tax collected (0 if none)
-}): Promise<void> {
+}): Promise<{ id: string | null; duplicate: boolean } | null> {
   const { appointmentId, shopId, barberId, clientName, serviceName, amountDollars, paymentIntentId } = args;
   const tipDollars = Math.max(0, Number(args.tipDollars ?? 0));
   const taxDollars = Math.max(0, Number(args.taxDollars ?? 0));
-  if (!shopId || (amountDollars <= 0 && tipDollars <= 0)) return;
+  if (!shopId || (amountDollars <= 0 && tipDollars <= 0)) return null;
   // Dedup: prefer the PaymentIntent as the key (shared across return-route +
   // webhook); fall back to this appointment's existing row. If one is already
   // there, this is a no-op.
   const dupe = paymentIntentId
     ? await supabaseAdmin.from("transactions").select("id").eq("payment_intent_id", paymentIntentId).limit(1)
     : await supabaseAdmin.from("transactions").select("id").eq("appointment_id", appointmentId).eq("source", "completion").limit(1);
-  if ((dupe.data?.length ?? 0) > 0) return;
+  if ((dupe.data?.length ?? 0) > 0) return null;
   // Real Stripe processing fee for this card payment — stored so the shop's
   // Payments layer can show it (the shop bears the whole fee; the barber portal
   // never deducts it). Read from the charge's balance_transaction on the shop's
@@ -111,7 +112,11 @@ export async function recordOnlinePaymentTx(args: {
       }
     }
   } catch (e) { saveError = e; }
-  if (saveError) await logLedgerSaveFailure("recordOnlinePaymentTx", { shopId, appointmentId, paymentIntentId }, saveError);
+  // A concurrent save of the same charge won the race: its verified row is the record.
+  const { error, existing } = await resolveDuplicateCharge(saveError, { shopId, appointmentId, paymentIntentId });
+  if (existing) return { id: existing.id, duplicate: true };
+  if (error) { await logLedgerSaveFailure("recordOnlinePaymentTx", { shopId, appointmentId, paymentIntentId }, error); return null; }
+  return { id: null, duplicate: false };
 }
 
 /**

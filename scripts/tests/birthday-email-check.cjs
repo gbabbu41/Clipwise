@@ -28,6 +28,7 @@ const db = {
 };
 const mocks = {
   '@/lib/ledger-log': { logLedgerSaveFailure: async () => {} },
+  '@/lib/ledger-insert': { resolveDuplicateCharge: async error => ({ error, existing: null }) },
   '@/lib/supabase-admin': { supabaseAdmin: db }, './supabase-admin': { supabaseAdmin: db },
   '@/lib/emailer': { PRIVILEGED_EMAIL_TYPES: privilegedTypes, SERVER_ONLY_EMAIL_TYPES: serverOnlyTypes, sendAppEmail: async (type, data) => { sends.push({ type, data }); return { success: true }; } },
   '@/lib/validation': {}, '@/lib/plans-server': {}, '@/lib/rate-limit': { enforceRateLimit: () => null },

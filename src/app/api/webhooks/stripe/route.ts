@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import { confirmedStripeFee, stripe, stripeFeeCents } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { logLedgerSaveFailure } from "@/lib/ledger-log";
+import { resolveDuplicateCharge } from "@/lib/ledger-insert";
 import { sendPaymentReceipt, notifyNoShowCharged, notifyDuplicatePayment, notifyRefundIssued, notifyBalancePaid, notifyDispute } from "@/lib/payment-notify";
 import { recordOnlinePaymentTx } from "@/lib/finalize-appointment-payment";
 import { recordTipFromCheckout } from "@/lib/finalize-tip";
@@ -116,7 +117,14 @@ export async function POST(request: NextRequest) {
                 saveError = (await supabaseAdmin.from("transactions").insert({ ...base, amount: balService + balTax })).error;
               }
             } catch (e) { saveError = e; }
-            if (saveError) await logLedgerSaveFailure("webhook-balance", { shopId: session.metadata.shop_id, appointmentId: apptId, paymentIntentId: balPi }, saveError);
+            const balKey = { shopId: session.metadata.shop_id, appointmentId: apptId, paymentIntentId: balPi };
+            const { error: unresolved, existing: alreadySaved } = await resolveDuplicateCharge(saveError, balKey);
+            if (unresolved) await logLedgerSaveFailure("webhook-balance", balKey, unresolved);
+            if (alreadySaved) {
+              // A concurrent delivery recorded this balance and sends its alerts.
+              await supabaseAdmin.from("appointments").update({ balance_due: 0 }).eq("id", apptId).then(null, () => null);
+              break;
+            }
 
             // The balance link is usually paid when nobody's in the app, so the
             // money would otherwise land silently (no chime, no receipt, no owner

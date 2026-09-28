@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { stripe, stripeFeeCents, STRIPE_LIVE_MODE } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { logLedgerSaveFailure } from "@/lib/ledger-log";
+import { resolveDuplicateCharge } from "@/lib/ledger-insert";
 import { sendPaymentReceipt, notifyChargeFailed, notifyNoShowCharged } from "@/lib/payment-notify";
 import { isCheckoutAllowed, CHECKOUT_LEAD_HOURS } from "@/lib/utils";
 import { safeTz, todayInTz, nowMinutesInTz } from "@/lib/timezone";
@@ -312,7 +313,9 @@ export async function POST(request: NextRequest) {
           }
         }
       } catch (e) { saveError = e; }
-      if (saveError) await logLedgerSaveFailure("capture-appointment", { shopId: appt.shop_id, appointmentId: appointment_id, paymentIntentId: piId }, saveError);
+      // A racing request saved this same charge first: its verified row is the record.
+      const { error: unresolved } = await resolveDuplicateCharge(saveError, { shopId: appt.shop_id, appointmentId: appointment_id, paymentIntentId: piId });
+      if (unresolved) await logLedgerSaveFailure("capture-appointment", { shopId: appt.shop_id, appointmentId: appointment_id, paymentIntentId: piId }, unresolved);
     }
     await sendPaymentReceipt(baseUrl, {
       clientEmail: appt.client_email,

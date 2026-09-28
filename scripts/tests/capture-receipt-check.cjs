@@ -6,6 +6,7 @@ const shop = { owner_id: 'owner', name: 'Shop', email: 'owner@example.invalid', 
 const db = { auth: { getUser: async token => ({ data: { user: token === 'valid' ? { id: 'owner' } : null } }) }, from(table) { let patch; const q = { select() { return q; }, eq() { return q; }, in() { return q; }, limit() { return q; }, maybeSingle() { return q; }, update(value) { patch = value; writes.push({ table, value }); return q; }, insert(value) { patch = value; writes.push({ table, value }); return q; }, then(resolve, reject) { return Promise.resolve({ data: patch ? null : table === 'appointments' ? appt : table === 'shops' ? shop : table === 'services' ? { name: 'Cut' } : null, error: null }).then(resolve, reject); } }; return q; } };
 const mocks = {
   '@/lib/ledger-log': { logLedgerSaveFailure: async () => {} },
+  '@/lib/ledger-insert': { resolveDuplicateCharge: async error => ({ error, existing: null }) },
   '@/lib/supabase-admin': { supabaseAdmin: db },
   '@/lib/stripe': { STRIPE_LIVE_MODE: true, stripeFeeCents: async () => 100, stripe: { paymentIntents: { retrieve: async () => ({ amount_capturable: 11500 }), capture: async (...args) => { charges.push(args); return { id: 'pi_fixture', amount_received: 11500 }; } } } },
   '@/lib/payment-notify': { sendPaymentReceipt: async (...args) => { receipts.push(args); if (mode === 'held') await new Promise(resolve => { release = resolve; }); if (mode === 'throw') throw Error('receipt offline'); }, notifyChargeFailed: data => failures.push(data), notifyNoShowCharged: () => {} },
