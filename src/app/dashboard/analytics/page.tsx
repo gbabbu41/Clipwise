@@ -14,7 +14,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { effectivePlan, isPaidPlan } from "@/lib/validation";
 import { FeatureLock } from "@/components/dashboard/feature-lock";
 import { collectedTotals, countablePosTxs, isNoShowTx, isPaid, type RevAppt, type RevTx, type ByPi } from "@/lib/revenue";
-import { loadLinkedEvidence } from "@/lib/revenue-evidence";
+import { evidenceView, loadLinkedEvidence, type EvidenceSnapshot } from "@/lib/revenue-evidence";
 import { analyticsPeriod, analyticsRevenueBuckets, analyticsFeesKnown, timestampInPeriod, topServicesWithOther } from "@/lib/analytics-period";
 import { readAllRows } from "@/lib/read-all-rows";
 import { safeCommission } from "@/lib/barber-earnings";
@@ -158,20 +158,30 @@ export default function AnalyticsPage() {
   ), [revenueAppts, barberFilter, range]);
   // Linked-payment evidence for these bookings from any date (lookup only, never
   // counted) — same as the Dashboard, so headline + chart resolve each booking alike.
-  const [linkedEvidence, setLinkedEvidence] = useState<RevTx[]>([]);
+  // A failed read never silently falls back (see evidenceView): stale notice, or
+  // revenue figures unavailable when there's no valid result for this window.
+  const [evidenceGood, setEvidenceGood] = useState<EvidenceSnapshot | null>(null);
+  const [evidenceFailedKey, setEvidenceFailedKey] = useState<string | null>(null);
+  const [evidenceRetry, setEvidenceRetry] = useState(0);
   const evidenceKey = shop?.id ? `${shop.id}|${revenueApptsInRange.map(a => a.id).join(",")}` : "";
   useEffect(() => {
-    if (!evidenceKey || !shop?.id) { setLinkedEvidence([]); return; }
+    if (!evidenceKey || !shop?.id) return;
     let active = true;
-    loadLinkedEvidence(supabase, shop.id, revenueApptsInRange as RevAppt[]).then(rows => { if (active) setLinkedEvidence(rows); });
+    loadLinkedEvidence(supabase, shop.id, revenueApptsInRange as RevAppt[]).then(({ ok, rows }) => {
+      if (!active) return;
+      if (ok) { setEvidenceGood({ key: evidenceKey, rows }); setEvidenceFailedKey(null); }
+      else setEvidenceFailedKey(evidenceKey);
+    });
     return () => { active = false; };
-    // Keyed on shop + the window's booking ids; the list itself is derived state.
+    // Keyed on shop + the window's booking ids (+ Retry); the list itself is derived state.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [evidenceKey]);
+  }, [evidenceKey, evidenceRetry]);
+  const evidence = evidenceView(evidenceKey, evidenceGood, evidenceFailedKey);
+  const linkedEvidence = evidence.rows;
   const buckets = useMemo(() => analyticsRevenueBuckets(revenueApptsInRange, filteredTx as RevTx[], range, byPi, linkedEvidence), [revenueApptsInRange, filteredTx, range, byPi, linkedEvidence]);
   const revenueByDay = buckets.daily;
   const hourlyRevenue = buckets.hourly;
-  const dataReady = !loading && !loadError && loadedKey === dataKey;
+  const dataReady = !loading && !loadError && loadedKey === dataKey && !evidence.unavailable;
   const feesKnown = useMemo(() => analyticsFeesKnown(revenueApptsInRange, filteredTx as RevTx[], byPi), [revenueApptsInRange, filteredTx, byPi]);
 
   // KPIs — the money waterfall, all from the SAME shared calculator the Dashboard
@@ -355,8 +365,9 @@ export default function AnalyticsPage() {
       </div>
 
       {loadError && <Card><CardContent className="py-6"><p role="alert" className="text-sm text-grey">{loadError}</p><Button variant="outline" size="sm" className="mt-3" onClick={() => void loadData()}>Retry analytics</Button></CardContent></Card>}
+      {!loadError && (evidence.unavailable || evidence.stale) && <Card><CardContent className="py-6"><p role="alert" className="text-sm text-grey">{evidence.unavailable ? "Couldn\u2019t verify linked payment records — revenue figures are unavailable." : "Couldn\u2019t refresh linked payment records — revenue figures may be out of date."}</p><Button variant="outline" size="sm" className="mt-3" onClick={() => setEvidenceRetry(v => v + 1)}>Retry</Button></CardContent></Card>}
       {/* KPI Cards */}
-      {!dataReady && !loadError ? (
+      {!dataReady && !loadError && !evidence.unavailable ? (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)}
         </div>

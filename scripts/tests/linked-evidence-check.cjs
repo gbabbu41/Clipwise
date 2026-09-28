@@ -97,7 +97,7 @@ const zero = t => ['gross', 'net', 'fees', 'tax', 'tips', 'cash'].every(k => t[k
     } };
     const { loadLinkedEvidence } = load('src/lib/revenue-evidence.ts');
     const appts = Array.from({ length: 150 }, (_, i) => ({ id: `ap${i}`, payment_intent_id: i % 2 ? `pi${i}` : null }));
-    const rows = await loadLinkedEvidence(db, 'shop_A', appts);
+    const res = await loadLinkedEvidence(db, 'shop_A', appts);
     assert.equal(reads.length, 3, '150 ids → 2 chunks; 75 PIs → 1 chunk');
     for (const r of reads) {
       assert.equal(r.table, 'transactions');
@@ -105,11 +105,13 @@ const zero = t => ['gross', 'net', 'fees', 'tax', 'tips', 'cash'].every(k => t[k
       const inf = r.filters.find(f => f[0] === 'in');
       assert(['appointment_id', 'payment_intent_id'].includes(inf[1]) && inf[2].length <= 100);
     }
-    assert.equal(rows.length, 3);
+    assert.equal(res.ok, true); assert.equal(res.rows.length, 3);
     fail = true;
-    assert.deepEqual(await loadLinkedEvidence(db, 'shop_A', appts), [], 'failed read → window-only (as before)');
-    assert.deepEqual(await loadLinkedEvidence(db, null, appts), [], 'no shop → nothing loaded');
-    assert.deepEqual(await loadLinkedEvidence(db, 'shop_A', []), []);
+    assert.deepEqual(await loadLinkedEvidence(db, 'shop_A', appts), { ok: false, rows: [] }, 'failed read is reported, not hidden as "no evidence"');
+    assert.deepEqual(await loadLinkedEvidence(db, null, appts), { ok: false, rows: [] }, 'no shop → not verified');
+    assert.deepEqual(await loadLinkedEvidence(db, 'shop_A', []), { ok: true, rows: [] }, 'nothing to verify → ok');
+    const thrower = { from() { const q = { select() { return q; }, eq() { return q; }, in() { return q; }, then(_r, j) { return Promise.reject(new Error('offline')).then(null, j); } }; return q; } };
+    assert.deepEqual(await loadLinkedEvidence(thrower, 'shop_A', appts), { ok: false, rows: [] }, 'thrown read → not verified');
   }
   // 8. Barbers: no shop-transaction reads added for them.
   {
@@ -121,5 +123,27 @@ const zero = t => ['gross', 'net', 'fees', 'tax', 'tips', 'cash'].every(k => t[k
     const cron = fs.readFileSync(path.join(root, 'src/app/api/cron/reminders/route.ts'), 'utf8');
     assert(/loadLinkedEvidence\(supabaseAdmin, shop\.id,/.test(cron), 'weekly email evidence scoped to its shop');
   }
-  console.log('PASS linked evidence: midnight boundary, prepaid, separate tip + balance on other payment ids, never counted, shop-scoped chunked reads, chart = headline, barbers excluded');
+  // 9. Evidence-read FAILURE: never a silent recalculation without it.
+  {
+    const { evidenceView } = load('src/lib/revenue-evidence.ts');
+    const good = { key: 'shop_A|a1', rows: [{ id: 'r1' }] };
+    assert.deepEqual(evidenceView('shop_A|a1', good, null), { rows: good.rows, stale: false, unavailable: false }, 'verified');
+    assert.deepEqual(evidenceView('shop_A|a1', good, 'shop_A|a1'), { rows: good.rows, stale: true, unavailable: false }, 'reload failed → previous valid result, marked stale');
+    assert.deepEqual(evidenceView('shop_A|a1,a2', good, 'shop_A|a1,a2'), { rows: good.rows, stale: false, unavailable: true }, 'no valid result for this window → unavailable');
+    assert.deepEqual(evidenceView('shop_A|a1,a2', good, null), { rows: good.rows, stale: false, unavailable: false }, 'loading → previous same-shop rows');
+    assert.deepEqual(evidenceView('shop_B|b1', good, null).rows, [], "another shop's rows are never reused");
+    assert.deepEqual(evidenceView('shop_A|a1', null, 'shop_A|a1'), { rows: [], stale: false, unavailable: true }, 'first load failed → unavailable');
+    // The unverified recalculation that failure must NOT present as a figure (the midnight case):
+    const a = appt({ id: 'a9', total_amount: 74.75, tax_amount: 9.75, payment_intent_id: 'pi_9' });
+    assert.equal(cents(collectedTotals([a], [], undefined, null, evidenceView('shop_A|a9', null, 'shop_A|a9').rows).gross), 74.75, 'what would have shown without evidence');
+    // Wiring: each screen honours stale/unavailable with its existing error pattern.
+    const read = f => fs.readFileSync(path.join(root, f), 'utf8');
+    const dash = read('src/app/dashboard/page.tsx');
+    assert(/\{loadError \|\| evidence\.unavailable \? null :/.test(dash), 'Dashboard hides collected figures when unavailable');
+    assert(dash.includes('collected figures are unavailable') && dash.includes('collected figures may be out of date') && /setEvidenceRetry\(\(v\) => v \+ 1\)/.test(dash), 'Dashboard banner + Retry');
+    const an = read('src/app/dashboard/analytics/page.tsx');
+    assert(/const dataReady = [^;]*!evidence\.unavailable;/.test(an) && an.includes('revenue figures are unavailable') && an.includes('revenue figures may be out of date'), 'Analytics withholds / flags revenue figures');
+    assert(/collected: evidence\.ok \? [^:]+ : "Unavailable"/.test(read('src/app/api/cron/reminders/route.ts')), 'weekly email sends "Unavailable" instead of an unverified figure');
+  }
+  console.log('PASS linked evidence: evidence-read failure → stale or unavailable (never silent), midnight boundary, prepaid, separate tip + balance on other payment ids, never counted, shop-scoped chunked reads, chart = headline, barbers excluded');
 })().catch(e => { console.error(e); process.exitCode = 1; });

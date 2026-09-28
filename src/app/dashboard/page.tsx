@@ -34,7 +34,7 @@ import { useShopUnreadCount } from "@/hooks/use-unread-count";
 import { useAuth } from "@/lib/auth-context";
 import { isNativeApp } from "@/lib/native-app";
 import { collectedTotals, countablePosTxs, isNoShowTx, isPaid, type RevTx, type RevAppt, type ByPi } from "@/lib/revenue";
-import { loadLinkedEvidence } from "@/lib/revenue-evidence";
+import { evidenceView, loadLinkedEvidence, type EvidenceSnapshot } from "@/lib/revenue-evidence";
 import { safeCommission } from "@/lib/barber-earnings";
 import type { AppointmentWithDetails, Barber, Notification } from "@/lib/database.types";
 
@@ -532,16 +532,26 @@ export default function DashboardPage() {
   // each booking's collected gross resolves the same way regardless of window.
   // Lookup only (never counted as income). Owners only: barbers are redirected to
   // their own portal and load no shop transactions here, so none are fetched.
-  const [linkedEvidence, setLinkedEvidence] = useState<RevTx[]>([]);
+  // A failed read never silently falls back: the last good result stays with a
+  // stale notice, or — with none for this window — the figures show unavailable.
+  const [evidenceGood, setEvidenceGood] = useState<EvidenceSnapshot | null>(null);
+  const [evidenceFailedKey, setEvidenceFailedKey] = useState<string | null>(null);
+  const [evidenceRetry, setEvidenceRetry] = useState(0);
   const evidenceKey = shop?.id && profile?.role !== "barber" ? `${shop.id}|${revenueApptsInRange.map((a) => a.id).join(",")}` : "";
   useEffect(() => {
-    if (!evidenceKey || !shop?.id) { setLinkedEvidence([]); return; }
+    if (!evidenceKey || !shop?.id) return;
     let active = true;
-    loadLinkedEvidence(supabase, shop.id, revenueApptsInRange as RevAppt[]).then((rows) => { if (active) setLinkedEvidence(rows); });
+    loadLinkedEvidence(supabase, shop.id, revenueApptsInRange as RevAppt[]).then(({ ok, rows }) => {
+      if (!active) return;
+      if (ok) { setEvidenceGood({ key: evidenceKey, rows }); setEvidenceFailedKey(null); }
+      else setEvidenceFailedKey(evidenceKey);
+    });
     return () => { active = false; };
-    // Keyed on shop + the window's booking ids; the list itself is derived state.
+    // Keyed on shop + the window's booking ids (+ Retry); the list itself is derived state.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [evidenceKey]);
+  }, [evidenceKey, evidenceRetry]);
+  const evidence = evidenceView(evidenceKey, evidenceGood, evidenceFailedKey);
+  const linkedEvidence = evidence.rows;
   // The owner-barber's own chair: their tips are the owner's money (like their
   // 0-commission service), so collectedTotals splits them out and they're NOT
   // subtracted from net revenue. Identified by user_id === the shop owner.
@@ -765,8 +775,25 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {/* Linked payment records couldn't be verified: keep the last good figures with
+          a stale notice, or hide them (unavailable) rather than show an unverified
+          recalculation. Same banner + Retry pattern as the load-failure above. */}
+      {!loadError && (evidence.stale || evidence.unavailable) && (
+        <div role="alert" className="flex items-center justify-between gap-3 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 mb-2">
+          <p className="text-sm text-red-300">{evidence.unavailable
+            ? "Couldn\u2019t verify linked payment records — collected figures are unavailable."
+            : "Couldn\u2019t refresh linked payment records — collected figures may be out of date."}</p>
+          <button
+            onClick={() => setEvidenceRetry((v) => v + 1)}
+            className="text-xs font-semibold text-foreground bg-red-500/20 hover:bg-red-500/30 rounded-lg px-3 py-1.5 flex-shrink-0 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* Never label previous-period figures with the newly selected range. */}
-      {loadError ? null : (loadingAppts && !repFromCache) || loadedReportKey !== reportKey ? (
+      {loadError || evidence.unavailable ? null : (loadingAppts && !repFromCache) || loadedReportKey !== reportKey ? (
         <div className="mb-3"><Skeleton className="h-44 rounded-2xl" /></div>
       ) : (() => {
         // New Clients = distinct client RECORDS first created in the window (each

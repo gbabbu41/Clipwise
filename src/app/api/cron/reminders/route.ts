@@ -371,8 +371,9 @@ async function run() {
       if (completed > 0 || noShows > 0 || txCount > 0) {
         // Prepaid bookings were charged before this week — load their linked ledger
         // rows (same shop only) as evidence; the week's income window is unchanged.
+        // If that read fails the figure is sent as "Unavailable", never recomputed without it.
         const evidence = await loadLinkedEvidence(supabaseAdmin, shop.id, lastWeekAppts);
-        const totals = collectedTotals(lastWeekAppts, (lwTxs ?? []) as RevTx[], undefined, null, evidence);
+        const totals = collectedTotals(lastWeekAppts, (lwTxs ?? []) as RevTx[], undefined, null, evidence.rows);
         const { count: upcoming } = await supabaseAdmin.from("appointments")
           .select("id", { count: "exact", head: true })
           .eq("shop_id", shop.id).gte("date", today).lte("date", shiftYmd(today, 6)).in("status", ["pending", "confirmed"]);
@@ -385,7 +386,7 @@ async function run() {
           await sendEmail("owner_weekly_digest", {
             ownerEmail, shopName: shop.name,
             completed: String(completed), noShows: String(noShows),
-            collected: `$${totals.gross.toFixed(2)}`, upcoming: String(upcoming ?? 0),
+            collected: evidence.ok ? `$${totals.gross.toFixed(2)}` : "Unavailable", upcoming: String(upcoming ?? 0),
           });
           emails++; sends++;
         }
