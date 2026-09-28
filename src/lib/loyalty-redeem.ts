@@ -12,6 +12,22 @@ export const MIN_REDEEM_DOLLARS = 5;
 
 type LoyaltyCfg = { enabled?: boolean; redemption_rate?: number } | null | undefined;
 
+/** `%` and `_` are LIKE wildcards — escape them so an email only ever matches itself. */
+export const exactIlike = (v: string): string => v.replace(/[\\%_]/g, c => `\\${c}`);
+
+/**
+ * A points change that could not be saved. Logged to error_logs (ids only) so a
+ * balance never changes — or fails to — without a trace. Never throws.
+ */
+export async function logLoyaltyFailure(where: string, ids: { shopId?: string | null; clientId?: string | null; appointmentId?: string | null }, error: unknown): Promise<void> {
+  const reason = (error && typeof error === "object" && "message" in error ? String((error as { message: unknown }).message) : String(error ?? "unknown error")).slice(0, 200);
+  const message = `Loyalty points change failed (${where}): client ${ids.clientId ?? "n/a"}, appointment ${ids.appointmentId ?? "n/a"} — ${reason}`;
+  console.error("[loyalty]", message);
+  try {
+    await supabaseAdmin.from("error_logs").insert({ level: "error", source: "loyalty", message, path: where, shop_id: ids.shopId ?? null });
+  } catch { /* best-effort */ }
+}
+
 function loyaltyCfg(bookingSettings: unknown): LoyaltyCfg {
   return (bookingSettings as { loyalty?: LoyaltyCfg } | null)?.loyalty ?? null;
 }
@@ -21,7 +37,7 @@ async function findBalance(shopId: string, email?: string | null, phone?: string
   const e = (email ?? "").trim();
   const p = (phone ?? "").trim();
   if (e) {
-    const { data } = await supabaseAdmin.from("clients").select("id, loyalty_points").eq("shop_id", shopId).ilike("email", e).maybeSingle();
+    const { data } = await supabaseAdmin.from("clients").select("id, loyalty_points").eq("shop_id", shopId).ilike("email", exactIlike(e)).maybeSingle();
     if (data) return { id: data.id, points: Math.max(0, Number(data.loyalty_points ?? 0)) };
   }
   if (p) {
@@ -102,21 +118,34 @@ export async function redeemPointsForDiscount(opts: {
 }
 
 /**
- * Deduct redeemed points once the booking exists + logs the redemption. Deducts
- * min(balance, points) so it can never drive a balance negative. Best-effort:
- * a logging failure must never roll back a real booking. Idempotency is the
- * caller's (both booking paths de-dupe the appointment before calling this).
+ * Deduct redeemed points once the booking exists + log the redemption, in ONE
+ * database step (phase68 `loyalty_adjust`): the client row is locked, the
+ * deduction is capped at the real balance, and the ledger row carries the
+ * booking so a cancel / no-show gives the points back automatically (trigger).
+ * A booking's points are spent at most once, and never for a booking that was
+ * already cancelled. A failure is logged — never silently swallowed — and never
+ * rolls back a real booking or sale. Returns the points actually deducted.
  */
 export async function deductRedeemedPoints(opts: {
   shopId: string; email?: string | null; phone?: string | null; points: number; appointmentId?: string | null;
-}): Promise<void> {
-  if (!opts.points || opts.points <= 0) return;
+}): Promise<number> {
+  if (!opts.points || opts.points <= 0) return 0;
   const bal = await findBalance(opts.shopId, opts.email, opts.phone);
-  if (!bal) return;
-  const used = Math.min(bal.points, opts.points);
-  if (used <= 0) return;
-  await supabaseAdmin.from("clients").update({ loyalty_points: Math.max(0, bal.points - used) }).eq("id", bal.id);
-  await supabaseAdmin.from("loyalty_rewards")
-    .insert({ shop_id: opts.shopId, client_id: bal.id, points: -used, action: "redeemed" })
-    .then(null, () => null);
+  if (!bal) return 0;
+  const ids = { shopId: opts.shopId, clientId: bal.id, appointmentId: opts.appointmentId ?? null };
+  try {
+    const { data, error } = opts.appointmentId
+      ? await supabaseAdmin.rpc("loyalty_redeem_for_appointment", {
+          p_shop_id: opts.shopId, p_client_id: bal.id, p_points: Math.round(opts.points), p_appointment_id: opts.appointmentId,
+        })
+      : await supabaseAdmin.rpc("loyalty_adjust", {
+          p_shop_id: opts.shopId, p_client_id: bal.id, p_delta: -Math.round(opts.points), p_action: "redeemed",
+        });
+    if (error) { await logLoyaltyFailure("deductRedeemedPoints", ids, error); return 0; }
+    const row = Array.isArray(data) ? data[0] : data;
+    return opts.appointmentId ? Number(data ?? 0) : -Number((row as { applied?: number } | null)?.applied ?? 0);
+  } catch (e) {
+    await logLoyaltyFailure("deductRedeemedPoints", ids, e);
+    return 0;
+  }
 }

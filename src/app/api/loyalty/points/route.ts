@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
 import { ensurePlansHydrated } from "@/lib/plans-server";
+import { logLoyaltyFailure } from "@/lib/loyalty-redeem";
 
 export async function POST(request: NextRequest) {
   const token = request.headers.get("Authorization")?.replace("Bearer ", "");
@@ -39,20 +40,18 @@ export async function POST(request: NextRequest) {
     .from("clients").select("id, loyalty_points").eq("id", client_id).eq("shop_id", shop.id).single();
   if (!client) return NextResponse.json({ error: "Client not found" }, { status: 404 });
 
-  // Negative = redemption. Reject if the client doesn't have enough points.
-  if (points < 0 && client.loyalty_points + points < 0) {
-    return NextResponse.json({ error: "Not enough points to redeem" }, { status: 400 });
+  // Balance + ledger row in one locked step (phase68). A redemption is refused
+  // (not partially applied) when the balance is short — checked under the lock,
+  // so two staff redeeming at once can't overdraw it.
+  const { data, error } = await supabaseAdmin.rpc("loyalty_adjust", {
+    p_shop_id: shop.id, p_client_id: client_id, p_delta: Math.round(points),
+    p_action: points < 0 ? "redeemed" : "added", p_strict: true,
+  });
+  if (error) {
+    if ((error as { code?: string }).code === "22003") return NextResponse.json({ error: "Not enough points to redeem" }, { status: 400 });
+    await logLoyaltyFailure("loyalty/points", { shopId: shop.id, clientId: client_id }, error);
+    return NextResponse.json({ error: "Couldn't update points. Please try again." }, { status: 500 });
   }
-
-  const newTotal = Math.max(0, client.loyalty_points + points);
-  const { error } = await supabaseAdmin
-    .from("clients").update({ loyalty_points: newTotal }).eq("id", client_id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  // Audit log (best-effort) — 'redeemed' for deductions, 'added' for manual credits.
-  await supabaseAdmin.from("loyalty_rewards").insert({
-    shop_id: shop.id, client_id, points, action: points < 0 ? "redeemed" : "added",
-  }).then(null, () => null);
-
-  return NextResponse.json({ ok: true, loyalty_points: newTotal });
+  const row = (Array.isArray(data) ? data[0] : data) as { balance?: number } | null;
+  return NextResponse.json({ ok: true, loyalty_points: Number(row?.balance ?? client.loyalty_points) });
 }
