@@ -55,7 +55,7 @@ const lit = v => v === null || v === undefined ? 'NULL' : typeof v === 'number' 
 // tables are small in-memory fixtures. `insertGate` holds inserts until two are
 // pending, so both saves have passed their "already recorded?" checks before
 // either reaches the database: the worst-case interleaving, every time.
-let insertGate = null, fixtures, logs, notes;
+let insertGate = null, fixtures, logs, notes, failRefundSaves = 0;
 function gate() {
   if (!insertGate) return Promise.resolve();
   return new Promise(resolve => {
@@ -67,6 +67,7 @@ async function runTx(st) {
   const where = st.filters.length ? ` where ${st.filters.join(' and ')}` : '';
   if (st.op === 'insert') {
     await gate();
+    if (st.values.source === 'refund' && failRefundSaves > 0) { failRefundSaves--; return { data: null, error: { code: '08006', message: 'connection reset by peer' } }; }
     const cols = Object.keys(st.values);
     const r = await psql(['-c', `insert into public.transactions (${cols.join(', ')}) values (${cols.map(c => lit(st.values[c])).join(', ')}) returning json_build_object('id', id)`]);
     if (r.code !== 0) return { data: null, error: pgError(r.err) };
@@ -97,6 +98,7 @@ const db = { from(table) {
     then(resolve, reject) {
       const run = table === 'transactions' ? runTx(st) : Promise.resolve().then(() => {
         if (table === 'error_logs') { logs.push(st.values); return { data: null, error: null }; }
+        if (st.op === 'update' && fixtures[table] && typeof fixtures[table] === 'object') Object.assign(fixtures[table], st.values);
         if (st.op !== 'select') return { data: null, error: null };
         return { data: fixtures[table] ?? null, error: null };
       });
@@ -104,12 +106,12 @@ const db = { from(table) {
     },
   };
   return q;
-} };
+}, auth: { getUser: async () => ({ data: { user: { id: 'owner' } }, error: null }) } };
 const count = async (where = 'true') => Number((await psql(['-c', `select count(*) from public.transactions where ${where}`])).out);
 
 // Stripe: an idempotency key collapses repeats into ONE charge (as Stripe does);
 // capturing an already-captured payment is refused (as Stripe does).
-let charges, captures, piState;
+let charges, captures, piState, refunds;
 const stripe = {
   paymentIntents: {
     async create(params, opts) {
@@ -129,7 +131,7 @@ const stripe = {
 const SHOP = '11111111-1111-4111-8111-111111111111', OTHER_SHOP = '22222222-2222-4222-8222-222222222222';
 const APPT = '33333333-3333-4333-8333-333333333333', APPT_2 = '44444444-4444-4444-8444-444444444444';
 function reset() {
-  insertGate = null; logs = []; notes = []; charges = new Map(); captures = []; piState = {};
+  insertGate = null; logs = []; notes = []; charges = new Map(); captures = []; piState = {}; refunds = []; failRefundSaves = 0;
   fixtures = {
     shops: { id: SHOP, owner_id: 'owner', stripe_account_id: 'acct_shop', stripe_connected: true, name: 'Shop' },
     services: { name: 'Skin Fade' },
@@ -138,7 +140,13 @@ function reset() {
 const mocks = {
   '@/lib/supabase-admin': { supabaseAdmin: db },
   '@/lib/stripe': { stripe, stripeFeeCents: async () => 164, STRIPE_LIVE_MODE: false },
-  '@/lib/payment-notify': { sendPaymentReceipt: async () => {}, notifyNoShowCharged: async () => {} },
+  '@/lib/payment-notify': { sendPaymentReceipt: async () => {}, notifyNoShowCharged: async () => {}, notifyRefundIssued: () => { notes.push('refund'); } },
+  // Stripe refunds: an idempotency key replays the same refund, never a second one.
+  '@/lib/stripe-refund': {
+    isAlreadyRefunded: () => false,
+    refundOrReleaseHold: async (pi, acct, key) => { if (!refunds.some(r => r.key === key)) refunds.push({ pi, key }); return { released: false, refundedCents: 4025 }; },
+  },
+  '@/lib/waitlist-notify-server': { notifyWaitlistForSlot: async () => {} },
   '@/lib/completion-server': { runServerCompletionEffects: async () => {} },
   '@/lib/emailer': { sendAppEmail: async () => {} },
   '@/lib/pricing': {},
@@ -282,8 +290,80 @@ const post = body => new NextRequest('https://clipwise.ca/api', { method: 'POST'
     const hook = src('src/app/api/webhooks/stripe/route.ts');
     assert(hook.indexOf('if (alreadySaved)') < hook.indexOf('notifyBalancePaid('), 'webhook balance duplicate skips repeat alerts');
 
+    // 8. Refund records (#18): saved with an allowed type, one per charge even
+    //    under repeated/concurrent delivery, failures visible, never a second
+    //    refund, the original sale and phase67 untouched, reports unchanged.
+    const { recordRefundLedger, refundRecordId } = load('src/lib/refund-ledger.ts', mocks);
+    const APPT_R = '55555555-5555-4555-8555-555555555555';
+    const saleSql = (pi, appt) => `insert into public.transactions (shop_id, appointment_id, amount, tax, tip, commission_amount, stripe_fee, payment_method, source, payment_intent_id) values ('${SHOP}', '${appt}', 35, 5.25, 0, 17.5, 1.64, 'card', 'completion', '${pi}')`;
+    const saleRow = async pi => JSON.parse((await psql(['-c', `select row_to_json(t) from public.transactions t where payment_intent_id = '${pi}' and source = 'completion'`])).out);
+    const refundRows = async pi => JSON.parse((await psql(['-c', `select coalesce(json_agg(t), '[]') from public.transactions t where payment_intent_id = '${pi}' and source = 'refund'`])).out);
+    const refundArgs = pi => ({ shopId: SHOP, barberId: null, clientName: 'Jane Secret', serviceName: 'Skin Fade', refundedCents: 4025, taxCents: 525, tipCents: 0, appointmentId: APPT_R, paymentIntentId: pi });
+    reset();
+    assert.equal((await psql(['-c', saleSql('pi_ref', APPT_R)])).code, 0);
+    const saleBefore = await saleRow('pi_ref');
+    assert.equal(await recordRefundLedger(refundArgs('pi_ref')), 'recorded', 'saves under prod type CHECK');
+    let [rec] = await refundRows('pi_ref');
+    assert.equal(rec.id, refundRecordId('pi_ref'));
+    assert.deepEqual([rec.type, rec.source, rec.refunded, Number(rec.amount), Number(rec.tax), Number(rec.tip), Number(rec.stripe_fee)], ['service', 'refund', true, -35, -5.25, 0, 0]);
+    assert.equal(await recordRefundLedger(refundArgs('pi_ref')), 'already', 'repeated delivery');
+    assert.equal((await refundRows('pi_ref')).length, 1);
+    assert.deepEqual(await saleRow('pi_ref'), saleBefore, 'original charge, amount, tax, commission untouched');
+    assert.equal(pgError((await psql(['-c', saleSql('pi_ref', APPT_R)])).err).code, '23505', 'phase67 still protects the sale');
+    assert.equal(logs.length, 0);
+
+    // Concurrent delivery (refund route + charge.refunded webhook at the same moment).
+    insertGate = [];
+    const race = await Promise.all([recordRefundLedger(refundArgs('pi_ref2')), recordRefundLedger(refundArgs('pi_ref2'))]);
+    assert.deepEqual(race.sort(), ['already', 'recorded']);
+    assert.equal((await refundRows('pi_ref2')).length, 1, 'one refund record');
+    assert.equal(logs.length, 0, 'a resolved race is not an error');
+
+    // A failed save is visible (ids only), and re-saving it records once.
+    failRefundSaves = 1;
+    assert.equal(await recordRefundLedger(refundArgs('pi_ref3')), 'failed');
+    assert.equal(logs.length, 1); assert.equal(logs[0].path, 'refund-ledger');
+    assert(logs[0].message.includes('pi_ref3') && !logs[0].message.includes('Jane') && !logs[0].message.includes('40.25'));
+    assert.equal((await refundRows('pi_ref3')).length, 0);
+    assert.equal(await recordRefundLedger(refundArgs('pi_ref3')), 'recorded');
+    assert.equal((await refundRows('pi_ref3')).length, 1);
+    assert.equal(refunds.length, 0, 'saving a refund record never refunds');
+
+    // Through the real refund route: the record save fails → logged; the owner's
+    // retry is blocked before Stripe; the webhook's re-save records it once.
+    const { POST: refundPayment } = load('src/app/api/stripe/refund-payment/route.ts', mocks);
+    reset();
+    assert.equal((await psql(['-c', saleSql('pi_route', APPT_R)])).code, 0);
+    fixtures.appointments = { id: APPT_R, shop_id: SHOP, barber_id: null, client_name: 'C', client_email: null, total_amount: 40.25, tax_amount: 5.25, tip_amount: 0, payment_intent_id: 'pi_route', payment_status: 'paid', status: 'completed', services: { name: 'Skin Fade' }, date: '2026-09-27' };
+    const refundReq = () => new NextRequest('https://clipwise.ca/api', { method: 'POST', headers: { Authorization: 'Bearer t' }, body: JSON.stringify({ appointment_id: APPT_R }) });
+    failRefundSaves = 1;
+    const firstRefund = await refundPayment(refundReq());
+    assert.equal(firstRefund.status, 200);
+    assert.equal(refunds.length, 1, 'refunded once');
+    assert.equal((await saleRow('pi_route')).refunded, true, 'sale flagged refunded');
+    assert.equal((await refundRows('pi_route')).length, 0); assert.equal(logs.length, 1, 'failed record save visible');
+    const retry = await refundPayment(refundReq());
+    assert.equal(retry.status, 400); assert.equal(refunds.length, 1, 'retry cannot refund again');
+    assert.equal(await recordRefundLedger({ ...refundArgs('pi_route'), clientName: 'C' }), 'recorded', 'webhook re-save');
+    assert.equal((await refundRows('pi_route')).length, 1); assert.equal(refunds.length, 1);
+    const hookSrc = fs.readFileSync(path.join(root, 'src/app/api/webhooks/stripe/route.ts'), 'utf8');
+    assert(/\.eq\("payment_intent_id", pi\)\.neq\("source", "refund"\)\.limit\(1\)\.maybeSingle\(\);\s*if \(rtx\?\.shop_id\)[\s\S]{0,900}recordRefundLedger\(/.test(hookSrc), 'charge.refunded re-saves from the sale row');
+
+    // Reports: a refund record changes no figure (refunded sale already excluded).
+    const revenue = load('src/lib/revenue.ts', mocks);
+    const sale = await saleRow('pi_route');
+    const [refundRec] = await refundRows('pi_route');
+    const apptR = { id: APPT_R, client_name: 'C', total_amount: 40.25, tax_amount: 5.25, tip_amount: 0, gift_applied: 0, balance_due: null, payment_status: 'refunded', payment_method: 'card', payment_intent_id: 'pi_route', status: 'completed' };
+    const num = r => ({ ...r, amount: Number(r.amount), tax: Number(r.tax), tip: Number(r.tip), stripe_fee: Number(r.stripe_fee) });
+    const without = revenue.collectedTotals([apptR], [num(sale)]), withRec = revenue.collectedTotals([apptR], [num(sale), num(refundRec)]);
+    for (const k of ['gross', 'tax', 'tips', 'cash', 'card']) assert.equal(withRec[k], without[k], `${k} unchanged`);
+    assert.equal(revenue.countablePosTxs([apptR], [num(refundRec)]).length, 0, 'never a POS line / commission');
+    for (const f of ['src/app/api/admin/shops/route.ts', 'src/app/api/admin/shops/[id]/route.ts']) {
+      assert(fs.readFileSync(path.join(root, f), 'utf8').includes('.or("source.is.null,source.neq.refund")'), `${f}: GMV excludes refund records`);
+    }
+
     const version = (await psql(['-c', 'show server_version'])).out;
-    console.log(`PASS duplicate charge (real PostgreSQL ${version} + phase67): overlapping saves → one row, loser gets the verified row, one Stripe charge/capture, one alert; refunds/cash/legacy allowed, cross-shop rejected, other errors visible; all card writers wired`);
+    console.log(`PASS duplicate charge (real PostgreSQL ${version} + phase67): overlapping saves → one row, loser gets the verified row, one Stripe charge/capture, one alert; refunds/cash/legacy allowed, cross-shop rejected, other errors visible; all card writers wired; refund records (#18) save, one per charge under repeat/concurrent delivery, failures visible, no second refund, reports unchanged`);
   } finally {
     const [ctlCmd, ctlArgs] = pgCmd('pg_ctl', ['-D', path.join(dir, 'data'), '-m', 'immediate', 'stop']);
     try { execFileSync(ctlCmd, ctlArgs, { stdio: 'ignore' }); } catch { /* not started */ }
