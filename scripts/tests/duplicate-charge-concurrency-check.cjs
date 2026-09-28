@@ -196,6 +196,23 @@ const post = body => new NextRequest('https://clipwise.ca/api', { method: 'POST'
     assert.equal((await psql(['-c', `insert into public.transactions (shop_id, amount, payment_method, payment_intent_id) values ('${SHOP}', 20, 'card', 'pi_legacy')`])).code, 0);
     assert.equal(pgError((await psql(['-c', `insert into public.transactions (shop_id, amount, payment_method, payment_intent_id) values ('${SHOP}', 20, 'card', 'pi_legacy')`])).err).code, '23505');
 
+    // Refund exclusion, existing refunded sales: prod's 11 are one row per charge
+    // with refunded = true (completion / no-show). Flagging a sale refunded never
+    // conflicts, and a refunded sale is still one charge (a second copy is rejected).
+    assert.equal((await psql(['-c', `insert into public.transactions (shop_id, amount, payment_method, source, payment_intent_id) values ('${SHOP}', 30, 'card', 'no_show', 'pi_refunded_sale')`])).code, 0);
+    assert.equal((await psql(['-c', `update public.transactions set refunded = true where payment_intent_id = 'pi_refunded_sale' and source <> 'refund'`])).code, 0);
+    assert.equal(pgError((await psql(['-c', `insert into public.transactions (shop_id, amount, payment_method, source, refunded, payment_intent_id) values ('${SHOP}', 30, 'card', 'no_show', true, 'pi_refunded_sale')`])).err).code, '23505');
+    // Future refund records: several audit rows for one charge (a refund, then a
+    // lost dispute) sit beside the refunded sale; the rule never blocks them.
+    for (let i = 0; i < 2; i++) {
+      assert.equal((await psql(['-c', `insert into public.transactions (shop_id, amount, payment_method, source, refunded, payment_intent_id) values ('${SHOP}', -30, 'card', 'refund', true, 'pi_refunded_sale')`])).code, 0);
+    }
+    assert.equal(await count(`payment_intent_id = 'pi_refunded_sale'`), 3);
+    // The exact row src/lib/refund-ledger.ts writes today (type 'refund') is
+    // rejected by prod's EXISTING type CHECK (23514) — a separate, pre-existing
+    // refund issue — never by this rule (23505).
+    assert.equal(pgError((await psql(['-c', `insert into public.transactions (shop_id, amount, tip, tax, payment_method, type, source, refunded, stripe_fee, payment_intent_id) values ('${SHOP}', -30, 0, 0, 'card', 'refund', 'refund', true, 0, 'pi_refunded_sale')`])).err).code, '23514');
+
     // 2. Online booking payment: webhook + customer return save at the same moment.
     const { recordOnlinePaymentTx } = load('src/lib/finalize-appointment-payment.ts', mocks);
     reset(); insertGate = [];
@@ -265,7 +282,8 @@ const post = body => new NextRequest('https://clipwise.ca/api', { method: 'POST'
     const hook = src('src/app/api/webhooks/stripe/route.ts');
     assert(hook.indexOf('if (alreadySaved)') < hook.indexOf('notifyBalancePaid('), 'webhook balance duplicate skips repeat alerts');
 
-    console.log('PASS duplicate charge (real Postgres + phase67): overlapping saves → one row, loser gets the verified row, one Stripe charge/capture, one alert; refunds/cash/legacy allowed, cross-shop rejected, other errors visible; all card writers wired');
+    const version = (await psql(['-c', 'show server_version'])).out;
+    console.log(`PASS duplicate charge (real PostgreSQL ${version} + phase67): overlapping saves → one row, loser gets the verified row, one Stripe charge/capture, one alert; refunds/cash/legacy allowed, cross-shop rejected, other errors visible; all card writers wired`);
   } finally {
     const [ctlCmd, ctlArgs] = pgCmd('pg_ctl', ['-D', path.join(dir, 'data'), '-m', 'immediate', 'stop']);
     try { execFileSync(ctlCmd, ctlArgs, { stdio: 'ignore' }); } catch { /* not started */ }
