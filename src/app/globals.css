@@ -1412,27 +1412,32 @@ textarea.form-control { min-height: 5rem; resize: vertical; }
      registers. */
   touch-action: manipulation;
 }
-/* Liquid-glass treatment (iOS-style): heavy blur + saturation for the frosted
-   refraction, plus a bright inset hairline along the top edge so the bar catches
-   light like the modern glass tab bars. Only where the browser can actually blur. */
+.cw-shop-switcher-menu {
+  background: var(--surface);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
+}
+/* Restrained glass finish for the shared owner/barber bottom nav and shop menu.
+   Keep the opaque surface fallback above for browsers without backdrop filtering. */
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .cw-bnav {
-    /* A faint top-down sheen layered OVER the translucent tint reads as light
-       travelling through the glass; the heavy blur + saturation keeps content
-       legible even though the tint is now quite see-through. */
+  .cw-bnav,
+  .cw-shop-switcher-menu {
     background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0) 45%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0) 48%),
       var(--nav-glass);
-    /* 20px + light saturation reads the same as the old 34px/1.9 on a phone but
-       is far cheaper to recompute every scroll frame (the old value janked iOS). */
-    backdrop-filter: blur(20px) saturate(1.4);
-    -webkit-backdrop-filter: blur(20px) saturate(1.4);
-    /* Refractive rim + depth: a bright top lip, a faint all-round inner edge and a
-       soft inner base shadow, on top of the outer float shadow — the glass "solidity"
-       that makes the transparency read as a pane, not just a faded bar. */
+    backdrop-filter: blur(18px) saturate(1.25);
+    -webkit-backdrop-filter: blur(18px) saturate(1.25);
+  }
+  .cw-bnav {
+    border-color: color-mix(in srgb, var(--foreground) 16%, transparent);
     box-shadow:
       0 14px 38px rgba(0, 0, 0, 0.32),
-      inset 0 1px 0 rgba(255, 255, 255, 0.20);
+      inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  }
+  .cw-shop-switcher-menu {
+    border-color: color-mix(in srgb, var(--foreground) 14%, transparent);
+    box-shadow:
+      0 12px 30px rgba(0, 0, 0, 0.22),
+      inset 0 1px 0 rgba(255, 255, 255, 0.14);
   }
 }
 /* Each tab centers one icon; the icon wrapper is both the tap target and the pill. */

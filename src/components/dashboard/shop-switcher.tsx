@@ -41,7 +41,7 @@ export function ShopSwitcher({ shop, shops, setActiveShop }: Props) {
         <ChevronDown size={15} className="text-grey flex-shrink-0" />
       </button>
       {open && (
-        <div className="absolute left-3 right-3 top-full mt-1 z-50 bg-surface border border-border rounded-xl shadow-xl overflow-hidden">
+        <div className="cw-shop-switcher-menu absolute left-3 right-3 top-full mt-1 z-50 border border-border rounded-xl overflow-hidden">
           {shops.map(s => (
             <button
               key={s.id}
