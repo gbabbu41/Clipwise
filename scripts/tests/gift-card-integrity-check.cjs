@@ -181,7 +181,37 @@ const { psql, stop } = startPg();
       assert(!/from\("gift_cards"\)\.update\(\{[^}]*remaining_value/.test(src(f)), `${f}: no read-modify-write of a card balance`);
     }
 
+    // 10. Issuing a card by hand: a complimentary ("free") card is never income —
+    //     no sale row, owner-only; a cash card still records the real cash sale.
+    {
+      const { NextRequest } = req('next/server');
+      let inserts, authOpts;
+      const fake = { from(table) { const q = { select() { return q; }, eq() { return q; }, maybeSingle() { return q; },
+        insert(v) { inserts.push({ table, v }); return q; },
+        then(res, rej) { return Promise.resolve(table === 'shops' ? { data: { id: SHOP, name: 'Shop', slug: 's', email: '', subscription_plan: 'pro', subscription_status: 'active' }, error: null } : { data: null, error: null }).then(res, rej); } }; return q; } };
+      const { POST: issue } = load('src/app/api/gift-card/issue-cash/route.ts', {
+        '@/lib/supabase-admin': { supabaseAdmin: fake },
+        '@/lib/api-auth': { authorizeShop: async (_r, _s, opts) => { authOpts = opts; return opts?.ownerOnly && staffCaller ? { error: new Response(null, { status: 403 }) } : { shop: { id: SHOP } }; } },
+        '@/lib/validation': { effectivePlan: p => p, planHasFeature: () => true },
+        '@/lib/plans-server': { ensurePlansHydrated: async () => {} },
+        '@/lib/gift-card-server': { generateGiftCode: () => 'FREE-CODE-1', sendGiftCardEmails: async () => {} },
+      });
+      let staffCaller = false;
+      const call = body => issue(new NextRequest('https://clipwise.ca/api', { method: 'POST', body: JSON.stringify({ shop_id: SHOP, amount: 50, ...body }) }));
+      inserts = []; assert.equal((await call({ mode: 'free', note: 'Apology' })).status, 200);
+      assert.deepEqual(inserts.map(i => i.table), ['gift_cards'], 'free card: no income row');
+      assert.equal(inserts[0].v.note, 'Complimentary — Apology');
+      assert.equal(authOpts?.ownerOnly, true, 'free cards are owner-only');
+      staffCaller = true; inserts = []; assert.equal((await call({ mode: 'free' })).status, 403); assert.equal(inserts.length, 0);
+      staffCaller = false; inserts = []; assert.equal((await call({ mode: 'cash' })).status, 200);
+      assert.deepEqual(inserts.map(i => i.table), ['gift_cards', 'transactions'], 'cash card records the real sale');
+      assert.equal(inserts[1].v.source, 'gift_card_sale'); assert.equal(inserts[1].v.amount, 50);
+      inserts = []; assert.equal((await call({ mode: 'comp' })).status, 400); assert.equal(inserts.length, 0);
+      const page = src('src/app/dashboard/gift-cards/page.tsx');
+      assert(/payment_method: "" \};/.test(page) && page.includes('Choose how this card is paid for'), 'no default payment — must choose');
+    }
+
     const version = await one('show server_version');
-    console.log(`PASS gift-card integrity (real PostgreSQL ${version} + phase69): cancel gives value back once, reinstate re-spends, no-show keeps it, all-or-nothing, no spend on cancelled/other-shop/deactivated cards, never above original value, booking + POS races can't double-spend, cancel/redeem races lose nothing, failures logged, server-only, balance == value + ledger, app wiring`);
+    console.log(`PASS gift-card integrity (real PostgreSQL ${version} + phase69): cancel gives value back once, reinstate re-spends, no-show keeps it, all-or-nothing, no spend on cancelled/other-shop/deactivated cards, never above original value, booking + POS races can't double-spend, cancel/redeem races lose nothing, failures logged, server-only, balance == value + ledger, app wiring, free cards are never income`);
   } finally { stop(); }
 })().catch(e => { console.error(e); process.exitCode = 1; });
