@@ -10,7 +10,7 @@ import { notifyNewBookingStaff } from "@/lib/notify-staff-server";
 import { timeToMinutes, prettyDate } from "@/lib/utils";
 import { fetchValidPromo, consumePromo } from "@/lib/promo";
 import { deductRedeemedPoints } from "@/lib/loyalty-redeem";
-import { redeemGift } from "@/lib/gift-redeem";
+import { logGiftFailure, redeemGiftForBooking } from "@/lib/gift-redeem";
 import { ensureClientRow } from "@/lib/ensure-client";
 import { recordBookingConsent } from "@/lib/consent";
 import { sendAppEmail } from "@/lib/emailer";
@@ -248,9 +248,18 @@ export async function finalizeBookingFromSession(params: {
   }
 
   // Draw down a gift card applied to this booking (the discount was already
-  // taken off the Stripe charge). Runs once via the dedup guard. Best-effort.
+  // taken off the Stripe charge). Recorded against the booking (phase69), so a
+  // cancel gives it back and a repeat finalize can't spend it twice. If the card
+  // no longer covers what was promised, the shortfall is logged — never silent.
   if (Number(m.gift_applied ?? 0) > 0 && m.gift_code) {
-    await redeemGift(m.shop_id, m.gift_code, Number(m.gift_applied));
+    const want = Number(m.gift_applied);
+    const gift = await redeemGiftForBooking({ shopId: m.shop_id, code: m.gift_code, amount: want, appointmentId: appt.id });
+    if (gift.applied < want - 0.001) {
+      const { data: already } = await supabaseAdmin.from("gift_card_ledger")
+        .select("id").eq("appointment_id", appt.id).eq("action", "redeemed").maybeSingle();
+      if (!already) await logGiftFailure("finalize-booking-session", { shopId: m.shop_id, appointmentId: appt.id },
+        `gift card covered $${gift.applied.toFixed(2)} of the $${want.toFixed(2)} applied at checkout`);
+    }
   }
 
   const { data: shopRow } = await supabaseAdmin.from("shops").select("owner_id, name, email, slug, subscription_plan, subscription_status, booking_settings").eq("id", m.shop_id).single();

@@ -11,7 +11,7 @@ import { isBookingInPast, isBeyondAdvanceWindow } from "@/lib/timezone";
 import { effectivePlan, planHasFeature, isPaidPlan, clampLen, FIELD_CAPS } from "@/lib/validation";
 import { ensurePlansHydrated } from "@/lib/plans-server";
 import { computeRedemption, deductRedeemedPoints } from "@/lib/loyalty-redeem";
-import { redeemGift, findRedeemableGift } from "@/lib/gift-redeem";
+import { redeemGiftForBooking, findRedeemableGift } from "@/lib/gift-redeem";
 import { taxCents, combinedTaxRate, type TaxConfig } from "@/lib/pricing";
 import { ensureClientRow } from "@/lib/ensure-client";
 import { recordBookingConsent, clientIpFrom } from "@/lib/consent";
@@ -331,6 +331,36 @@ export async function POST(request: NextRequest) {
       .update({ tax_amount: inPersonTax }).eq("id", inserted.data.id).then(null, () => null);
   }
 
+  // Gift card that covers this online-intent booking (routed here as a $0 Stripe
+  // booking). Paid FIRST — before any promo / points are spent — in one locked
+  // step that records the spend against this booking (phase69: cancelling it
+  // gives the value back). All-or-nothing: if the card no longer covers the
+  // gross (balance changed, card spent elsewhere), the booking is removed and the
+  // customer told — never left "confirmed" but silently unpaid.
+  let giftPaid: { applied: number; remaining: number | null; gross: number } | null = null;
+  if (b.gift_code && effectiveTotal > 0) {
+    const bs = (shop.booking_settings ?? {}) as TaxConfig;
+    const taxAmt = taxCents(Math.round(effectiveTotal * 100), isPaidPlan(plan) ? combinedTaxRate(bs) : 0) / 100;
+    const gross = Math.round((effectiveTotal + taxAmt) * 100) / 100;
+    const gift = await redeemGiftForBooking({ shopId: b.shop_id, code: b.gift_code, amount: gross, appointmentId: inserted.data.id, requireFull: true });
+    if (gift.applied < gross - 0.001) {
+      await supabaseAdmin.from("appointments").delete().eq("id", inserted.data.id);
+      return NextResponse.json({ error: "Your gift card no longer covers this booking. Please check its balance and try again." }, { status: 409 });
+    }
+    // payment_status is plain text and total_amount always exists, so set those
+    // together (must stick); the rest are best-effort follow-ups for lagging columns.
+    await supabaseAdmin.from("appointments")
+      .update({ total_amount: gross, payment_status: "paid" }).eq("id", inserted.data.id);
+    await supabaseAdmin.from("appointments")
+      .update({ tax_amount: taxAmt, paid_at: new Date().toISOString() }).eq("id", inserted.data.id).then(null, () => null);
+    await supabaseAdmin.from("appointments")
+      .update({ payment_method: "gift_card" }).eq("id", inserted.data.id).then(null, () => null);
+    // How much gift value paid for it, so revenue counts it once (at sale), not again here.
+    await supabaseAdmin.from("appointments")
+      .update({ gift_applied: gift.applied }).eq("id", inserted.data.id).then(null, () => null);
+    giftPaid = { applied: gift.applied, remaining: gift.balance, gross };
+  }
+
   // Consume the promo now that the appointment exists (draws down the cap +
   // records the redemption so this customer can't reuse it). Best-effort.
   if (validPromo) {
@@ -369,34 +399,6 @@ export async function POST(request: NextRequest) {
       userAgent: request.headers.get("user-agent"),
       source: "booking_form",
     });
-  }
-
-  // Gift card that covers this online-intent booking (routed here as a $0 Stripe
-  // booking): store the GROSS (service + tax, like the online path), draw the
-  // card down by the gross, and mark it PAID by gift card. payment_status is
-  // plain text and total_amount always exists, so set those together (must
-  // stick); tax_amount/paid_at and the CHECK-constrained payment_method go in
-  // best-effort follow-ups (payment_method needs the phase37 migration).
-  if (b.gift_code && effectiveTotal > 0) {
-    const bs = (shop.booking_settings ?? {}) as TaxConfig;
-    const taxAmt = taxCents(Math.round(effectiveTotal * 100), isPaidPlan(plan) ? combinedTaxRate(bs) : 0) / 100;
-    const gross = Math.round((effectiveTotal + taxAmt) * 100) / 100;
-    // All-or-nothing: never draw a partial amount that leaves the booking unpaid.
-    const applied = await redeemGift(b.shop_id, b.gift_code, gross, { requireFull: true });
-    if (applied >= gross - 0.001) {
-      await supabaseAdmin.from("appointments")
-        .update({ total_amount: gross, payment_status: "paid" }).eq("id", inserted.data.id);
-      await supabaseAdmin.from("appointments")
-        .update({ tax_amount: taxAmt, paid_at: new Date().toISOString() }).eq("id", inserted.data.id).then(null, () => null);
-      await supabaseAdmin.from("appointments")
-        .update({ payment_method: "gift_card" }).eq("id", inserted.data.id).then(null, () => null);
-    }
-    // Record how much gift value was applied so revenue counts it once (at sale),
-    // not again here. Best-effort (phase50 column) — safe to skip if it lags.
-    if (applied > 0) {
-      await supabaseAdmin.from("appointments")
-        .update({ gift_applied: applied }).eq("id", inserted.data.id).then(null, () => null);
-    }
   }
 
   // Alert the shop SERVER-SIDE — in-app notifications for the owner + assigned
@@ -444,5 +446,8 @@ export async function POST(request: NextRequest) {
     id: inserted.data.id,
     status: inserted.data.status,
     barber_id: inserted.data.barber_id,
+    // What the customer actually paid when a gift card covered it (incl. tax), so
+    // the confirmation shows the real total and what's left on the card.
+    ...(giftPaid ? { paid_with_gift: true, total: giftPaid.gross, gift_applied: giftPaid.applied, gift_remaining: giftPaid.remaining } : {}),
   });
 }

@@ -21,35 +21,63 @@ export async function findRedeemableGift(shopId: string, code?: string | null): 
 }
 
 /**
- * Draw down a gift card by `applyDollars`, capped at its LIVE balance (re-read
- * so a stale amount can never overdraw it). Returns the amount actually applied.
- * Best-effort: called after the booking exists, once (both booking paths de-dupe
- * the appointment), so it can't double-spend.
+ * A gift-card change that could not be saved. Logged to error_logs (ids only) so
+ * stored money never moves — or fails to — without a trace. Never throws.
  */
-export async function redeemGift(shopId: string, code: string, applyDollars: number, opts?: { requireFull?: boolean }): Promise<number> {
-  const want = Math.max(0, Math.round(applyDollars * 100) / 100);
-  // Compare-and-swap draw-down: the balance write only applies if the balance is
-  // STILL what we read (`.eq("remaining_value", gift.balance)`). If two bookings
-  // redeem the same code at the same instant, only one write lands; the other
-  // matches 0 rows and retries against the fresh balance — so a $50 card can
-  // never take $50 off two bookings. A few retries cover realistic contention.
-  for (let attempt = 0; attempt < 4; attempt++) {
-    const gift = await findRedeemableGift(shopId, code);
-    if (!gift) return 0;
-    // All-or-nothing: when the caller needs the WHOLE bill covered, never draw a
-    // partial amount (that spends gift value but leaves the booking unpaid).
-    if (opts?.requireFull && gift.balance < want - 0.001) return 0;
-    const applied = Math.min(gift.balance, want);
-    if (applied <= 0) return 0;
-    const newBalance = Math.round((gift.balance - applied) * 100) / 100;
-    const { data, error } = await supabaseAdmin.from("gift_cards").update({
-      remaining_value: newBalance,
-      is_active: newBalance > 0,
-      redeemed_at: new Date().toISOString(),
-    }).eq("id", gift.id).eq("remaining_value", gift.balance).select("id");
-    if (error) return 0;                       // best-effort — never break the booking
-    if (data && data.length > 0) return applied; // our write won
-    // else: balance changed under us → loop and re-read
+export async function logGiftFailure(where: string, ids: { shopId?: string | null; appointmentId?: string | null; giftCardId?: string | null }, error: unknown): Promise<void> {
+  const reason = (error && typeof error === "object" && "message" in error ? String((error as { message: unknown }).message) : String(error ?? "unknown error")).slice(0, 200);
+  const message = `Gift card change failed (${where}): card ${ids.giftCardId ?? "n/a"}, appointment ${ids.appointmentId ?? "n/a"} — ${reason}`;
+  console.error("[gift-card]", message);
+  try {
+    await supabaseAdmin.from("error_logs").insert({ level: "error", source: "gift-card", message, path: where, shop_id: ids.shopId ?? null });
+  } catch { /* best-effort */ }
+}
+
+type GiftResult = { applied: number; balance: number | null };
+const rowOf = (data: unknown): GiftResult => {
+  const row = (Array.isArray(data) ? data[0] : data) as { applied?: number | string; balance?: number | string | null } | null;
+  return { applied: Math.abs(Number(row?.applied ?? 0)), balance: row?.balance == null ? null : Number(row.balance) };
+};
+
+/**
+ * Spend a gift card on a booking, in ONE database step (phase69): the card row is
+ * locked, the balance can't be overdrawn (all-or-nothing with `requireFull`), the
+ * spend is recorded against the booking — so cancelling it gives the value back
+ * automatically — and a retry for the same booking never spends twice. Returns
+ * the dollars applied (0 on failure, which is logged) and the card's new balance.
+ */
+export async function redeemGiftForBooking(opts: {
+  shopId: string; code: string; amount: number; appointmentId: string; requireFull?: boolean;
+}): Promise<GiftResult> {
+  const want = Math.max(0, Math.round(opts.amount * 100) / 100);
+  const code = cleanCode(opts.code);
+  if (!want || !code) return { applied: 0, balance: null };
+  const ids = { shopId: opts.shopId, appointmentId: opts.appointmentId };
+  try {
+    const { data, error } = await supabaseAdmin.rpc("gift_redeem_for_appointment", {
+      p_shop_id: opts.shopId, p_code: code, p_amount: want, p_appointment_id: opts.appointmentId, p_require_full: !!opts.requireFull,
+    });
+    if (error) { await logGiftFailure("redeemGiftForBooking", ids, error); return { applied: 0, balance: null }; }
+    return rowOf(data);
+  } catch (e) {
+    await logGiftFailure("redeemGiftForBooking", ids, e);
+    return { applied: 0, balance: null };
   }
-  return 0;
+}
+
+/** Spend a gift card on a POS sale (no booking): same atomic step, capped at the balance. */
+export async function redeemGiftCard(opts: { shopId: string; giftCardId: string; amount: number }): Promise<GiftResult> {
+  const want = Math.max(0, Math.round(opts.amount * 100) / 100);
+  if (!want) return { applied: 0, balance: null };
+  const ids = { shopId: opts.shopId, giftCardId: opts.giftCardId };
+  try {
+    const { data, error } = await supabaseAdmin.rpc("gift_adjust", {
+      p_shop_id: opts.shopId, p_gift_card_id: opts.giftCardId, p_delta: -want, p_action: "redeemed",
+    });
+    if (error) { await logGiftFailure("redeemGiftCard", ids, error); return { applied: 0, balance: null }; }
+    return rowOf(data);
+  } catch (e) {
+    await logGiftFailure("redeemGiftCard", ids, e);
+    return { applied: 0, balance: null };
+  }
 }

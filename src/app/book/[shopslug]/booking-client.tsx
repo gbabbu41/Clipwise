@@ -1045,6 +1045,19 @@ export default function BookingClient({ Landing = ShopLanding, presentation }: {
     finalBarberId = (result.barber_id as string) ?? finalBarberId; // server resolved "Any Available"
     setBookingId(newApptId);
     setBookingPending(inPersonStatus === "pending");
+    // Paid by gift card: show what was actually taken from the card (incl. tax)
+    // and what's left on it — not the pre-tax price.
+    if (result.paid_with_gift && Number.isFinite(Number(result.total))) {
+      const left = Number(result.gift_remaining);
+      setConfirmedSummary({
+        shopName: shop.name,
+        barberName: barbers.find(x => x.id === finalBarberId)?.name ?? "Any Available",
+        serviceName: isMulti ? servicesPicked.map(s => s.name).join(" + ") : (service?.name ?? ""),
+        date: formatDateForDb(selectedDate), time: selectedTime ?? "",
+        total: Number(result.total), clientEmail: clientInfo.email,
+        paymentNote: `Paid with gift card${result.gift_remaining != null && Number.isFinite(left) ? ` · ${formatCurrency(left)} left on the card` : ""}`,
+      });
+    }
     setConfirmed(true);
 
     // Auto-register the customer in the shop's client book (deduped server-side

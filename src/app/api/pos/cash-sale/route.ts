@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { insertNotifications } from "@/lib/notify-server";
 import { fetchValidPromo, promoBlockReason, consumePromo, type PromoRow } from "@/lib/promo";
 import { redeemPointsForDiscount } from "@/lib/loyalty-redeem";
+import { redeemGiftCard } from "@/lib/gift-redeem";
 import { upsertClient } from "@/lib/clients-server";
 import { sendPaymentReceipt } from "@/lib/payment-notify";
 import { posCommissionFor } from "@/lib/commission-server";
@@ -150,21 +151,12 @@ export async function POST(req: Request) {
     }
 
     // Redeem the gift card for the covered amount (its value was already booked
-    // as revenue when sold, so the sale only records the non-gift remainder).
+    // as revenue when sold, so the sale only records the non-gift remainder). One
+    // locked step (phase69): capped at the real balance — never the client's — and
+    // two sales on the same card at once can't both spend it. Failures are logged.
     const gc = b.gift_card as { id: string; applied: number } | null;
     if (gc?.id && Number(gc.applied) > 0) {
-      // Re-read the real balance from the DB — never trust the client's
-      // remaining_value — and clamp the redemption to it.
-      const { data: card } = await supabaseAdmin
-        .from("gift_cards").select("remaining_value").eq("id", gc.id).eq("shop_id", shop_id).maybeSingle();
-      if (card) {
-        const bal = Number(card.remaining_value) || 0;
-        const applied = Math.min(Number(gc.applied) || 0, bal);
-        const newBal = Math.max(0, bal - applied);
-        await supabaseAdmin.from("gift_cards").update({
-          remaining_value: newBal, is_active: newBal > 0, redeemed_at: new Date().toISOString(),
-        }).eq("id", gc.id).eq("shop_id", shop_id).then(null, () => null);
-      }
+      await redeemGiftCard({ shopId: shop_id, giftCardId: gc.id, amount: Number(gc.applied) || 0 });
     }
 
     // Save the customer into the shop's client book (server-side, deduped) so a
