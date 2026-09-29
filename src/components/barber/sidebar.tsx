@@ -293,7 +293,7 @@ export function BarberSidebar() {
             >
               <div
                 ref={notifSheetRef}
-                className="bg-card border-t sm:border border-border rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col w-full sm:max-w-md max-h-[82vh] sm:max-h-[80vh] pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:pb-2"
+                className="cw-glass-sheet border-t sm:border border-border rounded-t-2xl sm:rounded-2xl flex flex-col w-full sm:max-w-md max-h-[82vh] sm:max-h-[80vh] pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:pb-2"
                 style={{
                   transform: notifDragY ? `translateY(${notifDragY}px)` : undefined,
                   transition: notifDragging ? "none" : "transform 0.28s cubic-bezier(.32,.72,0,1)",

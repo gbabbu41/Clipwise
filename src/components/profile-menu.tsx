@@ -77,7 +77,7 @@ export function ProfileMenu({
             exit={{ opacity: 0, y: -6, scale: 0.97 }}
             transition={{ duration: 0.15, ease: [0.32, 0.72, 0, 1] }}
             className={cn(
-              "absolute top-full mt-2 w-60 rounded-2xl border border-border bg-card-raised shadow-xl shadow-black/30 overflow-hidden z-[90]",
+              "cw-glass-popover absolute top-full mt-2 w-60 rounded-2xl border border-border overflow-hidden z-[90]",
               align === "right" ? "right-0 origin-top-right" : "left-0 origin-top-left",
             )}
           >

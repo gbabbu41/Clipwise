@@ -3749,7 +3749,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
               {viewMenu && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setViewMenu(false)} />
-                  <div className="absolute right-0 mt-1.5 z-50 w-44 max-h-72 overflow-auto bg-card border border-border rounded-xl shadow-lg py-1">
+                  <div className="cw-glass-popover absolute right-0 mt-1.5 z-50 w-44 max-h-72 overflow-auto border border-border rounded-xl py-1">
                     {orderedBarbers.map(b => (
                       <button key={b.id} onClick={() => { setBarberFilter(b.id); setViewMenu(false); }}
                         className={cn("w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-card-raised", dayBarberId === b.id ? "text-foreground font-semibold" : "text-grey")}>
@@ -3796,7 +3796,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                 {viewPicker && (
                   <>
                     <div className="fixed inset-0 z-40" onClick={() => setViewPicker(false)} />
-                    <div className="absolute right-0 mt-1.5 z-50 w-40 bg-card border border-border rounded-xl shadow-lg py-1">
+                    <div className="cw-glass-popover absolute right-0 mt-1.5 z-50 w-40 border border-border rounded-xl py-1">
                       {opts.map(o => {
                         const OptIcon = o.Icon;
                         return (
