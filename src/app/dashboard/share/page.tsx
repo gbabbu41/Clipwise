@@ -1,9 +1,8 @@
 "use client";
 import { useState, useRef } from "react";
 import { QRCodeCanvas } from "qrcode.react";
-import { Link2, Copy, Check, QrCode, Code, Share2, ExternalLink, AtSign, Smartphone } from "lucide-react";
+import { Link2, Copy, Check, QrCode, Code, ExternalLink, AtSign, Smartphone } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 
@@ -180,10 +179,10 @@ export default function SharePage() {
           {strategies.map((s, i) => {
             const Icon = s.icon;
             return (
-              <div key={i} className="bg-card shadow-sm border border-border rounded-2xl p-4 hover:border-emerald-500/50 transition-colors">
+              <div key={i} className="bg-card border border-border rounded-2xl p-4 transition-colors">
                 <div className="flex items-start gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center flex-shrink-0">
-                    <Icon size={16} className="text-emerald-400" />
+                  <div className="w-9 h-9 rounded-xl bg-card-raised border border-border flex items-center justify-center flex-shrink-0">
+                    <Icon size={16} className="text-grey" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-foreground">{s.title}</p>
@@ -209,7 +208,7 @@ export default function SharePage() {
           <CardTitle>Website Embed Code</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-xs text-grey mb-3">Paste this code into your website to add a "Book Online" button.</p>
+          <p className="text-xs text-grey mb-3">Paste this code into your website to add a &quot;Book Online&quot; button.</p>
           <div className="relative">
             <pre className="bg-card-raised border border-border rounded-xl p-4 text-xs text-grey overflow-x-auto whitespace-pre-wrap">
               {embedCode}
@@ -237,30 +236,6 @@ export default function SharePage() {
         </CardContent>
       </Card>
 
-      {/* Tips */}
-      <Card>
-        <CardHeader>
-          <Share2 size={18} className="text-foreground" />
-          <CardTitle>Pro Tips for Getting More Bookings</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid sm:grid-cols-2 gap-3">
-            {[
-              { tip: "Add your booking link in your Instagram bio — this alone can bring 10+ new clients/month." },
-              { tip: "Text your regulars directly: 'Hey, you can now book online! Click here: [link]'" },
-              { tip: "Put the QR code on your business cards and at your station." },
-              { tip: "Post a story on Instagram with your link once a week." },
-              { tip: "Ask every happy client to leave a review — it shows up publicly on your profile." },
-              { tip: "Enable loyalty points so clients have a reason to return and rebook." },
-            ].map((item, i) => (
-              <div key={i} className="flex gap-2.5 text-sm text-grey">
-                <span className="text-foreground mt-0.5 flex-shrink-0">✓</span>
-                <p>{item.tip}</p>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

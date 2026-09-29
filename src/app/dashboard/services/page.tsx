@@ -306,8 +306,8 @@ export default function ServicesPage() {
       {/* Quick "add from templates" strip — the fast path to a full menu. */}
       {listReady && services.length > 0 && (
         <button onClick={openTemplates}
-          className="w-full mb-5 flex items-center gap-3 p-3.5 rounded-2xl border border-dashed border-border bg-card-raised/60 hover:border-emerald-400/50 hover:bg-card-raised transition-colors text-left">
-          <span className="w-9 h-9 rounded-full bg-emerald-500/15 text-emerald-300 flex items-center justify-center flex-shrink-0"><Sparkles size={17} /></span>
+          className="w-full mb-5 flex items-center gap-3 p-3.5 rounded-2xl border border-dashed border-border bg-card-raised/60 hover:bg-card-raised transition-colors text-left">
+          <span className="w-9 h-9 rounded-full bg-card-raised text-grey flex items-center justify-center flex-shrink-0"><Sparkles size={17} /></span>
           <span className="min-w-0">
             <span className="block text-sm font-semibold text-foreground">Add from templates</span>
             <span className="block text-xs text-grey">Popular barbershop services, ready to tweak</span>
@@ -400,7 +400,7 @@ export default function ServicesPage() {
             <div className="bg-card border-t sm:border border-border rounded-t-2xl sm:rounded-2xl w-full sm:max-w-lg max-h-[88vh] flex flex-col">
               <div className="flex items-start justify-between gap-3 p-5 border-b border-border">
                 <div className="min-w-0">
-                  <h2 className="text-lg font-bold text-foreground flex items-center gap-2"><Sparkles size={18} className="text-emerald-300" /> Add from templates</h2>
+                  <h2 className="text-lg font-bold text-foreground flex items-center gap-2"><Sparkles size={18} className="text-grey" /> Add from templates</h2>
                   <p className="text-xs text-grey mt-0.5">Tap to pick — prices &amp; times are just a starting point.</p>
                 </div>
                 <button disabled={addingTemplates} onClick={() => setShowTemplates(false)} className="text-grey hover:text-foreground flex-shrink-0" aria-label="Close templates">✕</button>

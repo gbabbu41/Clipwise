@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { AvatarImage } from "@/components/ui/avatar-image";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Scissors, User, CheckCircle2, ArrowLeft, Monitor } from "lucide-react";
+import { Scissors, CheckCircle2, ArrowLeft, Monitor } from "lucide-react";
 import type { Barber, Service } from "@/lib/database.types";
 
 type KioskStep = "welcome" | "service" | "barber" | "info" | "confirm" | "done";
@@ -181,7 +181,7 @@ export default function KioskPage() {
           {step === "welcome" && (
             <div className="text-center space-y-8">
               <div className="flex justify-center">
-                <div className="w-24 h-24 rounded-3xl bg-emerald-500/10 border-2 border-emerald-500/30 flex items-center justify-center">
+                <div className="w-24 h-24 rounded-3xl bg-card-raised border-2 border-border flex items-center justify-center">
                   <Scissors size={40} className="text-foreground" />
                 </div>
               </div>
@@ -241,7 +241,7 @@ export default function KioskPage() {
                 onClick={() => { setData(d => ({ ...d, service: null })); setStep("barber"); }}
                 className="w-full text-sm text-grey hover:text-grey py-2 transition-colors"
               >
-                Skip — I'll decide with my barber
+                Skip — I&apos;ll decide with my barber
               </button>
             </div>
           )}
@@ -307,7 +307,7 @@ export default function KioskPage() {
                 </button>
                 <div>
                   <h2 className="text-2xl font-bold text-foreground">Your info</h2>
-                  <p className="text-sm text-grey">So we can call you when it's your turn</p>
+                  <p className="text-sm text-grey">So we can call you when it&apos;s your turn</p>
                 </div>
               </div>
 
@@ -433,7 +433,7 @@ export default function KioskPage() {
                 </div>
               </div>
               <div>
-                <h2 className="text-3xl font-black text-foreground">You're checked in!</h2>
+                <h2 className="text-3xl font-black text-foreground">You&apos;re checked in!</h2>
                 <p className="text-xl text-grey mt-2">Welcome, {data.name}</p>
               </div>
               <div className="bg-card-raised border border-border rounded-2xl p-6 space-y-4">
@@ -453,8 +453,8 @@ export default function KioskPage() {
                 )}
               </div>
               <div className="space-y-2">
-                <p className="text-grey">Have a seat — we'll call your name when it's your turn.</p>
-                {data.phone && <p className="text-sm text-grey">We'll also text you at {data.phone}.</p>}
+                <p className="text-grey">Have a seat — we&apos;ll call your name when it&apos;s your turn.</p>
+                {data.phone && <p className="text-sm text-grey">We&apos;ll also text you at {data.phone}.</p>}
               </div>
               <p className="text-xs text-grey">This screen resets in 8 seconds…</p>
             </div>
@@ -465,7 +465,7 @@ export default function KioskPage() {
 
       {/* Footer branding */}
       <div className="py-4 text-center">
-        <p className="text-xs text-grey">Powered by <span className="text-emerald-400 font-semibold">ClipWise</span></p>
+        <p className="text-xs text-grey">Powered by <span className="font-semibold text-foreground">ClipWise</span></p>
       </div>
     </div>
   );
