@@ -270,11 +270,16 @@ export async function finalizeBookingFromSession(params: {
     const amountStr = `$${(Number(m.total_amount ?? 0) + Number(m.tip_amount ?? 0)).toFixed(0)}`;
     const bookingTitle = `New booking · ${amountStr}`;
     const bookingVerb = isPayInPerson ? "(pay at shop · card on file)" : isSave ? "(card saved)" : isHold ? "(card on hold)" : "& paid";
+    // Name the service + barber so the owner knows whose chair it's in.
+    const [{ data: nb }, { data: ns }] = await Promise.all([
+      m.barber_id ? supabaseAdmin.from("barbers").select("name").eq("id", m.barber_id).maybeSingle() : Promise.resolve({ data: null as { name: string } | null }),
+      m.service_id ? supabaseAdmin.from("services").select("name").eq("id", m.service_id).maybeSingle() : Promise.resolve({ data: null as { name: string } | null }),
+    ]).catch(() => [{ data: null }, { data: null }] as { data: { name: string } | null }[]);
     insertNotifications({
       user_id: shopRow.owner_id,
       shop_id: m.shop_id,
       title: bookingTitle,
-      message: `${m.client_name} booked ${bookingVerb} for ${friendly} at ${m.time_slot}`,
+      message: `${m.client_name} booked ${ns?.name ?? "an appointment"} with ${nb?.name ?? "any barber"} ${bookingVerb} for ${friendly} at ${m.time_slot}`,
       type: "booking",
       entity_type: "appointment",
       entity_id: appt.id,

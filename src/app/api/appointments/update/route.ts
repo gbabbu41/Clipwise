@@ -360,7 +360,7 @@ export async function POST(request: NextRequest) {
             user_id: shopRow.owner_id, shop_id: full.shop_id, type: "booking",
             title: timeMoved ? "Appointment rescheduled" : "Appointment reassigned",
             message: timeMoved
-              ? `${full.client_name ?? "A client"}: ${oldWhen} → ${prettyWhen}${barberChanged ? ` · ${newBarber?.name ?? "Any Available"}` : ""}`
+              ? `${full.client_name ?? "A client"}: ${oldWhen} → ${prettyWhen} · with ${newBarber?.name ?? "any barber"}`
               : `${full.client_name ?? "A client"} moved to ${newBarber?.name ?? "Any Available"}`,
           });
         }
