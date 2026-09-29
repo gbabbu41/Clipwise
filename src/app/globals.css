@@ -51,7 +51,7 @@
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .portal .cw-sidebar-glass,
   .portal .cw-mobile-header-glass { background: transparent; }
-  html[data-theme="light"] .portal .cw-sidebar-glass { background: transparent; }
+  html[data-theme="light"] .portal .cw-sidebar.cw-sidebar-glass { background: transparent; }
   .portal .cw-sidebar-glass::before {
     background: var(--surface);
     background: linear-gradient(145deg, color-mix(in srgb, var(--foreground) 4%, transparent), transparent 55%), color-mix(in srgb, var(--surface) 92%, transparent);
@@ -74,7 +74,7 @@
   .portal .cw-sidebar-glass, .portal .cw-mobile-header-glass { background: var(--surface); }
   .portal .cw-sidebar-glass::before, .portal .cw-mobile-header-glass::before { display: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
   .portal .cw-shop-switcher-trigger { background: var(--card-raised); -webkit-backdrop-filter: none; backdrop-filter: none; }
-  html[data-theme="light"] .portal .cw-sidebar-glass { background: var(--surface); }
+  html[data-theme="light"] .portal .cw-sidebar.cw-sidebar-glass { background: var(--surface); }
 }
 
 /* Keep native time fields complete on narrow working-hours sheets. */
