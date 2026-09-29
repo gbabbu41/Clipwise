@@ -82,7 +82,7 @@ export function paymentTag(a: {
   const paid = a.payment_status === "paid" || a.payment_status === "captured";
   if (paid) {
     const cash = a.payment_method === "cash";
-    const methodText = cash ? "Cash" : a.payment_method === "online" ? "Online" : "Card";
+    const methodText = cash ? "Cash" : a.payment_method === "online" ? "Online" : a.payment_method === "gift_card" ? "Gift card" : "Card";
     // "Paid" stays green; the method word is neutral grey for Cash (quiet,
     // matching the time text) and green for Card/Online.
     return { bg, segments: [

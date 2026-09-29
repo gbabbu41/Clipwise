@@ -268,6 +268,7 @@ export type ApptActions = {
   complete: (a: AppointmentWithDetails) => void;        // paid / zero-amount / skip-unpaid
   captureComplete: (a: AppointmentWithDetails) => void; // held / saved card → auto-charge
   cashComplete: (a: AppointmentWithDetails) => void;    // record cash + complete
+  giftPay: (a: AppointmentWithDetails, code: string) => Promise<boolean>; // pay with a gift card + complete (true = settled)
   sendLink: (a: AppointmentWithDetails, email: string) => void;
   collectBalance: (a: AppointmentWithDetails, method: "cash" | "card") => void; // collect a leftover balance_due
   sendBalanceLink: (a: AppointmentWithDetails) => void; // email/text a Stripe link for the balance
@@ -472,6 +473,57 @@ export function makeApptActions(opts: {
       setBusy("");
       onDone();
       toast(ledgerOk ? "Cash recorded · Completed" : "Completed — but the Payments ledger didn't update. Reopen and mark cash again to retry.");
+    },
+    giftPay: async (appt, code) => {
+      if (!shop || !accessToken) return false;
+      if (checkoutBlocked(appt)) return false;
+      if (!code.trim()) { toast("Enter the gift card code"); return false; }
+      setBusy("gift");
+      // The server spends the card in one locked step linked to this booking and
+      // marks it paid; any shortfall is left as balance_due for the normal
+      // "Balance to collect" (cash / link / card on file).
+      let data: { ok?: boolean; error?: string; applied?: number; balance_due?: number; card_balance?: number | null };
+      try {
+        const res = await fetch("/api/appointments/gift-pay", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ appointment_id: appt.id, code }),
+        });
+        data = await res.json().catch(() => ({ ok: false, error: "Network error" }));
+      } catch {
+        setBusy("");
+        toast("Network dropped — refresh to check before trying the card again.");
+        return false;
+      }
+      if (!data.ok) { setBusy(""); toast(data.error ?? "Couldn't use the gift card"); return false; }
+      const applied = Number(data.applied ?? 0), due = Number(data.balance_due ?? 0);
+      const paidPatch = { payment_status: "paid" as const, payment_method: "gift_card" as const, paid_at: new Date().toISOString(), gift_applied: applied, balance_due: due };
+      patch(appt.id, paidPatch as Partial<AppointmentWithDetails>);
+      // Settled by gift card → expire any open payment link so it can't be paid too.
+      fetch("/api/stripe/cancel-payment-link", {
+        method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ appointment_id: appt.id }),
+      }).catch(() => {});
+      // Complete through the same path as every other checkout (loyalty, client
+      // stats, review email). The payment is already saved if this step fails.
+      const { error } = await supabase.from("appointments").update({ status: "completed" }).eq("id", appt.id);
+      if (error) {
+        setBusy("");
+        toast(`Paid ${formatCurrency(applied)} by gift card — but completing failed: ${error.message}. Tap "Mark complete".`);
+        return true;
+      }
+      patch(appt.id, { status: "completed" });
+      await runCompletionEffects(supabase, { ...appt, ...paidPatch, status: "completed" } as AppointmentWithDetails, shop, accessToken);
+      setBusy("");
+      const left = data.card_balance != null ? ` · card has ${formatCurrency(data.card_balance)} left` : "";
+      if (due > 0.005) {
+        // Keep the card open: the "Balance to collect" box now shows the rest.
+        toast(`Gift card paid ${formatCurrency(applied)} · ${formatCurrency(due)} left to collect`);
+      } else {
+        onDone();
+        toast(`Paid by gift card · Completed${left}`);
+      }
+      return true;
     },
     sendLink: async (appt, email) => {
       if (!shop || !accessToken) return;
@@ -754,6 +806,9 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
   const [payEmail, setPayEmail] = useState(appt.client_email ?? "");
   // The email field only appears after tapping "Send payment link".
   const [showEmail, setShowEmail] = useState(false);
+  // "Gift card" swaps the tile grid's link slot for a code field, like the email one.
+  const [showGift, setShowGift] = useState(false);
+  const [giftCode, setGiftCode] = useState("");
   const [noShowMode, setNoShowMode] = useState(false);
 
   // No-show can be marked from NO_SHOW_LEAD_MINUTES before the start time onward
@@ -1235,10 +1290,28 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
                       <DAction tile tone="primary" icon="✓" label={busy === "capture" ? "Charging…" : cardOnFile ? `Charge card on file${amtPaid > 0 ? ` · ${formatCurrency(amtPaid)}` : ""}` : `Complete + Capture${willCapture > 0 ? ` · ${formatCurrency(willCapture)}` : ""}`} disabled={!!busy} onClick={() => actions.captureComplete(appt)} />
                     )}
                     {!showEmail && (
-                      <DAction tile icon="↗" label="Send payment link" onClick={() => setShowEmail(true)} />
+                      <DAction tile icon="↗" label="Send payment link" onClick={() => { setShowEmail(true); setShowGift(false); }} />
                     )}
                     <DAction tile icon="💵" label={busy === "cash" ? "Saving…" : "Pay cash · Complete"} disabled={!!busy} onClick={() => actions.cashComplete(appt)} />
+                    {!showGift && (
+                      <DAction tile icon="🎁" label="Gift card" disabled={!!busy} onClick={() => { setShowGift(true); setShowEmail(false); }} />
+                    )}
                   </div>
+                  {showGift && (
+                    <>
+                      <input
+                        value={giftCode}
+                        onChange={e => setGiftCode(e.target.value.toUpperCase())}
+                        placeholder="Gift card code"
+                        autoFocus
+                        autoCapitalize="characters"
+                        className="w-full bg-surface-sunken border border-border-strong rounded-xl px-3.5 py-3 text-base sm:text-sm font-mono text-foreground placeholder:text-grey-muted focus:outline-none focus:border-foreground"
+                      />
+                      <DAction tone="primary" icon="🎁" label={busy === "gift" ? "Applying…" : `Pay with gift card${amtPaid > 0 ? ` · ${formatCurrency(amtPaid)}` : ""}`} disabled={!!busy || !giftCode.trim()}
+                        onClick={async () => { if (await actions.giftPay(appt, giftCode.trim())) { setPayChoice(false); setShowGift(false); setGiftCode(""); } }} />
+                      <p className="text-[11px] text-grey-muted text-center px-2">If the card doesn&apos;t cover it all, the rest shows as a balance to collect.</p>
+                    </>
+                  )}
                   {isHeld && heldBalance > 0 && (
                     <p className="text-[11px] text-grey-muted text-center px-2">
                       Card holds {formatCurrency(willCapture)} · {formatCurrency(heldBalance)} balance — collect in person or send a link
@@ -1259,7 +1332,7 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
                   )}
                 </>
               )}
-              <button className="text-xs text-grey hover:text-foreground pt-1 pb-0.5" onClick={() => { setPayChoice(false); setShowEmail(false); }}>Cancel</button>
+              <button className="text-xs text-grey hover:text-foreground pt-1 pb-0.5" onClick={() => { setPayChoice(false); setShowEmail(false); setShowGift(false); }}>Cancel</button>
             </div>
           ) : noShowMode ? (
             <div className="px-[18px] pt-3.5 flex flex-col gap-2">
@@ -2758,7 +2831,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                   <span className="text-[#00e5a0]">Paid</span>
                   <span className="text-grey-muted"> · </span>
                   <span className={c.a.payment_method === "cash" ? "text-[#bbb]" : "text-[#00e5a0]"}>
-                    {c.a.payment_method === "cash" ? "Cash" : c.a.payment_method === "online" ? "Online" : "Card"}
+                    {c.a.payment_method === "cash" ? "Cash" : c.a.payment_method === "online" ? "Online" : c.a.payment_method === "gift_card" ? "Gift card" : "Card"}
                   </span>
                 </span>
               ) : c.a.status === "completed" ? (

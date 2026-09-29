@@ -1,7 +1,7 @@
 export type UserRole = "customer" | "barber" | "shop_owner" | "super_admin";
 export type ShopStatus = "pending" | "approved" | "rejected" | "suspended";
 export type AppointmentStatus = "pending" | "confirmed" | "completed" | "cancelled" | "no-show";
-export type PaymentMethod = "card" | "cash" | "online";
+export type PaymentMethod = "card" | "cash" | "online" | "gift_card"; // matches appointments_payment_method_check
 export type SubscriptionPlan = "starter" | "pro" | "premium" | "business";
 export type DiscountType = "percent" | "fixed";
 
