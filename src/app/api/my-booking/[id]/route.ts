@@ -210,14 +210,16 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     // owner notification when the owner is a DIFFERENT person, or there's no
     // assigned barber — otherwise the owner-barber gets two "cancelled" pop-ups.
     let barberUserId: string | null = null;
+    let barberName: string | null = null;
     if (appt.barber_id) {
-      const { data: b } = await supabaseAdmin.from("barbers").select("user_id").eq("id", appt.barber_id).maybeSingle();
+      const { data: b } = await supabaseAdmin.from("barbers").select("user_id, name").eq("id", appt.barber_id).maybeSingle();
       barberUserId = b?.user_id ?? null;
+      barberName = b?.name ?? null;
     }
     if (shopRow?.owner_id && shopRow.owner_id !== barberUserId) {
       insertNotifications({
         user_id: shopRow.owner_id, shop_id: appt.shop_id, title: "Appointment cancelled",
-        message: `${appt.client_name} cancelled their appointment (was ${appt.date} at ${appt.time_slot})`,
+        message: `${appt.client_name} cancelled their appointment with ${barberName ?? "any barber"} (was ${appt.date} at ${appt.time_slot})`,
         type: "cancellation",
       });
     }
@@ -336,10 +338,13 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     }
     // In-app pop-up for owner + barber.
     const msg = `${appt.client_name} rescheduled to ${body.date} at ${body.time_slot} (was ${appt.date} at ${appt.time_slot})`;
+    // The owner also sees whose chair it's in; the barber knows it's theirs.
+    const ownerMsg = `${msg} · with ${bRow?.name ?? "any barber"}`;
     const targets = Array.from(new Set([shopRow?.owner_id, bRow?.user_id].filter(Boolean))) as string[];
     for (const uid of targets) {
       insertNotifications({
-        user_id: uid, shop_id: appt.shop_id, title: "Appointment rescheduled", message: msg, type: "booking",
+        user_id: uid, shop_id: appt.shop_id, title: "Appointment rescheduled", type: "booking",
+        message: uid === shopRow?.owner_id && uid !== bRow?.user_id ? ownerMsg : msg,
       });
     }
     return NextResponse.json({ ok: true, date: updated.date, time_slot: updated.time_slot, status: updated.status });

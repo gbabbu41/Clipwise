@@ -46,14 +46,19 @@ export async function notifyNewBookingStaff(
       ? appt.status === "pending"
       : (!appt.payment_status || appt.payment_status === "unpaid");
     const title = needsApproval ? "New booking — needs approval" : "New booking";
-    const message = `${appt.client_name} — ${serviceName} on ${friendly} at ${appt.time_slot}${needsApproval ? " · tap to approve" : ""}`;
 
-    // Assigned barber's linked user (for the in-app notif).
+    // Assigned barber (linked user for their in-app notif + name for the owner's).
     let barberUserId: string | null = null;
+    let barberName: string | null = null;
     if (appt.barber_id) {
-      const { data: b } = await supabaseAdmin.from("barbers").select("user_id").eq("id", appt.barber_id).maybeSingle();
+      const { data: b } = await supabaseAdmin.from("barbers").select("user_id, name").eq("id", appt.barber_id).maybeSingle();
       barberUserId = b?.user_id ?? null;
+      barberName = b?.name ?? null;
     }
+    // The barber sees their own booking; the owner sees WHICH barber it's with.
+    const when = `on ${friendly} at ${appt.time_slot}${needsApproval ? " · tap to approve" : ""}`;
+    const barberMessage = `${appt.client_name} — ${serviceName} ${when}`;
+    const ownerMessage = `${appt.client_name} — ${serviceName} with ${barberName ?? "any barber"} ${when}`;
 
     // In-app notifications (service role — the anon booking page can't insert).
     // Dedupe when the barber IS the owner; drop the owner when a richer owner
@@ -64,7 +69,8 @@ export async function notifyNewBookingStaff(
     if (!notifyOwner && shop.owner_id) notifyUserIds.delete(shop.owner_id);
     if (notifyUserIds.size > 0) {
       await insertNotifications(Array.from(notifyUserIds).map(uid => ({
-        user_id: uid, shop_id: appt.shop_id, title, message, type: "booking",
+        user_id: uid, shop_id: appt.shop_id, title, type: "booking",
+        message: uid === shop.owner_id ? ownerMessage : barberMessage,
         entity_type: "appointment", entity_id: appointmentId,
       })));
     }
