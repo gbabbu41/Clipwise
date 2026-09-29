@@ -2,11 +2,11 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
-import { cn, formatCurrency, plural } from "@/lib/utils";
+import { cn, plural } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input, Textarea } from "@/components/ui/input";
-import { Megaphone, Mail, Users, Tag, TrendingUp, Send, Clock, CheckCircle2, Plus, ChevronRight, Zap } from "lucide-react";
+import { Megaphone, Mail, Users, CalendarDays, Tag, TrendingUp, Send, Clock, CheckCircle2, Plus, ChevronRight, Zap } from "lucide-react";
 import type { Client } from "@/lib/database.types";
 import { groupClients } from "@/lib/client-identity";
 import { canReceivePromos } from "@/lib/consent-rules";
@@ -128,6 +128,10 @@ export default function MarketingPage() {
   // Reachable = has an email AND may lawfully receive promos (express consent or a
   // recent visit; never if they've withdrawn). Matches the server-side send gate.
   const recipientsWithEmail = recipients.filter(c => !!c.email && canReceivePromos(c));
+  const eligibleCountForSegment = (segmentId: string) => {
+    const segment = SEGMENTS.find(s => s.id === segmentId) ?? SEGMENTS[0];
+    return segment.filter(clients).filter(c => !!c.email && canReceivePromos(c)).length;
+  };
   const bookingUrl = `${typeof window !== "undefined" ? window.location.origin : "https://clipwise.ca"}/book/${shop?.slug ?? ""}`;
 
   const applyTemplate = (t: Template) => {
@@ -211,22 +215,23 @@ export default function MarketingPage() {
       {/* Stats row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: "Total Clients", value: clients.length, icon: Users },
-          { label: "Reachable (email)", value: clients.filter(c => !!c.email && canReceivePromos(c)).length, icon: Mail },
-          { label: "Campaigns Sent", value: campaigns.length, icon: Send },
-          { label: "Emails Delivered", value: totalEmailsSent, icon: TrendingUp },
+          { label: "Client List", detail: "All clients", value: clients.length, icon: Users },
+          { label: "Email Eligible", detail: "Email + marketing permission", value: clients.filter(c => !!c.email && canReceivePromos(c)).length, icon: Mail },
+          { label: "Campaigns Sent", detail: "Sent campaigns", value: campaigns.length, icon: Send },
+          { label: "Recipients", detail: "Across sent campaigns", value: totalEmailsSent, icon: TrendingUp },
         ].map(stat => {
           const Icon = stat.icon;
           return (
             <Card key={stat.label}>
               <CardContent>
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
-                    <Icon size={16} className="text-emerald-500" />
+                  <div className="w-9 h-9 rounded-xl bg-card-raised border border-border flex items-center justify-center">
+                    <Icon size={16} className="text-grey" aria-hidden="true" />
                   </div>
                   <div>
-                    <p className="text-xs text-grey">{stat.label}</p>
-                    <p className="text-xl font-bold text-foreground">{stat.value}</p>
+                    <p className="text-xs font-medium text-foreground">{stat.label}</p>
+                    <p className="text-[11px] text-grey">{stat.detail}</p>
+                    <p className="text-xl font-mono tabular-nums font-bold text-foreground">{stat.value}</p>
                   </div>
                 </div>
               </CardContent>
@@ -239,14 +244,19 @@ export default function MarketingPage() {
         <div className="space-y-6">
           {/* Quick actions */}
           <div>
-            <h2 className="text-sm font-semibold text-grey uppercase tracking-wider mb-3">Quick Campaigns</h2>
+            <div className="mb-3">
+              <h2 className="text-sm font-semibold text-foreground">Quick Campaigns</h2>
+              <p className="text-xs text-grey mt-0.5">Choose a client group. Counts include clients with an email who are eligible for marketing.</p>
+            </div>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {[
-                { label: "Win-Back At-Risk", desc: `Re-engage ${plural(clients.filter(c=>c.tag==="At Risk"&&!!c.email).length, "at-risk client")} who haven't been back`, icon: "🔄", template: "winback", segment: "atrisk" },
-                { label: "Fill Slow Days", desc: `Send a promo to all ${plural(clients.filter(c=>!!c.email).length, "client")} with email`, icon: "📅", template: "fillyourseat", segment: "all" },
-                { label: "Reward Your VIPs", desc: `Appreciate ${plural(clients.filter(c=>c.tag==="VIP"&&!!c.email).length, "VIP client")}`, icon: "🏆", template: "loyalty", segment: "vip" },
-              ].map(qa => (
-                <button
+                { label: "Win-Back At-Risk", purpose: "Follow up with clients tagged At Risk.", icon: Clock, template: "winback", segment: "atrisk" },
+                { label: "Fill Slow Days", purpose: "Share an offer with your full client list.", icon: CalendarDays, template: "fillyourseat", segment: "all" },
+                { label: "Reward Your VIPs", purpose: "Send a loyalty message to clients tagged VIP.", icon: Tag, template: "loyalty", segment: "vip" },
+              ].map(qa => {
+                const Icon = qa.icon;
+                const eligibleCount = eligibleCountForSegment(qa.segment);
+                return <button
                   key={qa.label}
                   onClick={() => {
                     const seg = SEGMENTS.find(s => s.id === qa.segment) ?? SEGMENTS[0];
@@ -256,18 +266,24 @@ export default function MarketingPage() {
                     setCampaignName(qa.label);
                     setTab("create");
                   }}
-                  className="text-left p-4 bg-card shadow-sm border border-border rounded-2xl hover:border-emerald-500/50 transition-all group"
+                  className="text-left p-4 bg-card shadow-sm border border-border rounded-2xl hover:border-border-strong transition-colors group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                 >
                   <div className="flex items-start gap-3">
-                    <span className="text-2xl">{qa.icon}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-foreground group-hover:text-foreground transition-colors">{qa.label}</p>
-                      <p className="text-xs text-grey mt-0.5 leading-relaxed">{qa.desc}</p>
+                    <div className="w-9 h-9 rounded-lg bg-card-raised border border-border flex items-center justify-center flex-shrink-0">
+                      <Icon size={17} className="text-grey" aria-hidden="true" />
                     </div>
-                    <ChevronRight size={14} className="text-grey group-hover:text-foreground transition-colors flex-shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-foreground">{qa.label}</p>
+                      <p className="text-xs text-grey mt-0.5 leading-relaxed">{qa.purpose}</p>
+                      <p className="text-xs font-medium text-foreground mt-2">
+                        {eligibleCount > 0 ? plural(eligibleCount, "eligible client") : "No eligible clients right now"}
+                      </p>
+                      {eligibleCount === 0 && <p className="text-xs text-grey mt-0.5">You can still review and adjust the draft.</p>}
+                    </div>
+                    <ChevronRight size={16} className="text-grey group-hover:text-foreground transition-colors flex-shrink-0 mt-1" aria-hidden="true" />
                   </div>
                 </button>
-              ))}
+              })}
             </div>
           </div>
 
