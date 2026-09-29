@@ -13,6 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { Info, X, Trophy, Ticket, Building2 } from "lucide-react";
 import type { Client, PromoCode } from "@/lib/database.types";
 import { groupClients, sameIdentity } from "@/lib/client-identity";
+import { promoDisplay } from "@/lib/promo-display";
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
@@ -659,13 +660,12 @@ export default function LoyaltyPage() {
           ) : (
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {promos.map(promo => {
-                const totalAlloc = promo.total_uses + (promo.uses_left ?? 0);
-                const usagePercent = totalAlloc > 0 ? (promo.total_uses / totalAlloc) * 100 : 0;
+                const display = promoDisplay(promo);
                 return (
-                  <Card key={promo.id} className={cn(!promo.is_active && "opacity-60")}>
+                  <Card key={promo.id} className={cn(display.status !== "Active" && "opacity-60")}>
                     <div className="flex items-start justify-between mb-3">
                       <code className="text-lg font-bold text-foreground tracking-widest">{promo.code}</code>
-                      <Badge variant={promo.is_active ? "success" : "danger"}>{promo.is_active ? "Active" : "Inactive"}</Badge>
+                      <Badge variant={display.status === "Active" ? "success" : "danger"}>{display.status}</Badge>
                     </div>
                     <div className="space-y-2 mb-4">
                       <div className="flex justify-between text-sm">
@@ -676,21 +676,21 @@ export default function LoyaltyPage() {
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-grey">Uses Left</span>
-                        <span className="text-foreground">{promo.uses_left ?? "∞"} / {totalAlloc > 0 ? totalAlloc : "∞"}</span>
+                        <span className="text-foreground">{display.usesLabel}</span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-grey">Expires</span>
                         <span className="text-foreground">{promo.expires_at ?? "Never"}</span>
                       </div>
                     </div>
-                    {totalAlloc > 0 && (
+                    {display.usagePercent !== null ? (
                       <div className="mb-4">
                         <div className="w-full h-2 rounded-full bg-card-raised overflow-hidden">
-                          <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${usagePercent}%` }} />
+                          <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${display.usagePercent}%` }} />
                         </div>
-                        <p className="text-xs text-grey mt-1">{Math.round(usagePercent)}% used ({promo.total_uses} redemptions)</p>
+                        <p className="text-xs text-grey mt-1">{Math.round(display.usagePercent)}% used ({promo.total_uses} redemptions)</p>
                       </div>
-                    )}
+                    ) : display.usageNote ? <p className="mb-4 text-xs text-grey">{display.usageNote}</p> : null}
                     <div className="flex gap-2">
                       <Button variant="outline" size="sm" className="flex-1" onClick={() => {
                         setEditPromo(promo);

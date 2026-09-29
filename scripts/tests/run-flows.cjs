@@ -50,6 +50,7 @@ execFileSync(process.execPath, [path.join(__dirname, 'reschedule-slots-check.cjs
 execFileSync(process.execPath, [path.join(__dirname, 'waitlist-removal-check.cjs')], { stdio: 'inherit' });
 execFileSync(process.execPath, [path.join(__dirname, 'waitlist-loading-check.cjs')], { stdio: 'inherit' });
 execFileSync(process.execPath, [path.join(__dirname, 'promo-save-check.cjs')], { stdio: 'inherit' });
+execFileSync(process.execPath, [path.join(__dirname, 'promo-display-check.cjs')], { stdio: 'inherit' });
 execFileSync(process.execPath, [path.join(__dirname, 'loyalty-loading-check.cjs')], { stdio: 'inherit' });
 execFileSync(process.execPath, [path.join(__dirname, 'loyalty-save-check.cjs')], { stdio: 'inherit' });
 execFileSync(process.execPath, [path.join(__dirname, 'client-history-check.cjs')], { stdio: 'inherit' });
