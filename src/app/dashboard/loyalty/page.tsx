@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
-import { cn } from "@/lib/utils";
+import { cn, plural } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -57,11 +57,7 @@ export default function LoyaltyPage() {
   });
   const [settings, setSettings] = useState({ enabled: true, points_per_visit: 10, points_per_dollar: 1, redemption: 5 });
   const [showHelp, setShowHelp] = useState(false);
-  // Program Settings UX: per-dollar earning is tucked behind an "Advanced"
-  // disclosure (most shops only use per-visit), and the worked example below
-  // recalculates off an editable sample visit price so the owner sees exactly
-  // what the next customer earns at their own prices.
-  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showAllClients, setShowAllClients] = useState(false);
   const [examplePrice, setExamplePrice] = useState(30);
   const [newPromo, setNewPromo] = useState(BLANK_PROMO);
 
@@ -72,10 +68,13 @@ export default function LoyaltyPage() {
   const dollarsOf = (pts: number) => (pts / 100) * settings.redemption;
 
   // Live worked-example numbers, driven by the editable sample visit price.
-  const inlineNum = "w-16 rounded-lg border border-border bg-card px-2 py-1.5 text-center text-base font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-black/20";
+  const inlineNum = "w-16 rounded-lg border border-border bg-card px-2 py-1.5 text-center text-base font-mono tabular-nums font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-foreground/30";
   const exVisitPts = Math.round(settings.points_per_visit + settings.points_per_dollar * (examplePrice || 0));
   const exVisitValue = dollarsOf(exVisitPts);
   const visitsToReward = exVisitPts > 0 ? Math.ceil(100 / exVisitPts) : 0;
+  const clientsWithPoints = clients.filter(client => client.loyalty_points > 0);
+  const visibleClients = showAllClients ? clients : clientsWithPoints.slice(0, 5);
+  const hasMoreClientsToShow = clients.length > Math.min(5, clientsWithPoints.length);
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
@@ -235,6 +234,7 @@ export default function LoyaltyPage() {
     setShowPromoModal(false);
     setEditPromo(null);
     setNewPromo(BLANK_PROMO);
+    setShowAllClients(false);
   }, [shop?.id]);
 
   const addPoints = () => savePoints("add");
@@ -359,7 +359,7 @@ export default function LoyaltyPage() {
               <Info size={16} />
             </button>
           </div>
-          <p className="text-sm text-grey mt-0.5">Retain clients and drive repeat visits</p>
+          <p className="text-sm text-grey mt-0.5">Manage points, rewards, promo codes, and client reminders.</p>
         </div>
       </div>
 
@@ -418,10 +418,13 @@ export default function LoyaltyPage() {
 
       {tab === "loyalty" ? (
         <div className="space-y-6">
-          {/* Settings Card */}
+          {/* Program settings */}
           <Card>
             <CardHeader>
-              <CardTitle>Program Settings</CardTitle>
+              <div>
+                <CardTitle>Program Settings</CardTitle>
+                <p className="text-xs text-grey mt-1">Set how clients earn and redeem points.</p>
+              </div>
               <label className="flex items-center gap-2 text-sm text-grey cursor-pointer">
                 {settings.enabled ? "On" : "Off"}
                 <Switch checked={settings.enabled} onChange={() => setSettings(p => ({ ...p, enabled: !p.enabled }))} />
@@ -433,95 +436,102 @@ export default function LoyaltyPage() {
                   Loyalty is <span className="text-foreground font-medium">paused</span> — no points are earned or redeemed anywhere (dashboard, POS, or online booking). Existing balances are kept, so turning it back on resumes right where you left off.
                 </div>
               )}
-              {/* Earning rules + example dim out while paused; the toggle above
-                  and Save below stay active so the owner can pause/resume. */}
+              {/* Earning rules dim out while paused; the toggle and Save stay active. */}
               <div className={cn(!settings.enabled && "opacity-40 pointer-events-none select-none")}>
-              {/* Plain-English earning rules — same three saved settings, just
-                  written as fill-in-the-blank sentences instead of raw boxes. */}
-              <div className="space-y-3">
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-2 text-sm text-foreground">
-                  <span>Clients earn</span>
-                  <input type="number" min={0} value={settings.points_per_visit}
-                    onChange={e => setSettings(p => ({ ...p, points_per_visit: Number(e.target.value) }))}
-                    className={inlineNum} />
-                  <span>points every visit.</span>
-                </div>
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-2 text-sm text-foreground">
-                  <span>Every 100 points =</span>
-                  <span className="text-grey">$</span>
-                  <input type="number" min={0} value={settings.redemption}
-                    onChange={e => setSettings(p => ({ ...p, redemption: Number(e.target.value) }))}
-                    className={inlineNum} />
-                  <span>off their bill.</span>
-                </div>
-
-                {/* Advanced: points-per-dollar. It stays applied even when
-                    collapsed, so the toggle line states the active rate to keep
-                    the example honest. */}
-                {showAdvanced ? (
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-2 text-sm text-foreground">
-                    <span>Plus</span>
-                    <input type="number" min={0} value={settings.points_per_dollar}
-                      onChange={e => setSettings(p => ({ ...p, points_per_dollar: Number(e.target.value) }))}
+                <div>
+                  <h4 className="text-sm font-semibold text-foreground">Earning rules</h4>
+                  <div className="grid gap-3 sm:grid-cols-2 mt-3">
+                    <label className="rounded-xl bg-card-raised border border-border p-3 flex items-center justify-between gap-3 text-sm text-foreground">
+                      <span>Points per completed visit</span>
+                      <span className="flex items-center gap-2 shrink-0">
+                        <input aria-label="Points per completed visit" type="number" min={0} value={settings.points_per_visit}
+                          onChange={e => setSettings(p => ({ ...p, points_per_visit: Number(e.target.value) }))}
+                          className={inlineNum} />
+                        <span className="text-xs text-grey">pts</span>
+                      </span>
+                    </label>
+                    <label className="rounded-xl bg-card-raised border border-border p-3 flex items-center justify-between gap-3 text-sm text-foreground">
+                      <span>Points per $1 spent</span>
+                      <span className="flex items-center gap-2 shrink-0">
+                        <input aria-label="Points per dollar spent" type="number" min={0} value={settings.points_per_dollar}
+                          onChange={e => setSettings(p => ({ ...p, points_per_dollar: Number(e.target.value) }))}
+                          className={inlineNum} />
+                        <span className="text-xs text-grey">pts</span>
+                      </span>
+                    </label>
+                  </div>
+                  <div className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-2 text-sm text-foreground">
+                    <span>Reward value: every 100 points =</span>
+                    <span className="text-grey">$</span>
+                    <input aria-label="Reward value for every 100 points" type="number" min={0} value={settings.redemption}
+                      onChange={e => setSettings(p => ({ ...p, redemption: Number(e.target.value) }))}
                       className={inlineNum} />
-                    <span>point per $1 spent.</span>
-                    <button type="button" onClick={() => setShowAdvanced(false)}
-                      className="text-xs text-grey hover:text-foreground underline ml-1">hide</button>
-                  </div>
-                ) : (
-                  <button type="button" onClick={() => setShowAdvanced(true)}
-                    className="text-xs text-grey hover:text-foreground underline">
-                    Advanced · {settings.points_per_dollar > 0
-                      ? `also earning ${settings.points_per_dollar} pt per $1 spent`
-                      : "also earn points per dollar spent"}
-                  </button>
-                )}
-              </div>
-
-              {/* Worked example — recalculates live off an editable sample visit
-                  price so the owner sees exactly what the next customer earns. */}
-              <div className="mt-5 rounded-xl bg-card-raised border border-border p-4">
-                <div className="flex items-center justify-between gap-3 mb-3">
-                  <p className="text-sm font-semibold text-foreground">What the next customer earns</p>
-                  <label className="flex items-center gap-1.5 text-xs text-grey whitespace-nowrap">
-                    Visit price <span>$</span>
-                    <input type="number" min={0} value={examplePrice}
-                      onChange={e => setExamplePrice(Number(e.target.value))}
-                      className="w-14 rounded-lg border border-border bg-card px-2 py-1 text-center font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-black/20" />
-                  </label>
-                </div>
-                <div className="grid grid-cols-3 gap-2 text-center">
-                  <div className="rounded-lg bg-card p-3">
-                    <p className="text-lg font-bold text-foreground">{exVisitPts}</p>
-                    <p className="text-[11px] text-grey mt-0.5">pts earned</p>
-                  </div>
-                  <div className="rounded-lg bg-card p-3">
-                    <p className="text-lg font-bold text-foreground">${exVisitValue.toFixed(2)}</p>
-                    <p className="text-[11px] text-grey mt-0.5">value earned</p>
-                  </div>
-                  <div className="rounded-lg bg-card p-3">
-                    <p className="text-lg font-bold text-foreground">{visitsToReward || "—"}</p>
-                    <p className="text-[11px] text-grey mt-0.5">visits to ${settings.redemption.toFixed(2)} off</p>
+                    <span>off the bill.</span>
                   </div>
                 </div>
-                <p className="text-xs text-grey mt-3 leading-relaxed">
-                  A <span className="text-foreground">${examplePrice}</span> visit earns{" "}
-                  <span className="text-foreground font-medium">{exVisitPts} pts</span>
-                  {settings.points_per_dollar > 0 ? ` (${settings.points_per_visit} per visit + ${examplePrice} × ${settings.points_per_dollar} per $1)` : ""}.
-                  {" "}After about <span className="text-foreground font-medium">{visitsToReward || "—"} visit{visitsToReward === 1 ? "" : "s"}</span> they’ll have <span className="text-foreground font-medium">${settings.redemption.toFixed(2)}</span> off (≈ {centsPerPoint}¢ a point).
-                </p>
-              </div>
               </div>
 
               <Button className="mt-4" loading={savingSettings} onClick={saveSettings}>Save Settings</Button>
             </CardContent>
           </Card>
 
+          {/* Preview uses the same live calculation, separate from saved rules. */}
+          <Card>
+            <CardHeader className="flex-col items-start gap-3 sm:flex-row sm:items-center">
+              <div>
+                <CardTitle>Reward Preview</CardTitle>
+                <p className="text-xs text-grey mt-1">
+                  {settings.enabled ? "Sample calculation from the configured earning and reward rules." : "Program paused — this sample does not earn points right now."}
+                </p>
+              </div>
+              <label className="flex items-center gap-1.5 text-xs text-grey whitespace-nowrap">
+                Visit price <span>$</span>
+                <input aria-label="Sample visit price" type="number" min={0} value={examplePrice}
+                  onChange={e => setExamplePrice(Number(e.target.value))}
+                  className="w-16 rounded-lg border border-border bg-card px-2 py-1.5 text-center text-sm font-mono tabular-nums font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-foreground/30" />
+              </label>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-center">
+                <div className="rounded-lg bg-card-raised p-3">
+                  <p className="text-lg font-mono tabular-nums font-bold text-foreground">{exVisitPts}</p>
+                  <p className="text-[11px] text-grey mt-0.5">points earned per visit</p>
+                </div>
+                <div className="rounded-lg bg-card-raised p-3">
+                  <p className="text-lg font-mono tabular-nums font-bold text-foreground">${exVisitValue.toFixed(2)}</p>
+                  <p className="text-[11px] text-grey mt-0.5">reward value earned</p>
+                </div>
+                <div className="rounded-lg bg-card-raised p-3">
+                  <p className="text-lg font-mono tabular-nums font-bold text-foreground">{visitsToReward || "—"}</p>
+                  <p className="text-[11px] text-grey mt-0.5">visits to ${settings.redemption.toFixed(2)} off</p>
+                </div>
+              </div>
+              <p className="text-xs text-grey mt-3 leading-relaxed">
+                A <span className="text-foreground">${examplePrice}</span> visit earns{" "}
+                <span className="text-foreground font-medium">{exVisitPts} points</span>
+                {settings.points_per_dollar > 0 ? ` (${settings.points_per_visit} per visit + ${examplePrice} × ${settings.points_per_dollar} per $1 spent)` : ""}.
+                {" "}After about <span className="text-foreground font-medium">{visitsToReward || "—"} visit{visitsToReward === 1 ? "" : "s"}</span> they’ll have <span className="text-foreground font-medium">${settings.redemption.toFixed(2)}</span> off (≈ {centsPerPoint}¢ a point).
+              </p>
+            </CardContent>
+          </Card>
+
           {/* Leaderboard */}
           <Card>
-            <CardHeader>
-              <CardTitle>Points Leaderboard</CardTitle>
-              <Badge variant="gold">{loading || loadError ? "—" : clients.length} clients</Badge>
+            <CardHeader className="flex-col items-start gap-3 sm:flex-row sm:items-center">
+              <div>
+                <CardTitle>Client Points</CardTitle>
+                <p className="text-xs text-grey mt-1">
+                  {showAllClients ? `Showing all ${plural(clients.length, "client")}.` : `Showing the top ${plural(Math.min(5, clientsWithPoints.length), "client")} with points.`}
+                </p>
+              </div>
+              <div className="w-full sm:w-auto flex flex-wrap items-center gap-2">
+                <Badge variant="default">{loading || loadError ? "—" : `${clientsWithPoints.length} with points`}</Badge>
+                {!loading && !loadError && hasMoreClientsToShow && (
+                  <Button variant="outline" size="sm" onClick={() => setShowAllClients(value => !value)}>
+                    {showAllClients ? "Show clients with points" : `View all ${clients.length} clients`}
+                  </Button>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
               {loading ? (
@@ -532,25 +542,30 @@ export default function LoyaltyPage() {
                   <h3 className="text-base font-semibold text-foreground mb-1">No clients yet</h3>
                   <p className="text-sm text-grey max-w-xs mx-auto">As clients book and check out, they earn points and this leaderboard fills in.</p>
                 </div>
+              ) : visibleClients.length === 0 ? (
+                <div className="py-6 text-center">
+                  <p className="text-sm font-medium text-foreground">No clients have points yet.</p>
+                  <p className="text-xs text-grey mt-1">View all clients to add points or check their visit history.</p>
+                </div>
               ) : (
                 <div className="overflow-x-auto">
                   {historyUnavailable && <div role="status" className="text-sm text-grey mb-3">Visit history is unavailable. Points are up to date. <button className="underline" onClick={loadData}>Retry</button></div>}
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-border">
-                        <th className="text-left text-xs text-grey px-3 py-2">Rank</th>
+                        <th className="hidden sm:table-cell text-left text-xs text-grey px-3 py-2">Rank</th>
                         <th className="text-left text-xs text-grey px-3 py-2">Client</th>
                         <th className="text-left text-xs text-grey px-3 py-2">Points</th>
-                        <th className="text-left text-xs text-grey px-3 py-2">Visits</th>
-                        <th className="text-left text-xs text-grey px-3 py-2">Last Visit</th>
+                        <th className="hidden sm:table-cell text-left text-xs text-grey px-3 py-2">Visits</th>
+                        <th className="hidden sm:table-cell text-left text-xs text-grey px-3 py-2">Last Visit</th>
                         <th className="text-left text-xs text-grey px-3 py-2">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {clients.map((client, idx) => (
+                      {visibleClients.map((client, idx) => (
                         <tr key={client.id} className="border-b border-border/50 hover:bg-card-raised/30">
-                          <td className="px-3 py-3">
-                            <span className={cn("text-sm font-bold", idx === 0 ? "text-foreground" : idx === 1 ? "text-grey" : idx === 2 ? "text-amber-500" : "text-grey")}>
+                          <td className="hidden sm:table-cell px-3 py-3">
+                            <span className="text-sm font-bold text-grey">
                               #{idx + 1}
                             </span>
                           </td>
@@ -559,24 +574,29 @@ export default function LoyaltyPage() {
                               <div className="w-7 h-7 rounded-full bg-card-raised border border-border flex items-center justify-center text-xs text-foreground font-bold">
                                 {client.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
                               </div>
-                              <span className="text-sm text-foreground">{client.name}</span>
+                              <div className="min-w-0">
+                                <span className="text-sm text-foreground break-words">{client.name}</span>
+                                <span className="sm:hidden block text-xs text-grey mt-0.5">
+                                  {historyUnavailable ? "Visit history unavailable" : `${client.total_visits} visits · Last visit ${client.last_visit ?? "—"}`}
+                                </span>
+                              </div>
                             </div>
                           </td>
                           <td className="px-3 py-3">
                             <div className="flex items-center gap-2">
                               <span className="text-sm font-bold text-foreground">{client.loyalty_points}</span>
-                              <div className="w-16 h-1.5 rounded-full bg-card-raised overflow-hidden">
-                                <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.min(100, (client.loyalty_points / 500) * 100)}%` }} />
+                              <div className="hidden sm:block w-16 h-1.5 rounded-full bg-card-raised overflow-hidden">
+                                <div className="h-full bg-foreground/70 rounded-full" style={{ width: `${Math.min(100, (client.loyalty_points / 500) * 100)}%` }} />
                               </div>
                             </div>
                             {client.loyalty_points > 0 && (
                               <p className="text-[11px] text-grey mt-1">≈ ${dollarsOf(client.loyalty_points).toFixed(2)} value</p>
                             )}
                           </td>
-                          <td className="px-3 py-3 text-sm text-grey">{historyUnavailable ? "—" : client.total_visits}</td>
-                          <td className="px-3 py-3 text-sm text-grey">{historyUnavailable ? "—" : client.last_visit ?? "—"}</td>
+                          <td className="hidden sm:table-cell px-3 py-3 text-sm text-grey">{historyUnavailable ? "—" : client.total_visits}</td>
+                          <td className="hidden sm:table-cell px-3 py-3 text-sm text-grey">{historyUnavailable ? "—" : client.last_visit ?? "—"}</td>
                           <td className="px-3 py-3">
-                            <div className="flex gap-2">
+                            <div className="flex flex-wrap gap-2">
                               <Button variant="outline" size="sm" onClick={() => setAddPointsFor(client)}>+ Points</Button>
                               <Button variant="outline" size="sm" disabled={client.loyalty_points <= 0} onClick={() => { setPointsToRedeem("100"); setRedeemFor(client); }}>Redeem</Button>
                             </div>
@@ -593,25 +613,24 @@ export default function LoyaltyPage() {
           {/* Automated Reminders */}
           <Card>
             <CardHeader>
-              <CardTitle>Automated Reminders</CardTitle>
-              <Badge variant="success">Active</Badge>
+              <div>
+                <CardTitle>Client Reminders</CardTitle>
+                <p className="text-xs text-grey mt-1">Choose which client reminders to send.</p>
+              </div>
             </CardHeader>
             <CardContent>
-              <p className="text-xs text-grey mb-4">Sent automatically once a day. Toggle what you want on — 24h reminders text &amp; email the client, the rest email.</p>
-              <div className="space-y-4">
+              <p className="text-xs text-grey mb-4">Checked once a day. Appointment reminders use email on all plans and SMS on paid plans; follow-up and birthday messages use email.</p>
+              <div className="space-y-2">
                 {[
-                  { key: "appointment_24h" as const, label: "24hr Appointment Reminder", desc: "SMS sent 24hrs before appointment", icon: "⏰" },
-                  { key: "rebooking_30d" as const, label: "Re-booking Reminder", desc: "SMS if client hasn't visited in 30 days", icon: "📅" },
-                  { key: "birthday" as const, label: "Birthday Message", desc: "Send a birthday discount message", icon: "🎂" },
-                  { key: "winback_60d" as const, label: "Win-Back Campaign", desc: "Reach out to clients after 60 days of no activity", icon: "💌" },
+                  { key: "appointment_24h" as const, label: "Appointment Reminder", desc: "24 hours before an appointment · Email on all plans, SMS on paid plans" },
+                  { key: "rebooking_30d" as const, label: "Rebooking Reminder", desc: "After 30 days without a visit · Email" },
+                  { key: "birthday" as const, label: "Birthday Message", desc: "On the client's birthday · Email with a booking link" },
+                  { key: "winback_60d" as const, label: "Win-Back Follow-up", desc: "After 60 days without a visit · Email" },
                 ].map(r => (
-                  <div key={r.key} className="flex items-center justify-between p-4 bg-card-raised rounded-xl border border-border">
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl">{r.icon}</span>
-                      <div>
-                        <p className="text-sm font-medium text-foreground">{r.label}</p>
-                        <p className="text-xs text-grey">{r.desc}</p>
-                      </div>
+                  <div key={r.key} className="flex items-center justify-between gap-4 p-3 sm:p-4 bg-card-raised rounded-xl border border-border">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground">{r.label}</p>
+                      <p className="text-xs text-grey mt-0.5 leading-relaxed">{r.desc}</p>
                     </div>
                     <Switch checked={!!reminders[r.key]} onChange={() => toggleReminder(r.key)} />
                   </div>
