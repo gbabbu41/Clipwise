@@ -1176,13 +1176,22 @@ export default function PaymentsPage() {
                       <a href={`mailto:${i.client_email ?? i.appt?.client_email}`} className="text-foreground text-right break-all min-w-0 hover:underline">{i.client_email ?? i.appt?.client_email}</a>
                     </div>
                   )}
-                  <div className="flex justify-between"><span className="text-grey">Method</span><span className="text-foreground">{methodLabel(i)}{isGiftPaid(i) ? " (prepaid — counted when the card was sold)" : ""}</span></div>
+                  <div className="flex justify-between"><span className="text-grey">Method</span><span className="text-foreground">{methodLabel(i)}</span></div>
                   <div className="flex justify-between"><span className="text-grey">Status</span><span className="text-foreground">{i.statusLabel}</span></div>
                   {/* Money breakdown. For a card payment with a known fee, spell out
                       gross → fee → net so "after fee" is never ambiguous (the old
                       single "Amount" row actually showed the net, which read unclear). */}
                   {i.earn ? (
                     <div className="flex justify-between"><span className="text-grey">Earned</span><span className="text-foreground font-semibold">{formatCurrency(i.amount)}</span></div>
+                  ) : isGiftPaid(i) && i.settled && !i.refunded ? (
+                    <>
+                      {/* Paid by gift card: the value was redeemed here, but the money came in
+                          when the card was SOLD — so this adds $0 to today's collected. */}
+                      <div className="flex justify-between"><span className="text-grey">Paid with gift card</span><span className="text-foreground font-semibold">{formatCurrency(i.giftApplied ?? 0)}</span></div>
+                      {i.tax > 0 && <div className="flex justify-between"><span className="text-grey">Sales tax (incl.)</span><span className="text-grey">{formatCurrency(i.tax)}</span></div>}
+                      <div className="flex justify-between"><span className="text-grey">New money collected</span><span className="text-foreground">{formatCurrency(0)}</span></div>
+                      <p className="text-[11px] text-grey-muted">Already counted when the gift card was sold.</p>
+                    </>
                   ) : i.settled && i.method !== "cash" && feeOf(i) > 0 ? (
                     <>
                       <div className="flex justify-between"><span className="text-grey">Gross (paid)</span><span className="text-foreground">{formatCurrency(lineGross(i))}</span></div>
