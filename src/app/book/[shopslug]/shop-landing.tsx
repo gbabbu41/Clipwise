@@ -431,8 +431,10 @@ const CSS = `
 .sl-sticky{position:fixed;left:0;right:0;bottom:0;z-index:40;padding:10px 14px calc(10px + env(safe-area-inset-bottom));
   background:linear-gradient(to top,var(--bg) 60%,transparent);pointer-events:none}
 .sl-sticky-in{max-width:520px;margin:0 auto;display:flex;align-items:center;gap:12px;pointer-events:auto;
-  background:rgba(18,19,23,.92);backdrop-filter:blur(14px);border:1px solid var(--line2);border-radius:980px;padding:8px 8px 8px 20px;
+  background:rgba(18,19,23,.96);border:1px solid var(--line2);border-radius:980px;padding:8px 8px 8px 20px;
   box-shadow:0 12px 40px -12px rgba(0,0,0,.7)}
+@supports ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.sl-sticky-in{background:linear-gradient(180deg,rgba(255,255,255,.07),transparent 55%),rgba(18,19,23,.78);-webkit-backdrop-filter:blur(14px) saturate(1.12);backdrop-filter:blur(14px) saturate(1.12)}}
+@media(prefers-reduced-transparency:reduce){.sl-sticky-in{background:rgba(18,19,23,.98);-webkit-backdrop-filter:none;backdrop-filter:none}}
 .sl-sticky-meta{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.15}
 .sl-sm-from{font-size:14px;font-weight:700;color:var(--ink)}
 .sl-sm-sub{font-size:11.5px;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
