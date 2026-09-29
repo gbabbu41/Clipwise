@@ -222,10 +222,9 @@ export function BarberSidebar() {
           // pt/h include env(safe-area-inset-top) so the bar (and its title +
           // bell + avatar) clear the notch / Dynamic Island in the native app
           // and installed PWA — where the webview runs full-screen under it.
-          // Solid black (not black/92) so the bar blends with the pure-black
-          // page at rest — no faint darker strip — and cleanly covers content
-          // when scrolled. Border fades in only once you scroll under it.
-          "lg:hidden fixed top-0 left-0 right-0 z-30 h-[calc(3.5rem+env(safe-area-inset-top))] pt-[env(safe-area-inset-top)] flex items-center gap-2 pl-5 pr-3 bg-card transition-all duration-200 border-b",
+          // The theme-aware glass layer keeps the header distinct while
+          // preserving legibility as page content scrolls beneath it.
+          "cw-mobile-header-glass lg:hidden fixed top-0 left-0 right-0 z-30 h-[calc(3.5rem+env(safe-area-inset-top))] pt-[env(safe-area-inset-top)] flex items-center gap-2 pl-5 pr-3 bg-card transition-all duration-200 border-b",
           scrolled ? "border-border" : "border-transparent",
           topBarHidden ? "-translate-y-full" : "translate-y-0",
         )}
@@ -383,7 +382,7 @@ export function BarberSidebar() {
 
       <aside
         className={cn(
-          "cw-sidebar fixed inset-y-0 left-0 z-[60] w-64 pt-[env(safe-area-inset-top)] flex flex-col bg-surface border-r border-border transition-transform duration-200 lg:translate-x-0",
+          "cw-sidebar cw-sidebar-glass fixed inset-y-0 left-0 z-[60] w-64 pt-[env(safe-area-inset-top)] flex flex-col bg-surface border-r border-border transition-transform duration-200 lg:translate-x-0",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >

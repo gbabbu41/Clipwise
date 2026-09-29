@@ -475,7 +475,7 @@ export function Sidebar() {
           under it. Replaces the old floating bell/profile pill. */}
       <div
         className={cn(
-          "lg:hidden fixed top-0 left-0 right-0 z-30 h-[calc(3.5rem+env(safe-area-inset-top))] pt-[env(safe-area-inset-top)] flex items-center gap-2 pl-5 pr-3 bg-card transition-all duration-200 border-b",
+          "cw-mobile-header-glass lg:hidden fixed top-0 left-0 right-0 z-30 h-[calc(3.5rem+env(safe-area-inset-top))] pt-[env(safe-area-inset-top)] flex items-center gap-2 pl-5 pr-3 bg-card transition-all duration-200 border-b",
           scrolled ? "border-border" : "border-transparent",
           topBarHidden ? "-translate-y-full" : "translate-y-0",
         )}
@@ -685,7 +685,7 @@ export function Sidebar() {
           // clock/notch when the app runs as an installed PWA (standalone, where
           // content extends to the top edge). No-op in a browser tab / on desktop
           // (inset resolves to 0).
-          "cw-sidebar fixed inset-y-0 left-0 z-[60] w-64 pt-[env(safe-area-inset-top)] flex flex-col bg-card border-r border-border transition-transform duration-200 lg:translate-x-0",
+          "cw-sidebar cw-sidebar-glass fixed inset-y-0 left-0 z-[60] w-64 pt-[env(safe-area-inset-top)] flex flex-col bg-card border-r border-border transition-transform duration-200 lg:translate-x-0",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >

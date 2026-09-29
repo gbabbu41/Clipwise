@@ -42,6 +42,41 @@
   .cw-booking-action-surface { background: #000; -webkit-backdrop-filter: none; backdrop-filter: none; }
 }
 
+/* The glass stays on a decorative pseudo-layer so fixed menus/drawers inside
+   these shells keep their viewport positioning. The sidebar remains mostly
+   opaque for persistent navigation; the compact top bar is a little airier. */
+.portal .cw-sidebar-glass::before,
+.portal .cw-mobile-header-glass::before { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; }
+.portal .cw-shop-switcher-trigger { background: var(--card-raised); }
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .portal .cw-sidebar-glass,
+  .portal .cw-mobile-header-glass { background: transparent; }
+  html[data-theme="light"] .portal .cw-sidebar-glass { background: transparent; }
+  .portal .cw-sidebar-glass::before {
+    background: var(--surface);
+    background: linear-gradient(145deg, color-mix(in srgb, var(--foreground) 4%, transparent), transparent 55%), color-mix(in srgb, var(--surface) 92%, transparent);
+    -webkit-backdrop-filter: blur(10px) saturate(1.08);
+    backdrop-filter: blur(10px) saturate(1.08);
+  }
+  .portal .cw-mobile-header-glass::before {
+    background: var(--surface);
+    background: linear-gradient(180deg, color-mix(in srgb, var(--foreground) 7%, transparent), transparent 70%), color-mix(in srgb, var(--surface) 82%, transparent);
+    -webkit-backdrop-filter: blur(14px) saturate(1.12);
+    backdrop-filter: blur(14px) saturate(1.12);
+  }
+  .portal .cw-shop-switcher-trigger {
+    background: linear-gradient(180deg, color-mix(in srgb, var(--foreground) 6%, transparent), transparent 65%), color-mix(in srgb, var(--card-raised) 78%, transparent);
+    -webkit-backdrop-filter: blur(10px) saturate(1.1);
+    backdrop-filter: blur(10px) saturate(1.1);
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .portal .cw-sidebar-glass, .portal .cw-mobile-header-glass { background: var(--surface); }
+  .portal .cw-sidebar-glass::before, .portal .cw-mobile-header-glass::before { display: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .portal .cw-shop-switcher-trigger { background: var(--card-raised); -webkit-backdrop-filter: none; backdrop-filter: none; }
+  html[data-theme="light"] .portal .cw-sidebar-glass { background: var(--surface); }
+}
+
 /* Keep native time fields complete on narrow working-hours sheets. */
 .cw-hours-row { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 8px 12px; align-items: center; }
 .cw-hours-times { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 8px; align-items: center; }
