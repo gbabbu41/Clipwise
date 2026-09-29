@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { Gift, Plus, Search, Check, X, Copy, DollarSign, Mail } from "lucide-react";
+import { Gift, Plus, Search, Copy, Mail, ShoppingCart, SlidersHorizontal } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
 import { FeatureLock } from "@/components/dashboard/feature-lock";
@@ -9,7 +10,7 @@ import { cn, formatCurrency } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 
 interface GiftCard {
   id: string;
@@ -25,6 +26,28 @@ interface GiftCard {
   is_active: boolean;
   created_at: string;
   redeemed_at?: string;
+}
+
+interface LedgerRow {
+  id: string;
+  amount: number | string;
+  action: string;
+  note?: string | null;
+  appointment_id?: string | null;
+  created_at: string;
+}
+
+// Plain-language line for each history row (phase69/70 ledger actions).
+function historyLabel(h: LedgerRow): string {
+  switch (h.action) {
+    case "redeemed": return h.appointment_id ? "Used for a booking" : "Used at checkout";
+    case "restored": return "Given back — booking cancelled";
+    case "reapplied": return "Used again — booking reinstated";
+    case "adjusted": return Number(h.amount) < 0 ? "Balance removed by owner" : "Balance added back by owner";
+    case "voided": return "Voided";
+    case "reactivated": return "Reactivated";
+    default: return h.action;
+  }
 }
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
@@ -50,18 +73,21 @@ const BLANK: BlankForm = { initial_value: "50", purchased_by: "", purchased_by_e
 export default function GiftCardsPage() {
   const { shop, accessToken } = useAuth();
   const { prompt } = useConfirm();
+  const router = useRouter();
   const [cards, setCards] = useState<GiftCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "active" | "used">("all");
   const [showAdd, setShowAdd] = useState(false);
-  const [showRedeem, setShowRedeem] = useState(false);
   const [form, setForm] = useState<BlankForm>(BLANK);
-  const [redeemCode, setRedeemCode] = useState("");
-  const [redeemAmount, setRedeemAmount] = useState("");
-  const [redeemResult, setRedeemResult] = useState<GiftCard | null>(null);
   const [saving, setSaving] = useState(false);
-  const [redeeming, setRedeeming] = useState(false);
+  // "Manage" sheet: owner corrections (adjust / void / reactivate) + the card's history.
+  const [managing, setManaging] = useState<GiftCard | null>(null);
+  const [history, setHistory] = useState<LedgerRow[] | null>(null);
+  const [adjustDir, setAdjustDir] = useState<"remove" | "add">("remove");
+  const [adjustAmount, setAdjustAmount] = useState("");
+  const [adjustReason, setAdjustReason] = useState("");
+  const [adjusting, setAdjusting] = useState(false);
   const [toast, setToast] = useState("");
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
@@ -177,45 +203,14 @@ export default function GiftCardsPage() {
     }
   };
 
-  const lookupCard = async () => {
-    if (!shop || !redeemCode.trim()) return;
-    setRedeeming(true);
-    const { data, error } = await supabase
-      .from("gift_cards")
-      .select("*")
-      .eq("shop_id", shop.id)
-      .eq("code", redeemCode.trim().toUpperCase().replace(/\s+/g, ""))
-      .maybeSingle();
-    setRedeeming(false);
-    if (error) { showToast("Couldn't look up that card — please try again."); return; }
-    if (!data) { showToast("Gift card not found"); return; }
-    setRedeemResult(data as GiftCard);
-  };
-
-  const redeemCard = async () => {
-    if (!redeemResult) return;
-    const amount = parseFloat(redeemAmount) || 0;
-    if (amount <= 0 || amount > redeemResult.remaining_value) {
-      showToast(`Amount must be between $0.01 and ${formatCurrency(redeemResult.remaining_value)}`);
-      return;
-    }
-    setRedeeming(true);
-    const newBalance = Math.max(0, redeemResult.remaining_value - amount);
-    // Capture the error — this moves money off the card, so a failed write must
-    // NEVER show a "Redeemed" success (which would double-spend the balance).
-    const { error } = await supabase.from("gift_cards").update({
-      remaining_value: newBalance,
-      is_active: newBalance > 0,
-      redeemed_at: new Date().toISOString(),
-    }).eq("id", redeemResult.id);
-    setRedeeming(false);
-    if (error) { showToast(`Couldn't redeem — please try again.`); return; }
-    showToast(`Redeemed ${formatCurrency(amount)} — Remaining: ${formatCurrency(newBalance)}`);
-    setShowRedeem(false);
-    setRedeemCode("");
-    setRedeemAmount("");
-    setRedeemResult(null);
-    load();
+  // Spending a card on a sale happens at checkout (POS), which records the sale
+  // AND takes the balance off the card in one locked step. The code is prefilled.
+  const openCheckout = async (code?: string) => {
+    const entered = code ?? await prompt({ title: "Use a gift card", message: "Enter the gift card code — it'll be applied at checkout.", placeholder: "XXXX-XXXX-XXXX", confirmText: "Go to checkout" });
+    if (entered === null) return;
+    const clean = entered.trim().toUpperCase().replace(/\s+/g, "");
+    if (!clean) { showToast("Enter a gift card code"); return; }
+    router.push(`/dashboard/pos?gift=${encodeURIComponent(clean)}`);
   };
 
   const copyCode = (code: string) => {
@@ -237,11 +232,62 @@ export default function GiftCardsPage() {
     showToast(j.ok ? `Gift card sent to ${to.trim()}` : (j.error ?? "Couldn't send — try again"));
   };
 
-  const deactivate = async (id: string) => {
-    const { error } = await supabase.from("gift_cards").update({ is_active: false }).eq("id", id);
-    if (error) { showToast("Couldn't deactivate — please try again."); return; }
-    setCards(prev => prev.map(c => c.id === id ? { ...c, is_active: false } : c));
-    showToast("Gift card deactivated");
+  const loadHistory = async (card: GiftCard) => {
+    if (!shop) return;
+    setHistory(null);
+    const res = await fetch(`/api/gift-card/manage?shop_id=${shop.id}&gift_card_id=${card.id}`, { headers: authHeaders() });
+    const j = await res.json().catch(() => ({}));
+    setHistory(res.ok ? (j.history ?? []) : []);
+  };
+
+  const openManage = (card: GiftCard) => {
+    setManaging(card); setAdjustDir("remove"); setAdjustAmount(""); setAdjustReason("");
+    loadHistory(card);
+  };
+
+  // Every change is server-side, owner-only, atomic, and recorded with its reason.
+  const manage = async (card: GiftCard, body: Record<string, unknown>) => {
+    if (!shop) return null;
+    const res = await fetch("/api/gift-card/manage", {
+      method: "POST", headers: authHeaders(),
+      body: JSON.stringify({ shop_id: shop.id, gift_card_id: card.id, ...body }),
+    });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok || !j.ok) { showToast(j.error ?? "Couldn't save the change — please try again."); return null; }
+    return j as { ok: true; applied?: number; balance?: number };
+  };
+
+  const refreshManaged = async (card: GiftCard) => {
+    const { data } = await supabase.from("gift_cards").select("*").eq("id", card.id).maybeSingle();
+    if (data) { setManaging(data as GiftCard); setCards(prev => prev.map(c => c.id === card.id ? data as GiftCard : c)); }
+    loadHistory(card);
+  };
+
+  const saveAdjustment = async () => {
+    if (!managing) return;
+    const amount = Math.round((parseFloat(adjustAmount) || 0) * 100) / 100;
+    if (amount <= 0) { showToast("Enter an amount"); return; }
+    if (!adjustReason.trim()) { showToast("Add a reason for the change"); return; }
+    setAdjusting(true);
+    const r = await manage(managing, { action: "adjust", amount: adjustDir === "remove" ? -amount : amount, reason: adjustReason });
+    setAdjusting(false);
+    if (!r) return;
+    showToast(`${adjustDir === "remove" ? "Removed" : "Added"} ${formatCurrency(amount)} — balance ${formatCurrency(r.balance ?? 0)}`);
+    setAdjustAmount(""); setAdjustReason("");
+    refreshManaged(managing);
+  };
+
+  const setActive = async (card: GiftCard, active: boolean) => {
+    const reason = await prompt({
+      title: active ? "Reactivate gift card" : "Void gift card",
+      message: active ? "The card can be used again. Reason (optional):" : `The remaining ${formatCurrency(card.remaining_value)} can't be used until it's reactivated. Reason (optional):`,
+      placeholder: active ? "Voided by mistake" : "Lost card / refunded", confirmText: active ? "Reactivate" : "Void card",
+    });
+    if (reason === null) return;
+    const r = await manage(card, { action: active ? "reactivate" : "void", reason });
+    if (!r) return;
+    showToast(active ? "Gift card reactivated" : "Gift card voided");
+    refreshManaged(card);
   };
 
   // Plan gate — gift cards ride the loyalty feature (Pro/Premium).
@@ -257,11 +303,11 @@ export default function GiftCardsPage() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-foreground uppercase tracking-wide">Gift Cards</h1>
-          <p className="text-sm text-grey mt-0.5">Issue and redeem gift cards</p>
+          <p className="text-sm text-grey mt-0.5">Issue gift cards — customers use them at checkout or when booking online</p>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline" onClick={() => setShowRedeem(true)}>
-            <DollarSign size={16} /> Redeem
+          <Button variant="outline" onClick={() => openCheckout()}>
+            <ShoppingCart size={16} /> Use at checkout
           </Button>
           <Button onClick={() => setShowAdd(true)}>
             <Plus size={16} /> Issue Gift Card
@@ -370,14 +416,17 @@ export default function GiftCardsPage() {
                         </td>
                         <td className="px-3 py-3">
                           <div className="flex items-center gap-3">
+                            {!isUsed && (
+                              <button onClick={() => openCheckout(card.code)} className="text-xs text-grey hover:text-foreground transition-colors whitespace-nowrap" title="Open checkout with this card applied">
+                                <ShoppingCart size={14} className="inline" /> Use
+                              </button>
+                            )}
                             <button onClick={() => resendCode(card)} className="text-xs text-grey hover:text-foreground transition-colors" title="Email this code to a customer">
                               <Mail size={14} className="inline" /> Resend
                             </button>
-                            {!isUsed && (
-                              <button onClick={() => deactivate(card.id)} className="text-xs text-grey hover:text-red-400 transition-colors">
-                                <X size={14} className="inline" /> Void
-                              </button>
-                            )}
+                            <button onClick={() => openManage(card)} className="text-xs text-grey hover:text-foreground transition-colors" title="Adjust balance, void, or see history">
+                              <SlidersHorizontal size={14} className="inline" /> Manage
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -479,89 +528,98 @@ export default function GiftCardsPage() {
         </>
       )}
 
-      {/* Redeem Modal */}
-      {showRedeem && (
+      {/* Manage Modal — owner corrections + history */}
+      {managing && (() => {
+        const voided = !managing.is_active && managing.remaining_value > 0;
+        const close = () => { setManaging(null); setHistory(null); };
+        return (
         <>
-          <div className="fixed inset-0 bg-black/70 z-40" onClick={() => { setShowRedeem(false); setRedeemResult(null); setRedeemCode(""); setRedeemAmount(""); }} />
+          <div className="fixed inset-0 bg-black/70 z-40" onClick={close} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
-            <div className="bg-card shadow-sm border border-border rounded-2xl p-6 w-full max-w-sm space-y-4">
+            <div className="bg-card shadow-sm border border-border rounded-2xl p-6 w-full max-w-md space-y-4 max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-foreground">Redeem Gift Card</h2>
-                <button onClick={() => { setShowRedeem(false); setRedeemResult(null); setRedeemCode(""); setRedeemAmount(""); }} className="text-grey hover:text-foreground text-xl leading-none">✕</button>
+                <h2 className="text-lg font-bold text-foreground">Manage gift card</h2>
+                <button onClick={close} className="text-grey hover:text-foreground text-xl leading-none" aria-label="Close">✕</button>
               </div>
 
-              {!redeemResult ? (
-                <>
-                  <div className="space-y-1.5">
-                    <label className="text-xs text-grey">Gift Card Code</label>
-                    <input
-                      value={redeemCode}
-                      onChange={e => setRedeemCode(e.target.value.toUpperCase())}
-                      onKeyDown={e => e.key === "Enter" && lookupCard()}
-                      placeholder="XXXX-XXXX-XXXX"
-                      className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm font-mono text-foreground placeholder:text-grey focus:outline-none focus:border-foreground/50"
-                      autoFocus
-                    />
-                  </div>
-                  <div className="flex gap-3">
-                    <Button variant="outline" className="flex-1" onClick={() => setShowRedeem(false)}>Cancel</Button>
-                    <Button className="flex-1" loading={redeeming} onClick={lookupCard}>Look Up</Button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className={cn("rounded-xl p-4 border", redeemResult.is_active && redeemResult.remaining_value > 0 ? "bg-emerald-500/10 border-emerald-500/30" : "bg-red-500/10 border-red-500/30")}>
-                    <div className="flex items-center gap-2 mb-2">
-                      {redeemResult.is_active && redeemResult.remaining_value > 0 ? (
-                        <Check size={16} className="text-emerald-400" />
-                      ) : (
-                        <X size={16} className="text-red-400" />
-                      )}
-                      <p className="text-sm font-semibold text-foreground">{redeemResult.code}</p>
-                    </div>
-                    {redeemResult.recipient_name && <p className="text-xs text-grey">For: {redeemResult.recipient_name}</p>}
-                    <div className="flex justify-between mt-2 text-sm">
-                      <span className="text-grey">Balance:</span>
-                      <span className="text-foreground font-bold">{formatCurrency(redeemResult.remaining_value)}</span>
-                    </div>
-                  </div>
+              <div className="rounded-xl p-4 border border-border bg-card-raised">
+                <div className="flex items-center justify-between gap-2">
+                  <code className="text-sm font-mono text-foreground">{managing.code}</code>
+                  <Badge variant={voided ? "outline" : managing.remaining_value > 0 ? "success" : "outline"} className="text-xs">
+                    {voided ? "Voided" : managing.remaining_value > 0 ? "Active" : "Used up"}
+                  </Badge>
+                </div>
+                {(managing.recipient_name || managing.purchased_by) && <p className="text-xs text-grey mt-1">For: {managing.recipient_name || managing.purchased_by}</p>}
+                <div className="flex justify-between mt-2 text-sm">
+                  <span className="text-grey">Balance</span>
+                  <span className="text-foreground font-bold">{formatCurrency(managing.remaining_value)} <span className="text-grey font-normal">of {formatCurrency(managing.initial_value)}</span></span>
+                </div>
+              </div>
 
-                  {redeemResult.is_active && redeemResult.remaining_value > 0 && (
-                    <>
-                      <div className="space-y-1.5">
-                        <label className="text-xs text-grey">Amount to Redeem ($)</label>
-                        <input
-                          value={redeemAmount}
-                          onChange={e => setRedeemAmount(e.target.value)}
-                          type="number"
-                          min="0.01"
-                          step="0.01"
-                          max={redeemResult.remaining_value}
-                          placeholder={`Max ${formatCurrency(redeemResult.remaining_value)}`}
-                          className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-foreground/50"
-                          autoFocus
-                        />
-                      </div>
-                      <div className="flex gap-3">
-                        <Button variant="outline" className="flex-1" onClick={() => { setRedeemResult(null); setRedeemCode(""); setRedeemAmount(""); }}>
-                          Back
-                        </Button>
-                        <Button className="flex-1" loading={redeeming} onClick={redeemCard}>Redeem</Button>
-                      </div>
-                    </>
-                  )}
-
-                  {(!redeemResult.is_active || redeemResult.remaining_value === 0) && (
-                    <Button variant="outline" className="w-full" onClick={() => { setRedeemResult(null); setRedeemCode(""); }}>
-                      Try Another Code
-                    </Button>
-                  )}
-                </>
+              {!voided && (
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold text-foreground">Adjust balance</p>
+                  <p className="text-[11px] text-grey">For corrections only. To use the card for a haircut or product, use it at checkout — that records the sale.</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(["remove", "add"] as const).map(d => (
+                      <button key={d} onClick={() => setAdjustDir(d)}
+                        className={cn("px-2 py-2 text-sm rounded-lg border font-medium transition-colors",
+                          adjustDir === d ? "bg-emerald-500/10 border-emerald-400 text-foreground" : "border-border text-grey hover:text-foreground")}>
+                        {d === "remove" ? "− Remove" : "+ Add back"}
+                      </button>
+                    ))}
+                  </div>
+                  <input value={adjustAmount} onChange={e => setAdjustAmount(e.target.value)} type="number" min="0.01" step="0.01" inputMode="decimal"
+                    placeholder={adjustDir === "remove" ? `Up to ${formatCurrency(managing.remaining_value)}` : `Up to ${formatCurrency(Math.max(0, managing.initial_value - managing.remaining_value))}`}
+                    className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-base sm:text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-foreground/50" />
+                  <input value={adjustReason} onChange={e => setAdjustReason(e.target.value)} maxLength={200} placeholder="Reason (required) — e.g. used before ClipWise"
+                    className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-base sm:text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-foreground/50" />
+                  <Button className="w-full" loading={adjusting} onClick={saveAdjustment}>Save change</Button>
+                </div>
               )}
+
+              <div className="space-y-2">
+                <p className="text-sm font-semibold text-foreground">History</p>
+                {history === null ? <p className="text-xs text-grey">Loading…</p> : (
+                  <ul className="space-y-1.5">
+                    {history.map(h => (
+                      <li key={h.id} className="flex items-start justify-between gap-3 text-xs">
+                        <div className="min-w-0">
+                          <p className="text-foreground">{historyLabel(h)}</p>
+                          {h.note && <p className="text-grey truncate">{h.note}</p>}
+                          <p className="text-grey">{new Date(h.created_at).toLocaleString("en-CA", { dateStyle: "medium", timeStyle: "short" })}</p>
+                        </div>
+                        {Number(h.amount) !== 0 && (
+                          <span className={cn("font-semibold flex-shrink-0", Number(h.amount) < 0 ? "text-foreground" : "text-emerald-400")}>
+                            {Number(h.amount) < 0 ? "−" : "+"}{formatCurrency(Math.abs(Number(h.amount)))}
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                    <li className="flex items-start justify-between gap-3 text-xs">
+                      <div>
+                        <p className="text-foreground">Issued</p>
+                        <p className="text-grey">{new Date(managing.created_at).toLocaleString("en-CA", { dateStyle: "medium", timeStyle: "short" })}</p>
+                      </div>
+                      <span className="font-semibold text-foreground">{formatCurrency(managing.initial_value)}</span>
+                    </li>
+                  </ul>
+                )}
+              </div>
+
+              <div className="flex gap-3 pt-1">
+                {voided ? (
+                  <Button variant="outline" className="flex-1" onClick={() => setActive(managing, true)}>Reactivate card</Button>
+                ) : managing.remaining_value > 0 ? (
+                  <Button variant="outline" className="flex-1 text-red-400" onClick={() => setActive(managing, false)}>Void card</Button>
+                ) : null}
+                <Button variant="outline" className="flex-1" onClick={close}>Done</Button>
+              </div>
             </div>
           </div>
         </>
-      )}
+        );
+      })()}
     </div>
   );
 }

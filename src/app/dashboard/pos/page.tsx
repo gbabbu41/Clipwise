@@ -592,15 +592,31 @@ export default function POSPage() {
     setPromoApplied(found); showToast(`Promo ${found.code} applied!`);
   };
 
-  const applyGift = async () => {
-    if (!shop || !giftCode.trim()) return;
-    const code = giftCode.trim().toUpperCase().replace(/\s+/g, "");
+  const applyGift = async (fromCode?: string) => {
+    const raw = fromCode ?? giftCode;
+    if (!shop || !raw.trim()) return;
+    const code = raw.trim().toUpperCase().replace(/\s+/g, "");
     const { data } = await supabase.from("gift_cards")
       .select("id, code, remaining_value, is_active").eq("shop_id", shop.id).eq("code", code).maybeSingle();
     if (!data || !data.is_active || (data.remaining_value ?? 0) <= 0) { showToast("Gift card not found or empty"); return; }
     setGiftCard({ id: data.id, code: data.code, remaining_value: data.remaining_value });
     showToast(`Gift card applied — ${formatCurrency(data.remaining_value)} available`);
   };
+
+  // "Use at checkout" on Gift Cards opens POS as /dashboard/pos?gift=CODE — apply
+  // that card once (read from the URL directly: no useSearchParams Suspense
+  // boundary needed), then drop the param so a refresh doesn't re-apply it.
+  const giftFromUrl = useRef(false);
+  useEffect(() => {
+    if (!shop || giftFromUrl.current) return;
+    const code = new URLSearchParams(window.location.search).get("gift");
+    if (!code) return;
+    giftFromUrl.current = true;
+    setGiftCode(code.toUpperCase());
+    applyGift(code);
+    window.history.replaceState({}, "", "/dashboard/pos");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shop]);
 
   const charge = async () => {
     if (cart.length === 0) { showToast("Please select a service first"); return; }
@@ -916,7 +932,7 @@ export default function POSPage() {
           ) : (
             <div className="flex gap-2">
               <Input placeholder="Gift card code" value={giftCode} onChange={e => setGiftCode(e.target.value.toUpperCase())} className="flex-1 text-xs" />
-              <Button variant="outline" size="sm" onClick={applyGift}>Apply</Button>
+              <Button variant="outline" size="sm" onClick={() => applyGift()}>Apply</Button>
             </div>
           )}
           {/* Loyalty — spend the client's points (only shows with a redeemable balance) */}
