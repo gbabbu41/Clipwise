@@ -114,8 +114,9 @@ the owner a feature is broken because "a migration is pending" — the whole bac
 applied.** Verify against the live DB (Supabase MCP or an `information_schema` query),
 never against a stale checkbox in TODO.md or a migration file header.
 - New migrations added AFTER 2026-08-12 are the only ones to track as "to run."
-  phase66, phase67 (one ledger row per charge) and phase68 (loyalty ledger integrity) are
-  **applied on prod** (verified 2026-09-28/29).
+  phase66, phase67 (one ledger row per charge), phase68 (loyalty ledger integrity),
+  phase69 (gift-card ledger) and phase70 (owner gift-card corrections; browser can't write
+  `gift_cards`) are **applied on prod** (verified 2026-09-28/29).
 - If a feature "silently does nothing," still capture the supabase `error` (don't only
   read `data`) — but the cause is far more likely code/config than a missing column now.
 

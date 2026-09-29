@@ -35,10 +35,14 @@ const { psql, stop } = startPg();
         remaining_value numeric, is_active boolean default true, redeemed_at timestamptz, created_at timestamptz default now());
       create table public.error_logs (id uuid primary key default gen_random_uuid(), created_at timestamptz default now(), level text, source text, message text, path text, shop_id uuid);
       create role service_role; create role anon; create role authenticated;
+      grant usage on schema public to anon, authenticated;
+      grant select, insert, update, delete on public.gift_cards to anon, authenticated;   -- Supabase's default grants
       insert into public.shops values ('${SHOP}'), ('${OTHER}');`]);
     assert.equal(schema.code, 0, schema.err);
     const mig = await psql(['-f', path.join(root, 'supabase/migrations/phase69_gift_card_ledger.sql')]);
     assert.equal(mig.code, 0, mig.err);
+    const mig70 = await psql(['-f', path.join(root, 'supabase/migrations/phase70_gift_card_owner_adjust.sql')]);
+    assert.equal(mig70.code, 0, mig70.err);
 
     const one = async sql => { const r = await psql(['-c', sql]); assert.equal(r.code, 0, r.err); return r.out; };
     const card = async (id, code, value, shop = SHOP) => one(`insert into public.gift_cards (id, shop_id, code, initial_value, remaining_value) values ('${id}', '${shop}', '${code}', ${value}, ${value})`);
@@ -48,7 +52,7 @@ const { psql, stop } = startPg();
     const setStatus = (id, status) => one(`update public.appointments set status = '${status}' where id = '${id}'`);
     const consistent = async () => Number(await one(`select count(*) from public.gift_cards g where g.remaining_value <> g.initial_value + coalesce((select sum(amount) from public.gift_card_ledger l where l.gift_card_id = g.id), 0)`));
 
-    const db = makeDb(psql, { setOfFns: ['gift_adjust', 'gift_redeem_for_appointment'] });
+    const db = makeDb(psql, { setOfFns: ['gift_adjust', 'gift_redeem_for_appointment', 'gift_adjust_manual'] });
     const { redeemGiftForBooking, redeemGiftCard, findRedeemableGift } = load('src/lib/gift-redeem.ts', { '@/lib/supabase-admin': { supabaseAdmin: db } });
     const pay = (appointmentId, amount, code = 'PNWT-6TR3-B2ZZ', requireFull = true) =>
       redeemGiftForBooking({ shopId: SHOP, code, amount, appointmentId, requireFull });
@@ -211,7 +215,89 @@ const { psql, stop } = startPg();
       assert(/payment_method: "" \};/.test(page) && page.includes('Choose how this card is paid for'), 'no default payment — must choose');
     }
 
+    // 11. Owner corrections (phase70): the old Gift Cards "Redeem" button wrote the
+    //     balance from the browser. Now: owner-only server route → one locked step
+    //     that refuses overdraw / above-value / voided cards and records WHY.
+    {
+      const { NextRequest } = req('next/server');
+      const OWNER = uuid(900);
+      let staffCaller = false;
+      const { POST: manage, GET: history } = load('src/app/api/gift-card/manage/route.ts', {
+        '@/lib/supabase-admin': { supabaseAdmin: db },
+        '@/lib/api-auth': { authorizeShop: async (_r, shopId, opts) => (opts?.ownerOnly !== true || staffCaller)
+          ? { error: new Response(null, { status: 403 }) } : { user: { id: OWNER }, shop: { id: shopId }, isOwner: true } },
+      });
+      const G9 = uuid(9);
+      await card(G9, 'MANAGE-50', 50);
+      const call = async body => { const r = await manage(new NextRequest('https://clipwise.ca/api', { method: 'POST', body: JSON.stringify({ shop_id: SHOP, gift_card_id: G9, ...body }) })); return { status: r.status, j: await r.json().catch(() => null) }; };
+      const adjust = (amount, reason = 'Used before ClipWise') => call({ action: 'adjust', amount, reason });
+
+      assert.deepEqual(await adjust(-20), { status: 200, j: { ok: true, applied: -20, balance: 30 } });
+      assert.equal(await bal(G9), 30);
+      const row = JSON.parse(await one(`select json_agg(l) from public.gift_card_ledger l where gift_card_id = '${G9}'`))[0];
+      assert.equal(row.action, 'adjusted'); assert.equal(Number(row.amount), -20);
+      assert.equal(row.note, 'Used before ClipWise', 'the reason is saved on the history row');
+      assert.equal(row.created_by, OWNER, 'and who made it');
+
+      assert.equal((await adjust(-40)).status, 409, 'never overdraws — all or nothing');
+      assert.equal((await adjust(30)).status, 409, 'never above the original value');
+      assert.equal(await bal(G9), 30);
+      assert.equal((await adjust(-5, '   ')).status, 400, 'a reason is required');
+      assert.equal((await adjust(0)).status, 400);
+      assert.equal((await call({ action: 'redeem', amount: -5, reason: 'x' })).status, 400, 'unknown action');
+      staffCaller = true;
+      assert.equal((await adjust(-5)).status, 403, 'owner-only');
+      staffCaller = false;
+      assert.equal(await bal(G9), 30);
+      //    Wrong shop: the card id belongs to SHOP, the caller owns OTHER → nothing found, nothing changed.
+      const wrongShop = await manage(new NextRequest('https://clipwise.ca/api', { method: 'POST', body: JSON.stringify({ shop_id: OTHER, gift_card_id: G9, action: 'adjust', amount: -5, reason: 'x' }) }));
+      assert.equal(wrongShop.status, 404);
+      assert.equal(await bal(G9), 30);
+
+      //    Void → can't be adjusted or spent; reactivate → usable again. Both on the record.
+      assert.equal((await call({ action: 'void', reason: 'Lost card' })).status, 200);
+      assert.equal(await active(G9), false);
+      assert.equal((await adjust(-5)).status, 409, 'a voided card is not adjustable');
+      assert.equal((await redeemGiftCard({ shopId: SHOP, giftCardId: G9, amount: 5 })).applied, 0, 'nor spendable');
+      assert.equal((await call({ action: 'void' })).status, 409, 'already voided');
+      assert.equal((await call({ action: 'reactivate', reason: 'Found it' })).status, 200);
+      assert.equal(await active(G9), true);
+      assert.equal(await bal(G9), 30, 'void / reactivate never touch the balance');
+      assert.deepEqual((await adjust(20, 'Charged by mistake')).j, { ok: true, applied: 20, balance: 50 });
+
+      //    Two corrections at once on separate connections: $50 card, each removing $30 → exactly one.
+      const race = await Promise.all([adjust(-30), adjust(-30)]);
+      assert.deepEqual(race.map(r => r.status).sort(), [200, 409]);
+      assert.equal(await bal(G9), 20);
+
+      //    History (owner-only) tells the whole story, with reasons.
+      const h = await (await history(new NextRequest(`https://clipwise.ca/api?shop_id=${SHOP}&gift_card_id=${G9}`))).json();
+      assert.deepEqual(h.history.map(r => r.action).sort(), ['adjusted', 'adjusted', 'adjusted', 'reactivated', 'voided']);
+      assert(h.history.some(r => r.action === 'voided' && r.note === 'Lost card' && Number(r.amount) === 0));
+      staffCaller = true;
+      assert.equal((await history(new NextRequest(`https://clipwise.ca/api?shop_id=${SHOP}&gift_card_id=${G9}`))).status, 403);
+      staffCaller = false;
+
+      //    The browser can read cards but never write them; the new steps are server-only.
+      for (const role of ['anon', 'authenticated']) {
+        const w = await psql(['-c', `set role ${role}; update public.gift_cards set remaining_value = 999 where id = '${G9}'`]);
+        assert.equal(pgError(w.err).code, '42501', `${role} cannot write a balance`);
+        const f = await psql(['-c', `set role ${role}; select * from public.gift_adjust_manual('${SHOP}', '${G9}', 5, 'x', null)`]);
+        assert.equal(pgError(f.err).code, '42501', `${role} cannot call the correction step`);
+      }
+      assert.equal(await bal(G9), 20);
+      assert.equal(await consistent(), 0, 'still: balance == value + sum(ledger)');
+
+      //    App wiring: no browser write left on the Gift Cards page; "Use" opens POS with the code.
+      const page = src('src/app/dashboard/gift-cards/page.tsx');
+      assert(!/from\("gift_cards"\)\.(update|insert|delete)\(/.test(page), 'Gift Cards page never writes a card from the browser');
+      assert(page.includes('router.push(`/dashboard/pos?gift=${encodeURIComponent(clean)}`)'), '"Use at checkout" opens POS with the code');
+      assert(page.includes('fetch("/api/gift-card/manage"'), 'corrections go through the server route');
+      const posPage = src('src/app/dashboard/pos/page.tsx');
+      assert(/new URLSearchParams\(window\.location\.search\)\.get\("gift"\)[\s\S]{0,200}applyGift\(code\)/.test(posPage), 'POS applies the ?gift= code');
+    }
+
     const version = await one('show server_version');
-    console.log(`PASS gift-card integrity (real PostgreSQL ${version} + phase69): cancel gives value back once, reinstate re-spends, no-show keeps it, all-or-nothing, no spend on cancelled/other-shop/deactivated cards, never above original value, booking + POS races can't double-spend, cancel/redeem races lose nothing, failures logged, server-only, balance == value + ledger, app wiring, free cards are never income`);
+    console.log(`PASS gift-card integrity (real PostgreSQL ${version} + phase69/70): cancel gives value back once, reinstate re-spends, no-show keeps it, all-or-nothing, no spend on cancelled/other-shop/deactivated cards, never above original value, booking + POS races can't double-spend, cancel/redeem races lose nothing, failures logged, server-only, balance == value + ledger, app wiring, free cards are never income, owner corrections are owner-only / locked / never overdraw or exceed value / refuse voided cards / record the reason, void + reactivate recorded, browser can't write balances, Use-at-checkout prefills POS`);
   } finally { stop(); }
 })().catch(e => { console.error(e); process.exitCode = 1; });
