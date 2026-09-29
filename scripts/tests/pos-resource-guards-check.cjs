@@ -9,6 +9,15 @@ function reset() {
 }
 const db = {
   auth: { getUser: async token => ({ data: { user: token === 'valid' ? { id: actor } : null }, error: null }) },
+  // phase69 gift_adjust: one atomic, shop-scoped, balance-capped step.
+  async rpc(fn, args) {
+    writes.push({ table: `rpc:${fn}`, operation: 'rpc', values: args, filters: [['shop_id', args.p_shop_id]] });
+    const g = gifts[args.p_gift_card_id];
+    if (!g || g.shop_id !== args.p_shop_id) return { data: null, error: { code: 'P0002', message: 'gift card not found' } };
+    const applied = -Math.min(g.remaining_value, -args.p_delta);
+    g.remaining_value += applied;
+    return { data: [{ applied, balance: g.remaining_value }], error: null };
+  },
   from(table) {
     let filters = [], operation = 'read', values;
     const q = {
@@ -65,8 +74,10 @@ const noWrites = () => { assert.deepEqual(writes, []); assert.deepEqual(sideEffe
   reset(); const res = await call(cash, { ...payload(), gift_card: { id: 'gift', applied: 10 } }); assert.equal(res.status, 200);
   assert.deepEqual(writes[0].values, { shop_id: 'shop', barber_id: 'barber', client_name: 'Fixture', client_email: null, service_name: 'Sale', amount: 40, tip: 2, tax: 4, commission_amount: 12, payment_method: 'cash', type: 'service', source: 'pos' });
   assert.equal(writes.find(w => w.table === 'inventory').values.quantity, 8);
-  assert.equal(writes.find(w => w.table === 'gift_cards').values.remaining_value, 40);
-  for (const w of writes.filter(w => ['inventory', 'gift_cards'].includes(w.table))) assert.ok(w.filters.some(([k, v]) => k === 'shop_id' && v === 'shop'));
+  assert.deepEqual(writes.find(w => w.table === 'rpc:gift_adjust').values, { p_shop_id: 'shop', p_gift_card_id: 'gift', p_delta: -10, p_action: 'redeemed' });
+  assert.equal(gifts.gift.remaining_value, 40);
+  assert.ok(!writes.some(w => w.table === 'gift_cards'), 'no read-modify-write of the card balance');
+  for (const w of writes.filter(w => ['inventory', 'rpc:gift_adjust'].includes(w.table))) assert.ok(w.filters.some(([k, v]) => k === 'shop_id' && v === 'shop'));
   reset(); await call(card, payload()); const session = sideEffects.find(s => s.checkout).checkout; assert.equal(session.line_items[0].price_data.unit_amount, 4600); assert.equal(session.metadata.barber_id, 'barber');
   reset(); connected = false; assert.equal((await call(card, payload())).status, 409); noWrites();
   const finalize = fs.readFileSync(path.join(root, 'src/app/api/stripe/pos-finalize/route.ts'), 'utf8');

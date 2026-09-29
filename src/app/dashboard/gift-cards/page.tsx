@@ -43,9 +43,9 @@ type BlankForm = {
   recipient_name: string;
   recipient_email: string;
   note: string;
-  payment_method: "cash" | "card" | "link";
+  payment_method: "" | "cash" | "card" | "link" | "free";
 };
-const BLANK: BlankForm = { initial_value: "50", purchased_by: "", purchased_by_email: "", recipient_name: "", recipient_email: "", note: "", payment_method: "cash" };
+const BLANK: BlankForm = { initial_value: "50", purchased_by: "", purchased_by_email: "", recipient_name: "", recipient_email: "", note: "", payment_method: "" };
 
 export default function GiftCardsPage() {
   const { shop, accessToken } = useAuth();
@@ -119,14 +119,17 @@ export default function GiftCardsPage() {
     if (!shop) return;
     const value = parseFloat(form.initial_value) || 0;
     if (value <= 0) { showToast("Enter a valid amount"); return; }
+    // No default: a card issued without taking money must never be booked as a cash sale.
+    if (!form.payment_method) { showToast("Choose how this card is paid for"); return; }
     setSaving(true);
     try {
       // CASH — real cash collected in person: create + record + email now.
-      if (form.payment_method === "cash") {
+      // FREE — complimentary (owner only): create + email, record NO income.
+      if (form.payment_method === "cash" || form.payment_method === "free") {
         const res = await fetch("/api/gift-card/issue-cash", {
           method: "POST", headers: authHeaders(),
           body: JSON.stringify({
-            shop_id: shop.id, amount: value,
+            shop_id: shop.id, amount: value, mode: form.payment_method,
             purchased_by: form.purchased_by, purchased_by_email: form.purchased_by_email,
             recipient_name: form.recipient_name, recipient_email: form.recipient_email, note: form.note,
           }),
@@ -414,14 +417,16 @@ export default function GiftCardsPage() {
                   className="w-full bg-card-raised border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-grey focus:outline-none focus:border-foreground/50" />
               </div>
 
-              {/* How to collect payment — every option records REAL money. */}
+              {/* How it's paid for — must be chosen (no default). Cash / card / link
+                  record real money; Free records none (a complimentary card). */}
               <div>
-                <label className="text-xs text-grey block mb-2">Collect payment</label>
-                <div className="grid grid-cols-3 gap-2">
+                <label className="text-xs text-grey block mb-2">How is it paid for? *</label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {([
                     { m: "cash" as const, label: "💵 Cash" },
                     { m: "card" as const, label: "💳 Card" },
                     { m: "link" as const, label: "🔗 Send link" },
+                    { m: "free" as const, label: "🎁 Free" },
                   ]).map(({ m, label }) => (
                     <button key={m} onClick={() => setForm(p => ({ ...p, payment_method: m }))}
                       className={cn("px-2 py-2 text-sm rounded-lg border font-medium transition-colors",
@@ -431,9 +436,11 @@ export default function GiftCardsPage() {
                   ))}
                 </div>
                 <p className="text-[11px] text-grey mt-1.5">
-                  {form.payment_method === "cash" ? "Records a cash sale and emails the code now."
+                  {form.payment_method === "cash" ? "Records a cash sale (income) and emails the code now."
                     : form.payment_method === "card" ? "Charge a card now via Stripe — the code is emailed once it's paid."
-                    : "Emails the customer a secure payment link; the code is sent once they pay."}
+                    : form.payment_method === "link" ? "Emails the customer a secure payment link; the code is sent once they pay."
+                    : form.payment_method === "free" ? "A complimentary card — emails the code now. No money is recorded, now or when it's used."
+                    : "Pick one — only cash, card or link count as income."}
                 </p>
               </div>
 
@@ -464,7 +471,7 @@ export default function GiftCardsPage() {
               <div className="flex gap-3 pt-2">
                 <Button variant="outline" className="flex-1" onClick={() => setShowAdd(false)}>Cancel</Button>
                 <Button className="flex-1" loading={saving} onClick={issueCard}>
-                  {form.payment_method === "cash" ? "Issue Gift Card" : form.payment_method === "card" ? "Charge Card" : "Send Link"}
+                  {form.payment_method === "card" ? "Charge Card" : form.payment_method === "link" ? "Send Link" : form.payment_method === "free" ? "Give Free Card" : "Issue Gift Card"}
                 </Button>
               </div>
             </div>

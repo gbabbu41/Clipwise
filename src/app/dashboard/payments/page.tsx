@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback, useRef } from "react";
-import { ExternalLink, RefreshCw, Send, CreditCard, Banknote, Clock, Check, ChevronLeft, ChevronRight, ChevronDown, SlidersHorizontal, AlertTriangle } from "lucide-react";
+import { ExternalLink, RefreshCw, Send, CreditCard, Banknote, Clock, Check, ChevronLeft, ChevronRight, ChevronDown, SlidersHorizontal, AlertTriangle, Gift } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
 import { FeatureLock } from "@/components/dashboard/feature-lock";
@@ -352,6 +352,7 @@ export default function PaymentsPage() {
   type FeedItem = {
     key: string; name: string; sub: string; amount: number; tax: number;
     giftApplied?: number;   // gift-card value on this line — already counted at sale
+    giftSale?: boolean;     // selling a gift card: money in, but not a cut
     tipExtra?: number;      // booking tip NOT already inside `amount` (POS tips already are)
     statusLabel: string; tone: string; settled: boolean;
     ts: number; tsIso: string | null;
@@ -447,7 +448,7 @@ export default function PaymentsPage() {
       const refunded = !!t.refunded;
       const barberName = barbers.find(b => b.id === t.barber_id)?.name ?? null;
       return {
-        key: `t${t.id}`, name: t.client_name || "Walk-in",
+        key: `t${t.id}`, name: t.client_name || "Walk-in", giftSale: t.source === "gift_card_sale",
         sub: noShow ? (t.service_name ?? "No-show fee") : `${t.service_name || "Sale"}${barberName ? ` · ${barberName}` : ""} · POS`,
         amount: transactionCollectedAmount(t), tax: t.tax ?? 0,
         statusLabel: refunded ? "Refunded" : (noShow ? "No-show · Paid" : (t.payment_method === "cash" ? "Paid · Cash" : "Paid · Card")),
@@ -553,6 +554,10 @@ export default function PaymentsPage() {
     ? lineNetFee(i.pi, counted(i), stripeNet!.byPi).net
     : Math.max(0, lineGross(i) - feeOf(i));
   const statementAmount = (i: FeedItem) => i.earn ? i.amount : netOf(i);
+  // A booking paid entirely by gift card: its money came in when the card was
+  // SOLD, so it adds $0 to totals — but the row shows the value redeemed.
+  const isGiftPaid = (i: FeedItem) => i.method === "gift_card";
+  const methodLabel = (i: FeedItem) => i.method === "cash" ? "Cash" : isGiftPaid(i) ? "Gift card" : "Card";
 
   // Barber name — used to scope the appointment-based bits still shown in barber
   // mode (the Outstanding / On-file tiles). The earnings cards + statement below
@@ -648,9 +653,12 @@ export default function PaymentsPage() {
     const gross = cardIn.reduce((s, i) => s + lineGross(i), 0);
     const fees = cardIn.reduce((s, i) => s + feeOf(i), 0);
     const tax = [...cardIn, ...cashIn].reduce((s, i) => s + (i.tax ?? 0), 0);
-    const count = cardIn.length + cashIn.length;
+    // Cuts = services, not gift-card sales (the money counts; the sale isn't a cut).
+    const cuts = [...cardIn, ...cashIn].filter(i => !i.giftSale);
+    const count = cuts.length;
+    const cutValue = cuts.reduce((s, i) => s + (i.method === "cash" ? counted(i) : lineGross(i)), 0);
     const data = earningsBuckets([...cardIn, ...cashIn].map(i => ({ ...i, created_at: new Date(i.ts).toISOString() })), from, to, monthly, netOf).map(d => ({ label: d.label, net: d.val }));
-    return { net, cash, gross, fees, feesKnown, tax, count, data, avg: count ? (gross + cash) / count : 0 };
+    return { net, cash, gross, fees, feesKnown, tax, count, data, avg: count ? cutValue / count : 0 };
   };
   // The extra window picked from the dropdown (overrides the shown card). null = pure swipe.
   const nowTs = Date.now();
@@ -805,7 +813,7 @@ export default function PaymentsPage() {
   const feed = baseFeed
     .filter(i => !barberName || i.appt?.barbers?.name === barberName)
     .filter(i => {
-      if (txFilter === "card") return i.method !== "cash" && i.settled;
+      if (txFilter === "card") return i.method !== "cash" && !isGiftPaid(i) && i.settled;
       if (txFilter === "cash") return i.method === "cash" && !i.refunded;
       if (txFilter === "unpaid") return !i.settled && !i.refunded;
       if (txFilter === "refunded") return i.refunded;
@@ -844,7 +852,7 @@ export default function PaymentsPage() {
   // settled earnings ledger, so they show nothing there.
   const barberStmt = barberFeed
     .filter(i => {
-      if (txFilter === "card") return i.method !== "cash";
+      if (txFilter === "card") return i.method !== "cash" && !isGiftPaid(i);
       if (txFilter === "cash") return i.method === "cash";
       if (txFilter === "unpaid" || txFilter === "refunded") return false;
       return true;
@@ -1092,8 +1100,9 @@ export default function PaymentsPage() {
               {g.items.map(i => {
                 const refunded = i.refunded;
                 const isCash = i.method === "cash";
+                const giftPaid = isGiftPaid(i) && i.settled && !refunded;
                 const unpaid = !i.settled && !refunded;
-                const Icon = isCash ? Banknote : unpaid ? Clock : refunded ? RefreshCw : CreditCard;
+                const Icon = isCash ? Banknote : unpaid ? Clock : refunded ? RefreshCw : giftPaid ? Gift : CreditCard;
                 const glyphCls = isCash ? "cwp-cash" : unpaid ? "cwp-due" : refunded ? "" : "cwp-card";
                 const ago = i.tsIso ? timeAgo(i.tsIso) : null;
                 return (
@@ -1107,12 +1116,14 @@ export default function PaymentsPage() {
                       )}
                     </div>
                     <div className="cwp-rright">
-                      <div className={cn("cwp-a", unpaid ? "cwp-adue" : "cwp-apos")}>{i.settled && !feeExact(i) ? "≈" : ""}{formatCurrency(statementAmount(i))}</div>
+                      <div className={cn("cwp-a", unpaid ? "cwp-adue" : "cwp-apos")}>{giftPaid
+                        ? formatCurrency(i.giftApplied ?? 0)
+                        : <>{i.settled && !feeExact(i) ? "≈" : ""}{formatCurrency(statementAmount(i))}</>}</div>
                       <div className="cwp-m">
                         {refunded ? <span className="cwp-tag cwp-tref">Refunded</span>
                           : unpaid ? <span className="cwp-tag cwp-tdue">Unpaid</span>
                           : <>
-                              <span className="cwp-method">{isCash ? "Cash" : "Card"}</span>
+                              <span className="cwp-method">{methodLabel(i)}</span>
                               {ago ? ` · ${ago}` : ""}
                               {!i.earn && i.method !== "cash" && feeOf(i) > 0 ? ` · ${formatCurrency(feeOf(i))} fee` : ""}
                             </>}
@@ -1165,13 +1176,22 @@ export default function PaymentsPage() {
                       <a href={`mailto:${i.client_email ?? i.appt?.client_email}`} className="text-foreground text-right break-all min-w-0 hover:underline">{i.client_email ?? i.appt?.client_email}</a>
                     </div>
                   )}
-                  <div className="flex justify-between"><span className="text-grey">Method</span><span className="text-foreground">{i.method === "cash" ? "Cash" : "Card"}</span></div>
+                  <div className="flex justify-between"><span className="text-grey">Method</span><span className="text-foreground">{methodLabel(i)}</span></div>
                   <div className="flex justify-between"><span className="text-grey">Status</span><span className="text-foreground">{i.statusLabel}</span></div>
                   {/* Money breakdown. For a card payment with a known fee, spell out
                       gross → fee → net so "after fee" is never ambiguous (the old
                       single "Amount" row actually showed the net, which read unclear). */}
                   {i.earn ? (
                     <div className="flex justify-between"><span className="text-grey">Earned</span><span className="text-foreground font-semibold">{formatCurrency(i.amount)}</span></div>
+                  ) : isGiftPaid(i) && i.settled && !i.refunded ? (
+                    <>
+                      {/* Paid by gift card: the value was redeemed here, but the money came in
+                          when the card was SOLD — so this adds $0 to today's collected. */}
+                      <div className="flex justify-between"><span className="text-grey">Paid with gift card</span><span className="text-foreground font-semibold">{formatCurrency(i.giftApplied ?? 0)}</span></div>
+                      {i.tax > 0 && <div className="flex justify-between"><span className="text-grey">Sales tax (incl.)</span><span className="text-grey">{formatCurrency(i.tax)}</span></div>}
+                      <div className="flex justify-between"><span className="text-grey">New money collected</span><span className="text-foreground">{formatCurrency(0)}</span></div>
+                      <p className="text-[11px] text-grey-muted">Already counted when the gift card was sold.</p>
+                    </>
                   ) : i.settled && i.method !== "cash" && feeOf(i) > 0 ? (
                     <>
                       <div className="flex justify-between"><span className="text-grey">Gross (paid)</span><span className="text-foreground">{formatCurrency(lineGross(i))}</span></div>
