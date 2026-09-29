@@ -1,7 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { Gift, Plus, Search, Copy, Mail, ShoppingCart, SlidersHorizontal } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { Gift, Plus, Search, Copy, Mail, SlidersHorizontal } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
 import { FeatureLock } from "@/components/dashboard/feature-lock";
@@ -73,7 +72,6 @@ const BLANK: BlankForm = { initial_value: "50", purchased_by: "", purchased_by_e
 export default function GiftCardsPage() {
   const { shop, accessToken } = useAuth();
   const { prompt } = useConfirm();
-  const router = useRouter();
   const [cards, setCards] = useState<GiftCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -203,16 +201,6 @@ export default function GiftCardsPage() {
     }
   };
 
-  // Spending a card on a sale happens at checkout (POS), which records the sale
-  // AND takes the balance off the card in one locked step. The code is prefilled.
-  const openCheckout = async (code?: string) => {
-    const entered = code ?? await prompt({ title: "Use a gift card", message: "Enter the gift card code — it'll be applied at checkout.", placeholder: "XXXX-XXXX-XXXX", confirmText: "Go to checkout" });
-    if (entered === null) return;
-    const clean = entered.trim().toUpperCase().replace(/\s+/g, "");
-    if (!clean) { showToast("Enter a gift card code"); return; }
-    router.push(`/dashboard/pos?gift=${encodeURIComponent(clean)}`);
-  };
-
   const copyCode = (code: string) => {
     navigator.clipboard.writeText(code).then(() => showToast("Code copied!")).catch(() => null);
   };
@@ -306,9 +294,6 @@ export default function GiftCardsPage() {
           <p className="text-sm text-grey mt-0.5">Issue gift cards — customers use them at checkout or when booking online</p>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline" onClick={() => openCheckout()}>
-            <ShoppingCart size={16} /> Use at checkout
-          </Button>
           <Button onClick={() => setShowAdd(true)}>
             <Plus size={16} /> Issue Gift Card
           </Button>
@@ -416,11 +401,6 @@ export default function GiftCardsPage() {
                         </td>
                         <td className="px-3 py-3">
                           <div className="flex items-center gap-3">
-                            {!isUsed && (
-                              <button onClick={() => openCheckout(card.code)} className="text-xs text-grey hover:text-foreground transition-colors whitespace-nowrap" title="Open checkout with this card applied">
-                                <ShoppingCart size={14} className="inline" /> Use
-                              </button>
-                            )}
                             <button onClick={() => resendCode(card)} className="text-xs text-grey hover:text-foreground transition-colors" title="Email this code to a customer">
                               <Mail size={14} className="inline" /> Resend
                             </button>
@@ -559,7 +539,7 @@ export default function GiftCardsPage() {
               {!voided && (
                 <div className="space-y-2">
                   <p className="text-sm font-semibold text-foreground">Adjust balance</p>
-                  <p className="text-[11px] text-grey">For corrections only. To use the card for a haircut or product, use it at checkout — that records the sale.</p>
+                  <p className="text-[11px] text-grey">For corrections only. Customers spend a card at checkout — choose “Gift card” when taking payment.</p>
                   <div className="grid grid-cols-2 gap-2">
                     {(["remove", "add"] as const).map(d => (
                       <button key={d} onClick={() => setAdjustDir(d)}

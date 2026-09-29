@@ -30,7 +30,10 @@ const { psql, stop } = startPg();
     const schema = await psql(['-c', `
       create table public.shops (id uuid primary key);
       create table public.appointments (id uuid primary key, shop_id uuid references public.shops(id),
-        status text check (status = any (array['pending','confirmed','completed','cancelled','no-show'])));
+        status text check (status = any (array['pending','confirmed','completed','cancelled','no-show'])),
+        total_amount numeric, tip_amount numeric, payment_status text default 'pending',
+        payment_method text check (payment_method = any (array['card','cash','online','gift_card'])),
+        paid_at timestamptz, gift_applied numeric, balance_due numeric);
       create table public.gift_cards (id uuid primary key, shop_id uuid references public.shops(id), code text, initial_value numeric,
         remaining_value numeric, is_active boolean default true, redeemed_at timestamptz, created_at timestamptz default now());
       create table public.error_logs (id uuid primary key default gen_random_uuid(), created_at timestamptz default now(), level text, source text, message text, path text, shop_id uuid);
@@ -43,6 +46,8 @@ const { psql, stop } = startPg();
     assert.equal(mig.code, 0, mig.err);
     const mig70 = await psql(['-f', path.join(root, 'supabase/migrations/phase70_gift_card_owner_adjust.sql')]);
     assert.equal(mig70.code, 0, mig70.err);
+    const mig71 = await psql(['-f', path.join(root, 'supabase/migrations/phase71_gift_pay_appointment.sql')]);
+    assert.equal(mig71.code, 0, mig71.err);
 
     const one = async sql => { const r = await psql(['-c', sql]); assert.equal(r.code, 0, r.err); return r.out; };
     const card = async (id, code, value, shop = SHOP) => one(`insert into public.gift_cards (id, shop_id, code, initial_value, remaining_value) values ('${id}', '${shop}', '${code}', ${value}, ${value})`);
@@ -52,7 +57,7 @@ const { psql, stop } = startPg();
     const setStatus = (id, status) => one(`update public.appointments set status = '${status}' where id = '${id}'`);
     const consistent = async () => Number(await one(`select count(*) from public.gift_cards g where g.remaining_value <> g.initial_value + coalesce((select sum(amount) from public.gift_card_ledger l where l.gift_card_id = g.id), 0)`));
 
-    const db = makeDb(psql, { setOfFns: ['gift_adjust', 'gift_redeem_for_appointment', 'gift_adjust_manual'] });
+    const db = makeDb(psql, { setOfFns: ['gift_adjust', 'gift_redeem_for_appointment', 'gift_adjust_manual', 'gift_pay_appointment'] });
     const { redeemGiftForBooking, redeemGiftCard, findRedeemableGift } = load('src/lib/gift-redeem.ts', { '@/lib/supabase-admin': { supabaseAdmin: db } });
     const pay = (appointmentId, amount, code = 'PNWT-6TR3-B2ZZ', requireFull = true) =>
       redeemGiftForBooking({ shopId: SHOP, code, amount, appointmentId, requireFull });
@@ -288,16 +293,126 @@ const { psql, stop } = startPg();
       assert.equal(await bal(G9), 20);
       assert.equal(await consistent(), 0, 'still: balance == value + sum(ledger)');
 
-      //    App wiring: no browser write left on the Gift Cards page; "Use" opens POS with the code.
+      //    App wiring: no browser write and no redeem/spend on the Gift Cards page —
+      //    cards are spent at checkout only.
       const page = src('src/app/dashboard/gift-cards/page.tsx');
       assert(!/from\("gift_cards"\)\.(update|insert|delete)\(/.test(page), 'Gift Cards page never writes a card from the browser');
-      assert(page.includes('router.push(`/dashboard/pos?gift=${encodeURIComponent(clean)}`)'), '"Use at checkout" opens POS with the code');
+      assert(!/\/> Redeem|redeemCard|pos\?gift=|Use at checkout/.test(page), 'no redeem / use button on the Gift Cards page');
       assert(page.includes('fetch("/api/gift-card/manage"'), 'corrections go through the server route');
-      const posPage = src('src/app/dashboard/pos/page.tsx');
-      assert(/new URLSearchParams\(window\.location\.search\)\.get\("gift"\)[\s\S]{0,200}applyGift\(code\)/.test(posPage), 'POS applies the ?gift= code');
+    }
+
+    // 12. Checkout → "Gift card" (phase71): pay an appointment with a code. One
+    //     locked step: spends up to what's owed (service + tax + tip), linked to
+    //     the booking, marks it paid by gift card, leaves any shortfall as
+    //     balance_due; retry-safe; cancelling later gives the value back.
+    {
+      const { NextRequest } = req('next/server');
+      let staffCaller = false;
+      const { POST: giftPay } = load('src/app/api/appointments/gift-pay/route.ts', {
+        '@/lib/supabase-admin': { supabaseAdmin: db },
+        '@/lib/api-auth': { authorizeAppointment: async (_r, id, opts) => (opts?.permission !== 'manage_appointments' || staffCaller)
+          ? { error: new Response(null, { status: 403 }) } : { appointment: { id, shop_id: SHOP } } },
+      });
+      const payAppt = async (id, code) => { const r = await giftPay(new NextRequest('https://clipwise.ca/api', { method: 'POST', body: JSON.stringify({ appointment_id: id, code }) })); return { status: r.status, j: await r.json().catch(() => null) }; };
+      const appt = (id, total, tip = 0, status = 'confirmed', pay = 'pending') => one(`insert into public.appointments (id, shop_id, status, total_amount, tip_amount, payment_status) values ('${id}', '${SHOP}', '${status}', ${total}, ${tip}, '${pay}')`);
+      const row = async id => JSON.parse(await one(`select row_to_json(a) from public.appointments a where id = '${id}'`));
+
+      //  a) Card covers it all → paid by gift card, nothing left, card balance returned.
+      const GA = uuid(20), P1 = uuid(201);
+      await card(GA, 'CHECKOUT-50', 50);
+      await appt(P1, 40.25);
+      assert.deepEqual(await payAppt(P1, ' checkout-50 '), { status: 200, j: { ok: true, applied: 40.25, balance_due: 0, card_balance: 9.75 } });
+      let r = await row(P1);
+      assert.equal(r.payment_status, 'paid'); assert.equal(r.payment_method, 'gift_card');
+      assert.equal(Number(r.gift_applied), 40.25); assert.equal(Number(r.balance_due), 0); assert(r.paid_at);
+      assert.equal(r.status, 'confirmed', 'completion stays with the app\'s normal completion path');
+      assert.equal((await payAppt(P1, 'CHECKOUT-50')).status, 409, 'already paid → never spends twice');
+      assert.equal(await bal(GA), 9.75);
+
+      //  b) Card short → it pays what it has; the rest (incl. the tip) is a balance to collect.
+      const GB = uuid(21), P2 = uuid(202);
+      await card(GB, 'CHECKOUT-20', 20);
+      await appt(P2, 30, 5);
+      assert.deepEqual((await payAppt(P2, 'CHECKOUT-20')).j, { ok: true, applied: 20, balance_due: 15, card_balance: 0 });
+      assert.equal(await active(GB), false);
+      //     Completing then cancelling: the value goes back to the card (phase69 trigger).
+      await setStatus(P2, 'completed');
+      assert.equal(await bal(GB), 0);
+      await setStatus(P2, 'cancelled');
+      assert.equal(await bal(GB), 20, 'cancelled after gift checkout → value back');
+
+      //  c) Refusals — nothing spent.
+      const P3 = uuid(203), P4 = uuid(204), P5 = uuid(205), P6 = uuid(207);
+      await appt(P3, 25, 0, 'cancelled');
+      assert.equal((await payAppt(P3, 'CHECKOUT-50')).status, 409, 'cancelled booking');
+      await appt(P4, 25, 0, 'confirmed', 'held');
+      assert.equal((await payAppt(P4, 'CHECKOUT-50')).status, 409, 'card hold → capture it instead');
+      await appt(P5, 25);
+      assert.equal((await payAppt(P5, 'NO-SUCH-CODE')).status, 404);
+      assert.equal((await payAppt(P5, 'OTHERSHOP')).status, 404, "another shop's card");
+      assert.equal((await payAppt(P5, 'CHECKOUT-20')).status, 200, 'restored card is usable again');
+      assert.equal((await payAppt(P6, 'CHECKOUT-50')).status, 404, 'unknown appointment');
+      await appt(uuid(208), 0);
+      assert.equal((await payAppt(uuid(208), 'CHECKOUT-50')).status, 409, 'nothing owed');
+      const GE = uuid(22); await card(GE, 'EMPTY-CARD', 10);
+      await one(`update public.gift_cards set remaining_value = 0, is_active = false where id = '${GE}'`);
+      await one(`update public.gift_cards set initial_value = 0 where id = '${GE}'`);   // keep the ledger invariant for this fixture
+      await appt(uuid(209), 10);
+      assert.equal((await payAppt(uuid(209), 'EMPTY-CARD')).status, 409, 'empty card');
+      assert.equal((await payAppt(uuid(209), '  ')).status, 400, 'a code is required');
+      staffCaller = true;
+      assert.equal((await payAppt(uuid(209), 'CHECKOUT-50')).status, 403, 'needs manage_appointments');
+      staffCaller = false;
+
+      //  d) Retry after the spend landed but the booking wasn't marked (crash between):
+      //     finishes with the SAME spend, never a second one.
+      const GR = uuid(23), P7 = uuid(210);
+      await card(GR, 'RETRY-40', 40);
+      await appt(P7, 30);
+      await one(`select * from public.gift_redeem_for_appointment('${SHOP}', 'RETRY-40', 30, '${P7}', false)`);
+      assert.equal(await bal(GR), 10);
+      assert.deepEqual((await payAppt(P7, 'RETRY-40')).j, { ok: true, applied: 30, balance_due: 0, card_balance: 10 });
+      assert.equal(await bal(GR), 10, 'no second spend');
+
+      //  e) Two checkouts grab the same $50 card at once ($30 each) → $50 spent in total, never $60.
+      const GX = uuid(24), X1 = uuid(211), X2 = uuid(212);
+      await card(GX, 'RACE-CHECKOUT', 50);
+      await appt(X1, 30); await appt(X2, 30);
+      const race = await Promise.all([payAppt(X1, 'RACE-CHECKOUT'), payAppt(X2, 'RACE-CHECKOUT')]);
+      assert.deepEqual(race.map(x => x.j.applied).sort((a, b) => a - b), [20, 30]);
+      assert.deepEqual(race.map(x => x.j.balance_due).sort((a, b) => a - b), [0, 10]);
+      assert.equal(await bal(GX), 0);
+
+      //  f) Server-only; invariant holds.
+      for (const role of ['anon', 'authenticated']) {
+        const f = await psql(['-c', `set role ${role}; select * from public.gift_pay_appointment('${SHOP}', '${X1}', 'RACE-CHECKOUT')`]);
+        assert.equal(pgError(f.err).code, '42501', `${role} cannot call it`);
+      }
+      assert.equal(await consistent(), 0, 'still: balance == value + sum(ledger)');
+
+      //  g) Revenue counts only NEW money: the gift part (incl. a tip it covered) was
+      //     counted when the card was sold.
+      const { appointmentGross } = load('src/lib/revenue.ts');
+      const ctx = later => ({ saved: new Map(), sepTipped: new Set(), balances: new Map(later ? [['x', later]] : []), byPi: {} });
+      const g = (a, later = 0) => appointmentGross({ id: 'x', payment_method: 'gift_card', ...a }, ctx(later)).gross;
+      assert.equal(g({ total_amount: 40.25, gift_applied: 40.25 }), 0, 'fully gift-paid → no new money');
+      assert.equal(g({ total_amount: 30, tip_amount: 5, gift_applied: 20, balance_due: 15 }), 0, 'partial, rest still owed → no new money yet');
+      assert.equal(g({ total_amount: 30, tip_amount: 5, gift_applied: 20, balance_due: 0 }, 15), 0, 'rest collected on its own balance row → not double counted');
+      assert.equal(g({ total_amount: 30, tip_amount: 5, gift_applied: 10, balance_due: 0 }), 25, 'gift under service+tax → the rest + tip is new money');
+      assert.equal(g({ total_amount: 30, tip_amount: 5, gift_applied: 32, balance_due: 0 }), 3, 'gift covering part of the tip → only the uncovered tip');
+      assert.equal(appointmentGross({ id: 'y', total_amount: 30, tip_amount: 5 }, ctx(0)).gross, 35, 'no gift → unchanged');
+
+      //  h) Wiring: "Gift card" is a payment option at every checkout.
+      const cal = src('src/components/calendar-view.tsx');
+      assert(/giftPay: async \(appt, code\)[\s\S]{0,1500}\/api\/appointments\/gift-pay/.test(cal), 'shared appointment actions pay via the server route');
+      assert(/label="Gift card"[\s\S]{0,1200}actions\.giftPay\(appt, giftCode\.trim\(\)\)/.test(cal), 'calendar / dashboard / POS appointment checkout: Gift card tile');
+      const apptsPage = src('src/app/dashboard/appointments/page.tsx');
+      assert(apptsPage.includes('fetch("/api/appointments/gift-pay"') && apptsPage.includes('🎁 Gift card'), 'Appointments checkout: Gift card option');
+      assert(apptsPage.includes('"/api/appointments/collect-balance"') && apptsPage.includes('"/api/stripe/balance-link"'), 'Appointments checkout: collect what the card did not cover');
+      assert(/<Gift size=\{20\} \/> Gift card/.test(src('src/app/dashboard/pos/page.tsx')), 'POS checkout: Gift card payment tile');
     }
 
     const version = await one('show server_version');
-    console.log(`PASS gift-card integrity (real PostgreSQL ${version} + phase69/70): cancel gives value back once, reinstate re-spends, no-show keeps it, all-or-nothing, no spend on cancelled/other-shop/deactivated cards, never above original value, booking + POS races can't double-spend, cancel/redeem races lose nothing, failures logged, server-only, balance == value + ledger, app wiring, free cards are never income, owner corrections are owner-only / locked / never overdraw or exceed value / refuse voided cards / record the reason, void + reactivate recorded, browser can't write balances, Use-at-checkout prefills POS`);
+    console.log(`PASS gift-card integrity (real PostgreSQL ${version} + phase69/70/71): cancel gives value back once, reinstate re-spends, no-show keeps it, all-or-nothing, no spend on cancelled/other-shop/deactivated cards, never above original value, booking + POS races can't double-spend, cancel/redeem races lose nothing, failures logged, server-only, balance == value + ledger, app wiring, free cards are never income, owner corrections are owner-only / locked / never overdraw or exceed value / refuse voided cards / record the reason, void + reactivate recorded, browser can't write balances, checkout "Gift card" pays full/partial (rest = balance due) / retry-safe / race-safe / refuses closed, held, paid, empty or foreign cards / cancel gives value back`);
   } finally { stop(); }
 })().catch(e => { console.error(e); process.exitCode = 1; });

@@ -195,13 +195,19 @@ export default function AppointmentsPage() {
    *  Lets them either record a cash payment or email the customer a
    *  Stripe Checkout link, optionally finalizing the appointment too. */
   const [paymentModal, setPaymentModal] = useState<AppointmentWithDetails | null>(null);
-  const [savingPayment, setSavingPayment] = useState<"" | "cash" | "link" | "skip">("");
+  const [savingPayment, setSavingPayment] = useState<"" | "cash" | "link" | "skip" | "gift">("");
+  // Gift card as the third way to pay: code field + (when the card didn't cover
+  // it all) the leftover to collect by cash or link.
+  const [giftOpen, setGiftOpen] = useState(false);
+  const [giftCodeInput, setGiftCodeInput] = useState("");
+  const [giftLeft, setGiftLeft] = useState<number | null>(null);
   // Optional email typed at payment time (for appts with none on file) + the
   // generated link to show/copy when no email is sent.
   const [payEmail, setPayEmail] = useState("");
   const [payLink, setPayLink] = useState("");
   useEffect(() => {
     if (paymentModal) { setPayEmail(paymentModal.client_email ?? ""); setPayLink(""); }
+    setGiftOpen(false); setGiftCodeInput(""); setGiftLeft(null);
   }, [paymentModal]);
 
   // Add appointment form state
@@ -711,6 +717,74 @@ export default function AppointmentsPage() {
     setPaymentModal(null);
     if (alsoComplete) await updateStatus(apptId, "completed");
     showToast(alsoComplete ? "Cash payment recorded · Appointment completed" : "Cash payment recorded");
+  };
+
+  // Pay with a gift card: the server spends it in one locked step linked to this
+  // booking (cancelling later gives the value back) and marks it paid; any
+  // shortfall stays as balance_due, collected right here by cash or link.
+  const payWithGift = async () => {
+    if (!paymentModal || !accessToken) return;
+    const code = giftCodeInput.trim();
+    if (!code) { showToast("Enter the gift card code"); return; }
+    const apptId = paymentModal.id;
+    setSavingPayment("gift");
+    const res = await fetch("/api/appointments/gift-pay", {
+      method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ appointment_id: apptId, code }),
+    }).catch(() => null);
+    const data = res ? await res.json().catch(() => ({})) : { error: "Network dropped — refresh to check before trying again." };
+    setSavingPayment("");
+    if (!res || !res.ok || !data.ok) { showToast(data.error ?? "Couldn't use the gift card"); return; }
+    const applied = Number(data.applied ?? 0), due = Number(data.balance_due ?? 0);
+    const patch: Record<string, unknown> = { payment_status: "paid", payment_method: "gift_card", paid_at: new Date().toISOString(), gift_applied: applied, balance_due: due };
+    setAppointments(prev => prev.map(a => a.id === apptId ? { ...a, ...patch } as AppointmentWithDetails : a));
+    if (selectedApt?.id === apptId) setSelectedApt(prev => prev ? { ...prev, ...patch } as AppointmentWithDetails : null);
+    fetch("/api/stripe/cancel-payment-link", {
+      method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ appointment_id: apptId }),
+    }).catch(() => {});
+    await updateStatus(apptId, "completed");
+    if (due > 0.005) {
+      setGiftLeft(due);
+      showToast(`Gift card paid ${formatCurrency(applied)} · ${formatCurrency(due)} left to collect`);
+    } else {
+      setPaymentModal(null);
+      showToast(`Paid by gift card · Appointment completed${data.card_balance != null ? ` · card has ${formatCurrency(data.card_balance)} left` : ""}`);
+    }
+  };
+
+  // Collect what a gift card didn't cover (same routes as the calendar's
+  // "Balance to collect").
+  const collectGiftLeftover = async (how: "cash" | "link") => {
+    if (!paymentModal || !accessToken) return;
+    const apptId = paymentModal.id;
+    setSavingPayment(how === "cash" ? "cash" : "link");
+    const res = how === "cash"
+      ? await fetch("/api/appointments/collect-balance", {
+          method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ appointment_id: apptId, method: "cash" }),
+        }).catch(() => null)
+      : await fetch("/api/stripe/balance-link", {
+          method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            appointment_id: apptId,
+            send_email: !!paymentModal.client_email, email: paymentModal.client_email || undefined,
+            send_sms: !!paymentModal.client_phone, phone: paymentModal.client_phone || undefined,
+          }),
+        }).catch(() => null);
+    const data = res ? await res.json().catch(() => ({})) : {};
+    setSavingPayment("");
+    if (!res || !res.ok || data.ok === false) { showToast(`Failed: ${data.error ?? "try again"}`); return; }
+    if (how === "cash") {
+      setAppointments(prev => prev.map(a => a.id === apptId ? { ...a, balance_due: 0 } as AppointmentWithDetails : a));
+      showToast(`Balance collected · ${formatCurrency(giftLeft ?? 0)} cash`);
+      setPaymentModal(null);
+      return;
+    }
+    if (data.url && !data.emailed && !data.texted) {
+      try { await navigator.clipboard.writeText(data.url); showToast("Balance link copied to clipboard"); } catch { showToast("Balance link ready"); }
+    } else showToast(data.emailed && data.texted ? "Balance link sent · email + text" : data.emailed ? "Balance link emailed" : "Balance link texted");
+    setPaymentModal(null);
   };
 
   const sendPaymentLink = async (alsoComplete: boolean) => {
@@ -1605,7 +1679,24 @@ export default function AppointmentsPage() {
                 <div className="flex justify-between"><span className="text-grey">Amount due</span><span className="font-mono font-bold text-emerald-400">{formatCurrency(paymentModal.total_amount)}</span></div>
               </div>
 
-              {payLink ? (
+              {giftLeft != null ? (
+                /* A gift card covered part of it — collect the rest. */
+                <div className="space-y-2">
+                  <div className="rounded-xl border border-[#f5c542]/40 bg-[#f5c542]/10 p-3 flex items-center justify-between">
+                    <span className="text-sm font-semibold text-foreground">Left to collect</span>
+                    <span className="text-base font-extrabold text-foreground">{formatCurrency(giftLeft)}</span>
+                  </div>
+                  <button type="button" className="btn btn-success w-full" disabled={savingPayment !== ""} onClick={() => collectGiftLeftover("cash")}>
+                    {savingPayment === "cash" ? "Saving…" : `💵 Cash · ${formatCurrency(giftLeft)}`}
+                  </button>
+                  <button type="button" className="btn btn-primary w-full" disabled={savingPayment !== ""} onClick={() => collectGiftLeftover("link")}>
+                    {savingPayment === "link" ? "Working…" : "💳 Send payment link for the rest"}
+                  </button>
+                  <button type="button" className="btn btn-outline-secondary w-full" disabled={savingPayment !== ""} onClick={() => setPaymentModal(null)}>
+                    Collect later (shows in Payments)
+                  </button>
+                </div>
+              ) : payLink ? (
                 /* Link generated without an email — show it to copy / open. */
                 <div className="space-y-3">
                   <p className="text-sm text-foreground font-medium">Payment link ready</p>
@@ -1653,6 +1744,26 @@ export default function AppointmentsPage() {
                           : "💳 Create online payment link"}
                     </button>
 
+                    {/* Gift card — the third way to pay. */}
+                    {giftOpen ? (
+                      <div className="flex gap-2">
+                        <input
+                          value={giftCodeInput}
+                          onChange={e => setGiftCodeInput(e.target.value.toUpperCase())}
+                          placeholder="Gift card code"
+                          autoFocus
+                          className="flex-1 min-w-0 bg-card-raised border border-border rounded-xl px-4 py-2.5 text-base sm:text-sm font-mono text-foreground placeholder:text-grey focus:outline-none focus:border-white"
+                        />
+                        <button type="button" className="btn btn-success" disabled={savingPayment !== "" || !giftCodeInput.trim()} onClick={payWithGift}>
+                          {savingPayment === "gift" ? "Applying…" : "Apply"}
+                        </button>
+                      </div>
+                    ) : (
+                      <button type="button" className="btn btn-outline-secondary w-full" disabled={savingPayment !== ""} onClick={() => setGiftOpen(true)}>
+                        🎁 Gift card
+                      </button>
+                    )}
+
                     <button type="button" className="btn btn-outline-secondary w-full" disabled={savingPayment !== ""}
                       onClick={skipPaymentAndComplete}>
                       {savingPayment === "skip" ? "Completing…" : "Skip · Complete unpaid"}
@@ -1660,7 +1771,7 @@ export default function AppointmentsPage() {
                   </div>
 
                   <p className="text-xs text-grey text-center">
-                    Cash and online links can be reconciled later from the appointment&apos;s payment badge.
+                    Cash, gift cards and online links can be reconciled later from the appointment&apos;s payment badge.
                   </p>
                 </>
               )}

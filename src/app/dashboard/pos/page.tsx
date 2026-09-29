@@ -94,6 +94,8 @@ export default function POSPage() {
   const [promoApplied, setPromoApplied] = useState<PromoCode | null>(null);
   const [giftCode, setGiftCode] = useState("");
   const [giftCard, setGiftCard] = useState<{ id: string; code: string; remaining_value: number } | null>(null);
+  // "Gift card" payment tile → reveals the code field (hidden until chosen).
+  const [giftOpen, setGiftOpen] = useState(false);
   // Loyalty redemption: the selected client's redeemable balance (looked up by
   // email/phone) + whether staff chose to spend it. Points are settled server-side
   // on the sale, capped at the real balance.
@@ -592,31 +594,15 @@ export default function POSPage() {
     setPromoApplied(found); showToast(`Promo ${found.code} applied!`);
   };
 
-  const applyGift = async (fromCode?: string) => {
-    const raw = fromCode ?? giftCode;
-    if (!shop || !raw.trim()) return;
-    const code = raw.trim().toUpperCase().replace(/\s+/g, "");
+  const applyGift = async () => {
+    if (!shop || !giftCode.trim()) return;
+    const code = giftCode.trim().toUpperCase().replace(/\s+/g, "");
     const { data } = await supabase.from("gift_cards")
       .select("id, code, remaining_value, is_active").eq("shop_id", shop.id).eq("code", code).maybeSingle();
     if (!data || !data.is_active || (data.remaining_value ?? 0) <= 0) { showToast("Gift card not found or empty"); return; }
     setGiftCard({ id: data.id, code: data.code, remaining_value: data.remaining_value });
     showToast(`Gift card applied — ${formatCurrency(data.remaining_value)} available`);
   };
-
-  // "Use at checkout" on Gift Cards opens POS as /dashboard/pos?gift=CODE — apply
-  // that card once (read from the URL directly: no useSearchParams Suspense
-  // boundary needed), then drop the param so a refresh doesn't re-apply it.
-  const giftFromUrl = useRef(false);
-  useEffect(() => {
-    if (!shop || giftFromUrl.current) return;
-    const code = new URLSearchParams(window.location.search).get("gift");
-    if (!code) return;
-    giftFromUrl.current = true;
-    setGiftCode(code.toUpperCase());
-    applyGift(code);
-    window.history.replaceState({}, "", "/dashboard/pos");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shop]);
 
   const charge = async () => {
     if (cart.length === 0) { showToast("Please select a service first"); return; }
@@ -775,7 +761,7 @@ export default function POSPage() {
 
   const reset = () => {
     setCart([]); setTipPercent(null); setCustomTip(""); setPromoCode(""); setPromoApplied(null);
-    setGiftCode(""); setGiftCard(null); setPosLoyalty(null); setRedeemLoyalty(false);
+    setGiftCode(""); setGiftCard(null); setGiftOpen(false); setPosLoyalty(null); setRedeemLoyalty(false);
     setPaymentMethod("card"); setCheckoutStep("review"); setSuccess(false); setLastCharge(null); setLastReceiptId(null); setClient("");
     setCustPhone(""); setCustEmail("");
     setSelectedClientId(null); setPickerOpen(false); setClientSearch(""); setDupClient(null);
@@ -923,16 +909,17 @@ export default function POSPage() {
               <Button variant="outline" size="sm" onClick={applyPromo}>Apply</Button>
             </div>
           )}
-          {/* Gift card as tender */}
+          {/* Gift card as tender — opened from the "Gift card" payment tile below. */}
           {giftCard ? (
             <div className="flex items-center justify-between rounded-lg border border-[#00e5a0]/40 bg-[#00e5a0]/10 px-3 py-2">
               <span className="text-xs text-foreground flex items-center gap-1.5"><Gift size={13} /> {giftCard.code} · {formatCurrency(giftCard.remaining_value)} avail</span>
-              <button onClick={() => { setGiftCard(null); setGiftCode(""); }} className="text-grey hover:text-foreground"><X size={14} /></button>
+              <button onClick={() => { setGiftCard(null); setGiftCode(""); setGiftOpen(false); }} className="text-grey hover:text-foreground" aria-label="Remove gift card"><X size={14} /></button>
             </div>
-          ) : (
+          ) : giftOpen && (
             <div className="flex gap-2">
-              <Input placeholder="Gift card code" value={giftCode} onChange={e => setGiftCode(e.target.value.toUpperCase())} className="flex-1 text-xs" />
+              <Input placeholder="Gift card code" value={giftCode} onChange={e => setGiftCode(e.target.value.toUpperCase())} className="flex-1 text-xs" autoFocus />
               <Button variant="outline" size="sm" onClick={() => applyGift()}>Apply</Button>
+              <button onClick={() => { setGiftOpen(false); setGiftCode(""); }} className="text-grey hover:text-foreground px-1" aria-label="Close gift card"><X size={14} /></button>
             </div>
           )}
           {/* Loyalty — spend the client's points (only shows with a redeemable balance) */}
@@ -957,16 +944,38 @@ export default function POSPage() {
             <span className="text-sm font-bold text-foreground">{giftApplied > 0 ? "DUE NOW" : "TOTAL"}</span>
             <span className="text-xl font-extrabold text-foreground">{formatCurrency(dueAfterGift)}</span>
           </div>
-          <p className="text-[11px] text-grey-muted text-center pt-0.5">Pick a payment method — the customer adds a tip next</p>
-          <div className="grid grid-cols-3 gap-2">
-            {(["card","cash","online"] as PM[]).map(m => (
-              <button key={m} onClick={() => { if (!client.trim()) { setNeedCustomer(true); setPickerOpen(true); return; } if (cart.some(i => i.type === "service") && barbers.length > 0 && !barberId) { showToast("Select a barber for this service"); return; } setPaymentMethod(m); setCheckoutStep("tip"); }}
-                className="py-3 rounded-[12px] text-xs font-semibold border border-border bg-surface-overlay text-foreground hover:border-[#00e5a0]/60 active:scale-95 transition-all flex flex-col items-center gap-1">
-                {m === "card" ? <CreditCard size={20} /> : m === "cash" ? <Banknote size={20} /> : <Link2 size={20} />}
-                {m === "card" ? "Card / Tap" : m === "cash" ? "Cash" : "Link"}
-              </button>
-            ))}
-          </div>
+          {(() => {
+            const go = (m: PM) => { if (!client.trim()) { setNeedCustomer(true); setPickerOpen(true); return; } if (cart.some(i => i.type === "service") && barbers.length > 0 && !barberId) { showToast("Select a barber for this service"); return; } setPaymentMethod(m); setCheckoutStep("tip"); };
+            const tile = "py-3 rounded-[12px] text-xs font-semibold border border-border bg-surface-overlay text-foreground hover:border-[#00e5a0]/60 active:scale-95 transition-all flex flex-col items-center gap-1";
+            // Gift card applied: it's settled through the cash path (no card
+            // charge) — fully covered, or the rest taken as cash. A gift + card
+            // split isn't supported, so card / link aren't offered alongside it.
+            if (giftCard) return (
+              <>
+                <p className="text-[11px] text-grey-muted text-center pt-0.5">{dueAfterGift > 0 ? `Gift card covers ${formatCurrency(giftApplied)} — take the rest as cash` : "Covered by the gift card — the customer adds a tip next"}</p>
+                <button type="button" onClick={() => go("cash")}
+                  className="w-full py-3 rounded-[12px] text-sm font-bold bg-[#00e5a0] text-black active:scale-[0.99] transition-transform flex items-center justify-center gap-2">
+                  <Gift size={16} /> {dueAfterGift > 0 ? `Continue · ${formatCurrency(dueAfterGift)} cash` : "Continue · paid by gift card"}
+                </button>
+              </>
+            );
+            return (
+              <>
+                <p className="text-[11px] text-grey-muted text-center pt-0.5">Pick a payment method — the customer adds a tip next</p>
+                <div className="grid grid-cols-4 gap-2">
+                  {(["card","cash","online"] as PM[]).map(m => (
+                    <button key={m} onClick={() => go(m)} className={tile}>
+                      {m === "card" ? <CreditCard size={20} /> : m === "cash" ? <Banknote size={20} /> : <Link2 size={20} />}
+                      {m === "card" ? "Card / Tap" : m === "cash" ? "Cash" : "Link"}
+                    </button>
+                  ))}
+                  <button onClick={() => setGiftOpen(true)} className={cn(tile, giftOpen && "border-[#00e5a0]/60")}>
+                    <Gift size={20} /> Gift card
+                  </button>
+                </div>
+              </>
+            );
+          })()}
         </>
       ) : (
         <>
@@ -1008,6 +1017,8 @@ export default function POSPage() {
           <button type="button" onClick={charge} disabled={charging || cart.length === 0}
             className="w-full rounded-[14px] bg-[#00e5a0] text-black font-extrabold text-base py-4 active:scale-[0.99] transition-transform disabled:opacity-60">
             {charging ? "Processing…"
+              : giftCard && dueAfterGift <= 0 ? "Complete · paid by gift card"
+              : giftCard ? `Complete · ${formatCurrency(giftApplied)} gift + ${formatCurrency(dueAfterGift)} cash`
               : paymentMethod === "cash" ? `Complete cash · ${formatCurrency(dueAfterGift)}`
               : paymentMethod === "online" ? `Send payment link · ${formatCurrency(dueAfterGift)}`
               : `Continue to tap card · ${formatCurrency(dueAfterGift)}`}

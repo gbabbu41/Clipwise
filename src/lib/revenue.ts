@@ -119,11 +119,14 @@ export function appointmentGross(a: RevAppt, ctx: GrossContext): { gross: number
   const total = a.total_amount ?? 0;
   const bal = Math.min(Math.max(0, a.balance_due ?? 0), total);
   const later = a.id ? ctx.balances.get(a.id) ?? 0 : 0;
-  const svcTax = Math.max(0, total - bal - (a.gift_applied ?? 0) - later);
+  const gift = Math.max(0, a.gift_applied ?? 0);
+  const svcTax = Math.max(0, total - bal - gift - later);
   const tip = a.id && ctx.sepTipped.has(a.id) ? 0 : Math.max(0, a.tip_amount ?? 0);
+  // A gift card at checkout can cover the tip too — that part isn't new money either.
+  const giftOnTip = Math.max(0, gift - Math.max(0, total - bal - later));
   const pi = a.payment_intent_id;
   const charged = pi && a.payment_method !== "cash" ? (ctx.byPi?.[pi]?.gross ?? ctx.saved.get(pi)) : undefined;
-  return charged !== undefined ? { gross: charged, tip, fromCharge: true } : { gross: svcTax + tip, tip, fromCharge: false };
+  return charged !== undefined ? { gross: charged, tip, fromCharge: true } : { gross: svcTax + Math.max(0, tip - giftOnTip), tip, fromCharge: false };
 }
 
 export const isPaid = (s: string | null | undefined) => s === "paid" || s === "captured";
