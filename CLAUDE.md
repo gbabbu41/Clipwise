@@ -114,6 +114,8 @@ the owner a feature is broken because "a migration is pending" — the whole bac
 applied.** Verify against the live DB (Supabase MCP or an `information_schema` query),
 never against a stale checkbox in TODO.md or a migration file header.
 - New migrations added AFTER 2026-08-12 are the only ones to track as "to run."
+  phase66, phase67 (one ledger row per charge) and phase68 (loyalty ledger integrity) are
+  **applied on prod** (verified 2026-09-28/29).
 - If a feature "silently does nothing," still capture the supabase `error` (don't only
   read `data`) — but the cause is far more likely code/config than a missing column now.
 
@@ -165,6 +167,26 @@ never against a stale checkbox in TODO.md or a migration file header.
   localStorage (`cw_notif_sound`).
 - **Booking confirmation** after online pay reads a `summary` returned by
   `booking-finalize` (the Stripe redirect wipes in-memory state).
+- **🔒 Money-like balances & ledgers — lessons from real incidents (2026-09).** Three bugs
+  had the same shape: a value changed with no durable link to what caused it, and the
+  failure was swallowed. Rules for ANY points / credit / balance / ledger code:
+  1. **Never read-modify-write a balance in app code.** Change it in ONE database step that
+     locks the row and writes balance + ledger row together. Loyalty: always
+     `rpc("loyalty_adjust")` (phase68) — never `update({ loyalty_points })`.
+  2. **Every ledger row links to its cause** (`appointment_id`, `payment_intent_id`) and a
+     DB unique rule makes retries/double-fires apply once (phase67 transactions, phase68
+     loyalty). A pre-check `select` is NOT duplicate protection — two saves pass it together.
+  3. **Reversals live on the table, not in each route.** A cancel/no-show gives spent points
+     back via the appointments status trigger — so browser-side status updates and future
+     code paths are covered automatically. Don't add per-route "restore" calls.
+  4. **No `.then(null, () => null)` on a money/points write.** Log to `error_logs` with ids
+     only (`logLedgerSaveFailure`, `logLoyaltyFailure`) and return the failure.
+  5. **Match the DB's constraints** (e.g. `transactions.type` CHECK) — a silently rejected
+     insert is how refund records never saved (#18).
+  6. **Email lookups: `ilike(exactIlike(email))`** — `_`/`%` are wildcards otherwise.
+  7. **Prove it on real Postgres**: `scripts/tests/helpers/real-pg.cjs` (see
+     `loyalty-integrity-check`, `duplicate-charge-concurrency-check`) — races, retries,
+     and `balance == sum(ledger)`.
 
 ## Where to look
 - **`KNOWLEDGE-BOOK.md` — the full "behind the app" platform reference.** Architecture, the

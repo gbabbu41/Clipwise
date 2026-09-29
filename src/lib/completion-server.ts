@@ -2,6 +2,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
 import { ensurePlansHydrated } from "@/lib/plans-server";
 import { sendAppEmail } from "@/lib/emailer";
+import { exactIlike, logLoyaltyFailure } from "@/lib/loyalty-redeem";
 
 // Server-side completion effects — the same side-effects a manual "Complete"
 // runs client-side (loyalty award, client-stat bump, review-request email), but
@@ -56,7 +57,7 @@ export async function awardLoyaltyForAppointment(appointmentId: string): Promise
   const phone = (appt.client_phone ?? "").trim();
   let client: { id: string; loyalty_points: number } | null = null;
   if (email) {
-    const { data } = await supabaseAdmin.from("clients").select("id, loyalty_points").eq("shop_id", shop.id).ilike("email", email).maybeSingle();
+    const { data } = await supabaseAdmin.from("clients").select("id, loyalty_points").eq("shop_id", shop.id).ilike("email", exactIlike(email)).maybeSingle();
     client = data;
   }
   if (!client && phone) {
@@ -65,12 +66,20 @@ export async function awardLoyaltyForAppointment(appointmentId: string): Promise
   }
   if (!client) return { ok: true, points: 0, skipped: "no_client" };
 
-  const newTotal = (client.loyalty_points ?? 0) + points;
-  await supabaseAdmin.from("clients").update({ loyalty_points: newTotal }).eq("id", client.id);
-  await supabaseAdmin.from("loyalty_rewards").insert({
-    shop_id: shop.id, client_id: client.id, points, action: "earned",
-  }).then(null, () => null);
-  return { ok: true, points, loyalty_points: newTotal };
+  // Balance + ledger row in one locked step (phase68), tagged with the booking so
+  // it can only ever be earned once. On failure, release the claim so a retry can
+  // award it, and log it — points never silently go missing.
+  const ids = { shopId: shop.id, clientId: client.id, appointmentId: appt.id };
+  const { data, error } = await supabaseAdmin.rpc("loyalty_adjust", {
+    p_shop_id: shop.id, p_client_id: client.id, p_delta: points, p_action: "earned", p_appointment_id: appt.id,
+  }).then(r => r, (e: unknown) => ({ data: null, error: e }));
+  if (error) {
+    await supabaseAdmin.from("appointments").update({ loyalty_awarded: false }).eq("id", appt.id).then(null, () => null);
+    await logLoyaltyFailure("awardLoyaltyForAppointment", ids, error);
+    return { ok: false, skipped: "save_failed" };
+  }
+  const row = (Array.isArray(data) ? data[0] : data) as { applied?: number; balance?: number } | null;
+  return { ok: true, points: Number(row?.applied ?? 0), loyalty_points: Number(row?.balance ?? 0) };
 }
 
 /** Full server-side "appointment completed" side-effects: loyalty + client
