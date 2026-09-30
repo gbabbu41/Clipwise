@@ -685,7 +685,7 @@ export function Sidebar() {
           // clock/notch when the app runs as an installed PWA (standalone, where
           // content extends to the top edge). No-op in a browser tab / on desktop
           // (inset resolves to 0).
-          "cw-sidebar cw-sidebar-glass fixed inset-y-0 left-0 z-[60] w-64 pt-[env(safe-area-inset-top)] flex flex-col bg-card border-r border-border transition-transform duration-200 lg:translate-x-0",
+          "cw-sidebar fixed inset-y-0 left-0 z-[60] w-64 pt-[env(safe-area-inset-top)] flex flex-col bg-card border-r border-border transition-transform duration-200 lg:translate-x-0",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
@@ -786,7 +786,7 @@ export function Sidebar() {
             return (
               <div key={label} className={gap}>
                 {isFirstCollapsible && (
-                  <p className="cw-section-label px-3 mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-grey-muted">More</p>
+                  <p className="cw-section-label px-3 mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-grey">More</p>
                 )}
                 {collapsible ? (
                   // Styled exactly like a nav link (icon + name + row padding) so it
@@ -796,10 +796,10 @@ export function Sidebar() {
                     className="cw-nav-item group w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-grey hover:text-foreground hover:bg-card-raised transition-all duration-200">
                     {SectionIcon && <SectionIcon size={18} className="text-grey group-hover:text-foreground" />}
                     <span className="cw-nav-label flex-1 text-left">{label}</span>
-                    <ChevronDown size={16} className={cn("cw-nav-badge text-grey-muted group-hover:text-foreground transition-transform duration-200", open && "rotate-180")} />
+                    <ChevronDown size={16} className={cn("cw-nav-badge text-grey group-hover:text-foreground transition-transform duration-200", open && "rotate-180")} />
                   </button>
                 ) : (
-                  <p className="cw-section-label px-3 mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-grey-muted">{label}</p>
+                  <p className="cw-section-label px-3 mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-grey">{label}</p>
                 )}
                 <div className={cn("cw-section-body space-y-1", !open && "cw-section-body-collapsed")}>{visible.map(renderItem)}</div>
               </div>

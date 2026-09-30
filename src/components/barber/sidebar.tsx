@@ -382,7 +382,7 @@ export function BarberSidebar() {
 
       <aside
         className={cn(
-          "cw-sidebar cw-sidebar-glass fixed inset-y-0 left-0 z-[60] w-64 pt-[env(safe-area-inset-top)] flex flex-col bg-surface border-r border-border transition-transform duration-200 lg:translate-x-0",
+          "cw-sidebar fixed inset-y-0 left-0 z-[60] w-64 pt-[env(safe-area-inset-top)] flex flex-col bg-surface border-r border-border transition-transform duration-200 lg:translate-x-0",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >

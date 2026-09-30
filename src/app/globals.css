@@ -43,11 +43,11 @@
   .cw-booking-action-surface { background: #000; -webkit-backdrop-filter: none; backdrop-filter: none; }
 }
 
-/* The glass stays on a decorative pseudo-layer so fixed menus/drawers inside
-   these shells keep their viewport positioning. The sidebar remains mostly
-   opaque for persistent navigation; the compact top bar is a little airier. */
-.portal .cw-sidebar-glass::before,
+/* Keep glass on the compact header's decorative layer. The sidebar itself is
+   an opaque, theme-aware navigation surface for stable text contrast. */
 .portal .cw-mobile-header-glass::before { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; }
+.portal .cw-sidebar { background: var(--card); }
+html[data-theme="light"] .portal .cw-sidebar { background: var(--background); }
 .portal .cw-shop-switcher-trigger {
   background: var(--card-raised);
   border-color: color-mix(in srgb, var(--foreground) 13%, var(--border));
@@ -55,15 +55,7 @@
 }
 .portal .cw-shop-switcher-trigger:hover { border-color: color-mix(in srgb, var(--foreground) 22%, var(--border)); }
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .portal .cw-sidebar-glass,
   .portal .cw-mobile-header-glass { background: transparent; }
-  html[data-theme="light"] .portal .cw-sidebar.cw-sidebar-glass { background: transparent; }
-  .portal .cw-sidebar-glass::before {
-    background: var(--surface);
-    background: linear-gradient(145deg, color-mix(in srgb, var(--foreground) 4%, transparent), transparent 55%), color-mix(in srgb, var(--surface) 92%, transparent);
-    -webkit-backdrop-filter: blur(10px) saturate(1.08);
-    backdrop-filter: blur(10px) saturate(1.08);
-  }
   .portal .cw-mobile-header-glass::before {
     background: var(--surface);
     background: linear-gradient(180deg, color-mix(in srgb, var(--foreground) 7%, transparent), transparent 70%), color-mix(in srgb, var(--surface) 82%, transparent);
@@ -72,10 +64,9 @@
   }
 }
 @media (prefers-reduced-transparency: reduce) {
-  .portal .cw-sidebar-glass, .portal .cw-mobile-header-glass { background: var(--surface); }
-  .portal .cw-sidebar-glass::before, .portal .cw-mobile-header-glass::before { display: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .portal .cw-mobile-header-glass { background: var(--surface); }
+  .portal .cw-mobile-header-glass::before { display: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
   .portal .cw-shop-switcher-trigger { background: var(--card-raised); -webkit-backdrop-filter: none; backdrop-filter: none; }
-  html[data-theme="light"] .portal .cw-sidebar.cw-sidebar-glass { background: var(--surface); }
 }
 
 /* Keep native time fields complete on narrow working-hours sheets. */
@@ -397,7 +388,6 @@ html[data-theme="light"] .portal .cwd-icobtn { color: #3f6fb2; }
 /* Sidebar reads as a distinct "chrome" panel — a hair greyer than the white
    page. The nav rail is white like the cards; its hairline right border separates
    it from the faint-grey content area (clean chrome-rail look). Light only. */
-html[data-theme="light"] .portal .cw-sidebar { background: var(--card); }
 
 /* `gold` = white (the dark-theme accent). On a light page every text-gold /
    border-gold / ring-gold icon is white-on-white = invisible (shop-switcher
