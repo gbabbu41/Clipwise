@@ -18,8 +18,8 @@ import { UnreadBadge } from "@/components/notification-badge";
 import { AvatarImage } from "@/components/ui/avatar-image";
 import { ProfileMenu, OWNER_MENU_ITEMS } from "@/components/profile-menu";
 import { useConfirm } from "@/components/ui/confirm-dialog";
-import { AppointmentNotificationContent } from "@/components/appointment-notification-content";
-import { parseAppointmentNotification } from "@/lib/notification-presentation";
+import { NotificationContent } from "@/components/appointment-notification-content";
+import { humanizeNotificationMessage, parseAppointmentNotification } from "@/lib/notification-presentation";
 
 // Tap a notification → jump to the page where you act on it, routed by what the
 // notification is actually about (NOT "/dashboard/pending" — that's the shop's
@@ -467,7 +467,6 @@ export function Sidebar() {
 
   const displayName = profile?.name ?? user?.email ?? "User";
   const initial = displayName.charAt(0).toUpperCase();
-  const shopName = shop?.name?.trim() || "Your Shop";
 
   return (
     <>
@@ -590,36 +589,14 @@ export function Sidebar() {
                         );
                         const cls = cn("block rounded-xl border border-border mb-2 transition-colors", appointmentSummary ? "px-3 py-2.5" : "px-3 py-3",
                           n.is_read ? "bg-card" : "bg-white/[0.04]");
-                        const body = appointmentSummary ? (
-                          <AppointmentNotificationContent summary={appointmentSummary} createdAt={n.created_at} isRead={n.is_read}>
-                            {approvalButtons}
-                          </AppointmentNotificationContent>
-                        ) : (
-                          <div className="flex gap-3">
-                            <span className="cw-notification-icon w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0">
-                              <c.Icon size={16} />
-                            </span>
-                            <div className="flex-1 min-w-0">
-                              <p className={cn("text-sm truncate", n.is_read ? "font-semibold text-[#dcdcdc]" : "font-bold text-foreground")}>{cleanNotifTitle(n.title)}</p>
-                              <p className="text-xs text-grey line-clamp-2 mt-0.5">{n.message}</p>
-                              {inlineAppt ? (
-                                <>
-                                  {approvalButtons}
-                                  <span className="block text-[11px] text-grey mt-1.5">{timeAgo(n.created_at)}</span>
-                                </>
-                              ) : (
-                                <div className="flex items-center justify-between mt-1.5">
-                                  <span className="text-[11px] text-grey">{timeAgo(n.created_at)}</span>
-                                  {c.actionable && (
-                                    <span className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-foreground">
-                                      Review <ChevronRight size={12} />
-                                    </span>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                            {!n.is_read && <span className="w-2 h-2 rounded-full bg-foreground flex-shrink-0 mt-1" />}
-                          </div>
+                        const body = (
+                          <NotificationContent summary={appointmentSummary} title={cleanNotifTitle(n.title)}
+                            message={humanizeNotificationMessage(n.message)} icon={<c.Icon size={14} />}
+                            createdAt={n.created_at} ageLabel={timeAgo(n.created_at)} isRead={n.is_read}>
+                            {inlineAppt ? approvalButtons : c.actionable ? (
+                              <span className="mt-1.5 inline-flex items-center gap-0.5 text-[11px] font-semibold text-foreground">Review <ChevronRight size={12} /></span>
+                            ) : null}
+                          </NotificationContent>
                         );
                         return inlineAppt ? (
                           <div key={n.id} className={cls}>{body}</div>

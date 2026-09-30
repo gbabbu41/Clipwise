@@ -17,7 +17,7 @@ function load(file) {
   return loaded.exports;
 }
 
-const { parseAppointmentNotification } = load('src/lib/notification-presentation.ts');
+const { parseAppointmentNotification, humanizeNotificationMessage } = load('src/lib/notification-presentation.ts');
 const moved = parseAppointmentNotification({
   type: 'booking', title: 'Appointment rescheduled',
   message: 'CW Test Customer: Oct 6, 2026 at 11:00 AM → Dec 1, 2026 at 10:00 AM · with Gill',
@@ -27,12 +27,20 @@ assert.equal(moved.event, 'Appointment rescheduled');
 assert.deepEqual(moved.previous, { date: 'Oct 6, 2026', time: '11:00 AM' });
 assert.deepEqual(moved.current, { date: 'Dec 1, 2026', time: '10:00 AM' });
 assert.equal(moved.barber, 'Gill');
-const { AppointmentNotificationContent } = load('src/components/appointment-notification-content.tsx');
-const html = req('react-dom/server').renderToStaticMarkup(req('react').createElement(AppointmentNotificationContent, {
-  summary: moved, createdAt: '2026-09-30T12:00:00Z', isRead: false,
+const { NotificationContent } = load('src/components/appointment-notification-content.tsx');
+const html = req('react-dom/server').renderToStaticMarkup(req('react').createElement(NotificationContent, {
+  summary: moved, title: 'Appointment rescheduled', message: '', icon: null,
+  createdAt: '2026-09-30T12:00:00Z', ageLabel: 'Just now', isRead: false,
 }));
 assert.match(html, /rescheduled · with Gill/);
 assert.equal((html.match(/with Gill/g) ?? []).length, 1);
+const genericMessage = 'Stock is low for Beard Balm. Current quantity: 2. Reorder when ready.';
+const genericHtml = req('react-dom/server').renderToStaticMarkup(req('react').createElement(NotificationContent, {
+  title: 'Inventory update', message: genericMessage, icon: req('react').createElement(req('lucide-react').Package, { size: 14 }),
+  createdAt: '2026-09-30T12:00:00Z', ageLabel: 'Just now', isRead: true,
+}));
+assert.match(genericHtml, /Inventory update/);
+assert.match(genericHtml, new RegExp(genericMessage.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
 
 const customerMoved = parseAppointmentNotification({
   type: 'booking', title: 'Appointment rescheduled',
@@ -52,8 +60,9 @@ assert.equal(richBooking.barber, 'Gill');
 assert.equal(richBooking.amount, '$16');
 assert.equal(richBooking.payment, 'Paid');
 assert.deepEqual(richBooking.current, { date: 'October 5', time: '9:00 AM' });
-const bookingHtml = req('react-dom/server').renderToStaticMarkup(req('react').createElement(AppointmentNotificationContent, {
-  summary: richBooking, createdAt: '2026-09-30T12:00:00Z', isRead: false,
+const bookingHtml = req('react-dom/server').renderToStaticMarkup(req('react').createElement(NotificationContent, {
+  summary: richBooking, title: 'New booking · $16', message: '', icon: null,
+  createdAt: '2026-09-30T12:00:00Z', ageLabel: 'Just now', isRead: false,
 }));
 assert.match(bookingHtml, /New booking · \$16 · with Gill/);
 assert.match(bookingHtml, /Skin Fade · Paid/);
@@ -120,4 +129,14 @@ assert.equal(malformedTime.previous.time, '11:00 AM extra');
 
 assert.equal(parseAppointmentNotification({ type: 'system', title: 'Plan updated', message: 'Your account is ready.' }), null);
 assert.equal(parseAppointmentNotification({ type: 'booking', title: 'Appointment rescheduled', message: 'Legacy update without recognized fields' }), null);
+const paymentReceived = parseAppointmentNotification({ type: 'booking', title: 'Payment received', message: "Charged CW Client's card $40.25 on completion (Oct 5, 2026)." });
+assert.equal(paymentReceived.clientName, 'CW Client');
+assert.equal(paymentReceived.amount, '$40.25');
+assert.equal(paymentReceived.payment, 'Card charged on completion');
+assert.equal(paymentReceived.current.date, 'Oct 5, 2026');
+const waitlist = parseAppointmentNotification({ type: 'booking', title: 'Waitlist request', message: 'CW Client is waiting for a spot on Mon, Oct 5' });
+assert.equal(waitlist.clientName, 'CW Client');
+assert.equal(waitlist.event, 'Waiting for a spot');
+assert.equal(waitlist.current.date, 'Mon, Oct 5');
+assert.equal(humanizeNotificationMessage('Legacy event on 2026-10-06'), `Legacy event on ${load('src/lib/utils.ts').prettyDate('2026-10-06')}`);
 console.log('PASS notification presentation: reschedule/cancel templates, timezone-safe raw date, 12h time, safe fallback');
