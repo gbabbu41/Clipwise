@@ -68,6 +68,7 @@ export async function POST(req: NextRequest) {
       title: isNoShow ? "Marked No-Show" : "Appointment Cancelled",
       message: `${appt.client_name}'s ${svc?.name ?? "appointment"} on ${appt.date} at ${appt.time_slot} was ${(statusLabel || "cancelled").toLowerCase()}.`,
       type: isNoShow ? "no-show" : "cancellation",
+      entity_type: "appointment", entity_id: appt.id,
     });
   }
 

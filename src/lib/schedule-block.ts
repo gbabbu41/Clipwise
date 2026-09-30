@@ -60,3 +60,56 @@ export async function scheduleBlockReason(
 
   return null;
 }
+
+/**
+ * Is the barber WORKING (and taking bookings) for the whole [startMin, endMin)
+ * window on `date`? The same rule /api/availability uses to offer times: the
+ * weekday's available time_slots (widest window if several rows), an active,
+ * non-paused barber. Returns a reason when not, else null.
+ *
+ * Customer-facing server paths must call this (via bookableReason) — the screen
+ * only offers valid times, but a crafted request or an "Anyone" auto-pick must
+ * not land on a day off or outside hours. Staff may deliberately book outside
+ * hours, so staff paths opt out. A failed read is not treated as "closed" (the
+ * other guards still apply) so a transient DB hiccup never blocks real customers.
+ */
+export async function workingHoursReason(
+  barberId: string | null | undefined,
+  date: string,
+  startMin: number,
+  endMin: number,
+): Promise<string | null> {
+  if (!barberId) return null;
+  const dow = new Date(date + "T00:00:00").getDay();
+  const [slotsRes, barberRes] = await Promise.all([
+    supabaseAdmin.from("time_slots").select("start_time, end_time")
+      .eq("barber_id", barberId).eq("day_of_week", dow).eq("is_available", true),
+    supabaseAdmin.from("barbers").select("is_active, bookings_paused").eq("id", barberId).maybeSingle(),
+  ]);
+  const b = barberRes.data as { is_active?: boolean | null; bookings_paused?: boolean | null } | null;
+  if (!barberRes.error && b && (b.is_active === false || b.bookings_paused === true)) {
+    return "This barber isn't taking bookings right now. Please pick another barber.";
+  }
+  if (slotsRes.error) return null;
+  const rows = (slotsRes.data ?? []).filter((s) => s.start_time && s.end_time);
+  if (rows.length === 0) return "The barber isn't working that day. Please pick another day.";
+  const open = Math.min(...rows.map((s) => hmToMin(s.start_time)));
+  const close = Math.max(...rows.map((s) => hmToMin(s.end_time)));
+  if (startMin < open || endMin > close) return "That time is outside the barber's working hours. Please pick another time.";
+  return null;
+}
+
+/**
+ * Everything the customer booking screen applies, enforced on the server: working
+ * hours, active/not-paused, approved time-off / blocked hours, and breaks.
+ */
+export async function bookableReason(
+  shopId: string,
+  barberId: string | null | undefined,
+  date: string,
+  startMin: number,
+  endMin: number,
+): Promise<string | null> {
+  return (await workingHoursReason(barberId, date, startMin, endMin))
+    ?? (await scheduleBlockReason(shopId, barberId, date, startMin, endMin, { includeBreaks: true }));
+}

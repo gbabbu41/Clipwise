@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
       let rDur = Number(fields.duration_minutes ?? 0);
       if (!rDur || rDur <= 0) rDur = appt.duration_minutes && appt.duration_minutes > 0 ? appt.duration_minutes : 30;
       const rStart = timeToMinutes(rSlot);
-      fields.barber_id = (await findAvailableBarber(appt.shop_id, rDate, rStart, rStart + rDur)) ?? appt.barber_id;
+      fields.barber_id = (await findAvailableBarber(appt.shop_id, rDate, rStart, rStart + rDur, undefined, { mode: "prefer-working" })) ?? appt.barber_id;
     }
   }
 
@@ -299,6 +299,7 @@ export async function POST(request: NextRequest) {
         if (barberChanged && newBarber?.user_id) {
           await insertNotifications({
             user_id: newBarber.user_id, shop_id: full.shop_id, type: "booking",
+            entity_type: "appointment", entity_id: appointment_id,
             title: "Appointment assigned to you",
             message: `${full.client_name ?? "A client"} — ${prettyWhen}`,
           });
@@ -321,6 +322,7 @@ export async function POST(request: NextRequest) {
         if (barberChanged && oldBarber?.user_id) {
           await insertNotifications({
             user_id: oldBarber.user_id, shop_id: full.shop_id, type: "booking",
+            entity_type: "appointment", entity_id: appointment_id,
             title: "Appointment reassigned",
             message: `${full.client_name ?? "A client"}'s appointment (${prettyWhen}) was moved to another barber.`,
           });
@@ -332,6 +334,7 @@ export async function POST(request: NextRequest) {
         if (!barberChanged && (dateChanged || timeChanged) && newBarber?.user_id) {
           await insertNotifications({
             user_id: newBarber.user_id, shop_id: full.shop_id, type: "booking",
+            entity_type: "appointment", entity_id: appointment_id,
             title: "Appointment rescheduled",
             message: `${full.client_name ?? "A client"}: ${oldWhen} → ${prettyWhen}`,
           });
@@ -358,6 +361,7 @@ export async function POST(request: NextRequest) {
         if (!auth.isOwner && shopRow?.owner_id) {
           await insertNotifications({
             user_id: shopRow.owner_id, shop_id: full.shop_id, type: "booking",
+            entity_type: "appointment", entity_id: appointment_id,
             title: timeMoved ? "Appointment rescheduled" : "Appointment reassigned",
             message: timeMoved
               ? `${full.client_name ?? "A client"}: ${oldWhen} → ${prettyWhen} · with ${newBarber?.name ?? "any barber"}`

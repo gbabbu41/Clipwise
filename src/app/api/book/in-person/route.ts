@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { barberHasConflict, findAvailableBarber, isDoubleBookError } from "@/lib/booking-conflict";
-import { scheduleBlockReason } from "@/lib/schedule-block";
+import { scheduleBlockReason, workingHoursReason } from "@/lib/schedule-block";
 import { timeToMinutes } from "@/lib/utils";
 import { fetchValidPromo, promoDiscount, promoBlockReason, consumePromo, type PromoRow } from "@/lib/promo";
 import { resolveServiceCharge } from "@/lib/service-pricing";
@@ -241,7 +241,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Sorry, that time was just booked. Please pick another slot." }, { status: 409 });
     }
   } else {
-    barberId = await findAvailableBarber(b.shop_id, b.date, startMin, endMin);
+    // Customers get only a barber who is actually working then; staff may book
+    // outside hours, so they get a working barber first, else any free one.
+    barberId = await findAvailableBarber(b.shop_id, b.date, startMin, endMin, undefined, callerIsStaff ? { mode: "prefer-working" } : undefined);
     if (!barberId) {
       return NextResponse.json({ error: "Sorry, that time is fully booked. Please pick another slot." }, { status: 409 });
     }
@@ -258,6 +260,12 @@ export async function POST(request: NextRequest) {
   //     an overridable schedule conflict (vs a hard double-booking conflict).
   // The flag is honored ONLY for authenticated staff — a customer can't send it.
   const staffOverride = callerIsStaff && b.override_block === true;
+  // A customer can only book when the barber is working (same rule as the booking
+  // screen). Staff may deliberately book outside hours (e.g. an after-hours walk-in).
+  if (!callerIsStaff) {
+    const hoursReason = await workingHoursReason(barberId, b.date, startMin, endMin);
+    if (hoursReason) return NextResponse.json({ error: hoursReason }, { status: 409 });
+  }
   if (!staffOverride) {
     const blockReason = await scheduleBlockReason(
       b.shop_id, barberId, b.date, startMin, endMin, { includeBreaks: true },

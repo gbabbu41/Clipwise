@@ -21,7 +21,7 @@ const mocks = {
   '@/lib/supabase-admin': { supabaseAdmin: db }, '@/lib/notify-server': {}, '@/lib/booking-conflict': {}, '@/lib/schedule-block': {},
   '@/lib/stripe-refund': {}, '@/lib/refund-ledger': {}, '@/lib/payment-notify': {}, '@/lib/emailer': {}, '@/lib/twilio': {}, '@/lib/validation': {}, '@/lib/waitlist-notify-server': {},
   '@/lib/rate-limit': { enforceRateLimit: () => null },
-  '@/lib/timezone': { safeTz: tz => tz, todayInTz: tz => { assert.equal(tz, 'America/Halifax'); return today; }, nowMinutesInTz: () => now },
+  '@/lib/timezone': { safeTz: tz => tz, todayInTz: tz => { assert.equal(tz, 'America/Halifax'); return today; }, nowMinutesInTz: () => now, isBeyondAdvanceWindow: () => false },
 };
 const cache = {};
 function load(relative) { if (cache[relative]) return cache[relative]; const filename = path.join(root, relative), m = new Module(filename, module); m.filename = filename; m.require = id => mocks[id] ?? (id.startsWith('@/') ? load(`src/${id.slice(2)}.ts`) : appReq(id)); m._compile(compile(fs.readFileSync(filename, 'utf8')), filename); return cache[relative] = m.exports; }

@@ -1,6 +1,7 @@
 import Twilio from "twilio";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { normPhone } from "@/lib/client-identity";
+import { humanizeDates } from "@/lib/utils";
 
 /**
  * Lazy-initialized Twilio REST client. Reads creds from env at first call so
@@ -92,6 +93,7 @@ export async function sendSmsBestEffort(
       if (opted && opted.length) { console.log("[sms] skipped: recipient opted out"); return; }
     }
   } catch { /* best-effort */ }
+  body = humanizeDates(body);   // never text a person "2026-10-06"
   const prefixed = shopName && !body.toLowerCase().startsWith(shopName.toLowerCase())
     ? `${shopName}: ${body}`
     : body;
