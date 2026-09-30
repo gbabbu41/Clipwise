@@ -7,7 +7,7 @@ import { scheduleBlockReason } from "@/lib/schedule-block";
 import { recordOnlinePaymentTx } from "@/lib/finalize-appointment-payment";
 import { insertNotifications } from "@/lib/notify-server";
 import { notifyNewBookingStaff } from "@/lib/notify-staff-server";
-import { timeToMinutes, prettyDate } from "@/lib/utils";
+import { timeToMinutes, prettyDateWithContext, formatCurrency } from "@/lib/utils";
 import { fetchValidPromo, consumePromo } from "@/lib/promo";
 import { deductRedeemedPoints } from "@/lib/loyalty-redeem";
 import { logGiftFailure, redeemGiftForBooking } from "@/lib/gift-redeem";
@@ -165,7 +165,9 @@ export async function finalizeBookingFromSession(params: {
     // Pay-in-person keeps the card on file but is UNPAID · Cash (charged in person,
     // never off the card unless no-show). Others: saved / held / paid as before.
     payment_status: isPayInPerson ? "unpaid" : isSave ? "saved" : isHold ? "held" : "paid",
-    ...(isPayInPerson ? { payment_method: "cash" } : {}),
+    // Pay-at-shop stays "cash" (a saved card there is only the no-show guarantee);
+    // everything else was paid / held / saved by card online.
+    payment_method: isPayInPerson ? "cash" : "card",
     ...(!isSave && !isHold ? { paid_at: new Date().toISOString() } : {}),
     payment_intent_id: paymentIntentId,
     stripe_customer_id: savedCustomerId,
@@ -263,11 +265,11 @@ export async function finalizeBookingFromSession(params: {
   }
 
   const { data: shopRow } = await supabaseAdmin.from("shops").select("owner_id, name, email, slug, subscription_plan, subscription_status, booking_settings").eq("id", m.shop_id).single();
-  const friendly = prettyDate(m.date);
+  const friendly = prettyDateWithContext(m.date);
   if (shopRow?.owner_id) {
     // Show what the customer actually paid (service + tax + tip), so the alert
     // matches the Stripe charge rather than under-reporting by the tip.
-    const amountStr = `$${(Number(m.total_amount ?? 0) + Number(m.tip_amount ?? 0)).toFixed(0)}`;
+    const amountStr = formatCurrency(Number(m.total_amount ?? 0) + Number(m.tip_amount ?? 0));   // exact, never rounded
     const bookingTitle = `New booking · ${amountStr}`;
     const bookingVerb = isPayInPerson ? "(pay at shop · card on file)" : isSave ? "(card saved)" : isHold ? "(card on hold)" : "& paid";
     // Name the service + barber so the owner knows whose chair it's in.
