@@ -728,8 +728,8 @@ export function makeApptActions(opts: {
   };
 }
 
-// Appointment action: compact rows in focused flows, square tiles in the main menu.
-function DAction({ icon, label, onClick, disabled, tone = "default", tile = false }: {
+// Action choices use square tiles; inline form submissions can opt into a compact row.
+function DAction({ icon, label, onClick, disabled, tone = "default", tile = true }: {
   icon: ReactNode; label: string; onClick?: () => void; disabled?: boolean;
   tone?: "default" | "primary" | "danger" | "muted";
   tile?: boolean;
@@ -1089,7 +1089,7 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
           }}
           className={cn(
             "pointer-events-auto w-full sm:max-w-md bg-card-raised border-t sm:border border-border rounded-t-2xl sm:rounded-2xl shadow-2xl",
-            "pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:pb-5 h-[90svh] max-h-[94svh] overflow-y-auto overscroll-contain sm:h-auto sm:max-h-[88vh]",
+            "pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:pb-5 max-h-[92svh] overflow-y-auto overscroll-contain sm:max-h-[88vh]",
           )}
         >
           {/* Grab handle — pull down anywhere to dismiss, or tap the handle */}
@@ -1106,65 +1106,24 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
                 <X size={18} />
               </button>
             </div>
-            {!editMode && !readOnly && !payChoice && !noShowMode && (
-              <div className="mt-3 grid grid-cols-2 gap-2.5">
-                {appt.status !== "completed" && appt.status !== "cancelled" && (
-                  <DAction tile icon={<Pencil size={18} />} label="Edit appointment" disabled={!!busy} onClick={openEdit} />
-                )}
-                {appt.status === "pending" && (
-                  <DAction tile tone="primary" icon={<CircleCheck size={18} />} label={busy === "approve" ? "Approving…" : "Approve appointment"} disabled={!!busy} onClick={() => actions.approve(appt)} />
-                )}
-                {appt.status === "confirmed" && (
-                  <DAction tile tone="primary" icon={paid ? <CircleCheck size={18} /> : <CreditCard size={18} />}
-                    label={paid ? "Complete appointment" : "Check out"} disabled={!!busy}
-                    onClick={() => { setPayChoice(true); setShowEmail(false); }} />
-                )}
-                {appt.status === "confirmed" && startedForNoShow && (
-                  <DAction tile icon={<TriangleAlert size={18} />} label="Charge no-show" disabled={!!busy} onClick={() => setNoShowMode(true)} />
-                )}
-                {outstanding && appt.status !== "pending" && appt.status !== "confirmed" && (
-                  <DAction tile tone="primary" icon={<CreditCard size={18} />} label={`Take payment · ${formatCurrency(amt)}`} disabled={!!busy} onClick={() => { setPayChoice(true); setShowEmail(false); }} />
-                )}
-                {(appt.status === "pending" || appt.status === "confirmed") && (
-                  <DAction tile tone="danger" icon={<X size={18} />} label={busy === "reject" ? "Rejecting…" : "Reject appointment"} disabled={!!busy} onClick={() => actions.reject(appt)} />
-                )}
-              </div>
-            )}
-            <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3">
-              <div className="col-span-2 min-w-0">
-                <div className="text-[10px] font-semibold uppercase tracking-wide text-grey">Service</div>
-                <p className="mt-0.5 break-words text-sm leading-snug text-foreground">{serviceLabel}</p>
-              </div>
-              <div className="min-w-0">
-                <div className="text-[10px] font-semibold uppercase tracking-wide text-grey">Barber</div>
-                <p className="mt-0.5 break-words text-sm leading-snug text-foreground">{barber?.name ?? "Any"}</p>
-              </div>
-              <div className="min-w-0">
-                <div className="text-[10px] font-semibold uppercase tracking-wide text-grey">Date</div>
-                <p className="mt-0.5 break-words text-sm leading-snug text-foreground">{appointmentDate}</p>
-              </div>
-              <div className="col-span-2 min-w-0">
-                <div className="text-[10px] font-semibold uppercase tracking-wide text-grey">Time</div>
-                <p className="mt-0.5 break-words text-sm leading-snug text-foreground">
-                  <span className="font-mono tabular-nums">{timeRange || "—"}</span>
-                  {duration > 0 && <span className="ml-2 text-xs text-grey">· {duration} min</span>}
-                </p>
-              </div>
-              <div className="col-span-2 grid grid-cols-2 gap-3 border-t border-border pt-2.5">
-                <div className="min-w-0">
-                  <div className="text-[10px] font-semibold uppercase tracking-wide text-grey">Payment</div>
-                  <span className="mt-1 inline-flex max-w-full items-center rounded-md border border-border bg-surface-overlay px-2 py-1 text-xs font-medium leading-snug text-grey">{paymentLabel}</span>
-                </div>
-                <div className="min-w-0">
-                  <div className="text-[10px] font-semibold uppercase tracking-wide text-grey">Appointment</div>
-                  <span className="mt-1 inline-flex items-center gap-1.5 text-xs font-medium text-foreground">
-                    {statusLabel(appt.status)}
-                  </span>
-                </div>
-                {tipAmt <= 0 && <div className="col-span-2 flex items-center justify-between gap-3 border-t border-border pt-2">
-                  <span className="text-xs text-grey">{taxAmt > 0 ? "Service + tax" : "Amount"}</span>
+            <div className="mt-2 space-y-1.5">
+              <p className="break-words text-sm leading-snug text-foreground">
+                {serviceLabel}<span className="text-grey"> · {barber?.name ?? "Any"}</span>
+              </p>
+              <p className="text-xs text-grey">{appointmentDate}</p>
+              <p className="break-words text-sm leading-snug text-foreground">
+                <span className="font-mono tabular-nums">{timeRange || "—"}</span>
+                {duration > 0 && <span className="ml-2 text-xs text-grey">· {duration} min</span>}
+              </p>
+              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 border-t border-border pt-2">
+                <span className="flex min-w-0 items-baseline gap-2">
+                  <span className="text-xs text-grey">{taxAmt > 0 ? "Service + tax" : "Service"}</span>
                   <span className="font-mono text-sm font-semibold tabular-nums text-foreground">{formatCurrency(amt)}</span>
-                </div>}
+                </span>
+                <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5">
+                  <span className="inline-flex max-w-full items-center rounded-md border border-border bg-surface-overlay px-2 py-1 text-xs font-medium leading-snug text-grey">{paymentLabel}</span>
+                  <span className="inline-flex items-center rounded-md border border-border bg-card px-2 py-1 text-xs font-medium text-grey">{statusLabel(appt.status)}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -1233,7 +1192,7 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
                 <span className="text-sm font-semibold text-foreground">Balance to collect</span>
                 <span className="text-base font-extrabold text-foreground tabular-nums">{formatCurrency(balanceDue)}</span>
               </div>
-              <div className="mt-2.5 flex flex-col gap-2">
+              <div className="mt-2.5 grid grid-cols-2 gap-2.5">
                 {!!appt.stripe_payment_method_id && (
                   <DAction tone="primary" icon={<CircleCheck size={18} />}
                     label={busy === "balance-card" ? "Charging…" : `Charge card on file · ${formatCurrency(balanceDue)}`}
@@ -1250,7 +1209,32 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
             </div>
           )}
 
-          {/* Actions — same logic/handlers as before, restyled as stacked rows. */}
+          {!editMode && !readOnly && !payChoice && !noShowMode && (
+            <div className="px-[18px] pt-3.5 pb-2 grid grid-cols-2 gap-2.5">
+              {appt.status !== "completed" && appt.status !== "cancelled" && (
+                <DAction icon={<Pencil size={18} />} label="Edit appointment" disabled={!!busy} onClick={openEdit} />
+              )}
+              {appt.status === "pending" && (
+                <DAction tone="primary" icon={<CircleCheck size={18} />} label={busy === "approve" ? "Approving…" : "Approve appointment"} disabled={!!busy} onClick={() => actions.approve(appt)} />
+              )}
+              {appt.status === "confirmed" && (
+                <DAction tone="primary" icon={paid ? <CircleCheck size={18} /> : <CreditCard size={18} />}
+                  label={paid ? "Complete appointment" : "Check out"} disabled={!!busy}
+                  onClick={() => { setPayChoice(true); setShowEmail(false); }} />
+              )}
+              {appt.status === "confirmed" && startedForNoShow && (
+                <DAction icon={<TriangleAlert size={18} />} label="Charge no-show" disabled={!!busy} onClick={() => setNoShowMode(true)} />
+              )}
+              {outstanding && appt.status !== "pending" && appt.status !== "confirmed" && (
+                <DAction tone="primary" icon={<CreditCard size={18} />} label={`Take payment · ${formatCurrency(amt)}`} disabled={!!busy} onClick={() => { setPayChoice(true); setShowEmail(false); }} />
+              )}
+              {(appt.status === "pending" || appt.status === "confirmed") && (
+                <DAction tone="danger" icon={<X size={18} />} label={busy === "reject" ? "Rejecting…" : "Reject appointment"} disabled={!!busy} onClick={() => actions.reject(appt)} />
+              )}
+            </div>
+          )}
+
+          {/* Actions — same logic and handlers, presented as selectable tiles. */}
           {editMode ? (
             <fieldset disabled={editSaving} className="min-w-0 px-[18px] pt-3.5 flex flex-col gap-3">
               {editError && <p role="alert" className="text-sm text-red-300">{editError}</p>}
@@ -1332,7 +1316,7 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
           ) : payChoice ? (
             <div className="px-[18px] pt-3.5 flex flex-col gap-2.5">
               {paid ? (
-                <div className="flex flex-col gap-2">
+                <div className="grid grid-cols-2 gap-2.5">
                   <DAction tone="primary" icon={<CircleCheck size={18} />} label={busy === "complete" ? "Completing…" : "Mark complete · already paid"} disabled={!!busy} onClick={() => actions.complete(appt)} />
                 </div>
               ) : (
@@ -1340,7 +1324,7 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
                   {/* Every parallel way to settle this appointment, as one grid of
                       boxes — tapping "Send payment link" swaps it for the email
                       form below instead of squeezing an input into a tile. */}
-                  <div className="flex flex-col gap-2">
+                  <div className="grid grid-cols-2 gap-2.5">
                     {(heldOrSaved || cardOnFile) && (
                       <DAction tone="primary" icon={<CircleCheck size={18} />} label={busy === "capture" ? "Charging…" : cardOnFile ? `Charge card on file${amtPaid > 0 ? ` · ${formatCurrency(amtPaid)}` : ""}` : `Complete + Capture${willCapture > 0 ? ` · ${formatCurrency(willCapture)}` : ""}`} disabled={!!busy} onClick={() => actions.captureComplete(appt)} />
                     )}
@@ -1362,8 +1346,10 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
                         autoCapitalize="characters"
                         className="w-full bg-surface-sunken border border-border-strong rounded-xl px-3.5 py-3 text-base sm:text-sm font-mono text-foreground placeholder:text-grey-muted focus:outline-none focus:border-foreground"
                       />
-                      <DAction tone="primary" icon={<Gift size={18} />} label={busy === "gift" ? "Applying…" : `Pay with gift card${amtPaid > 0 ? ` · ${formatCurrency(amtPaid)}` : ""}`} disabled={!!busy || !giftCode.trim()}
-                        onClick={async () => { if (await actions.giftPay(appt, giftCode.trim())) { setPayChoice(false); setShowGift(false); setGiftCode(""); } }} />
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <DAction tone="primary" icon={<Gift size={18} />} label={busy === "gift" ? "Applying…" : `Pay with gift card${amtPaid > 0 ? ` · ${formatCurrency(amtPaid)}` : ""}`} disabled={!!busy || !giftCode.trim()}
+                          onClick={async () => { if (await actions.giftPay(appt, giftCode.trim())) { setPayChoice(false); setShowGift(false); setGiftCode(""); } }} />
+                      </div>
                       <p className="text-[11px] text-grey-muted text-center px-2">If the card doesn&apos;t cover it all, the rest shows as a balance to collect.</p>
                     </>
                   )}
@@ -1382,7 +1368,9 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
                         autoFocus
                         className="w-full bg-surface-sunken border border-border-strong rounded-xl px-3.5 py-3 text-sm text-foreground placeholder:text-grey-muted focus:outline-none focus:border-foreground"
                       />
-                      <DAction tone="primary" icon={<Link2 size={18} />} label={busy === "link" ? "Sending…" : `Send link${appt.client_phone ? " · email/text" : " · email"}`} disabled={!!busy} onClick={() => { actions.sendLink(appt, payEmail.trim()); setPayChoice(false); setShowEmail(false); }} />
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <DAction tone="primary" icon={<Link2 size={18} />} label={busy === "link" ? "Sending…" : `Send link${appt.client_phone ? " · email/text" : " · email"}`} disabled={!!busy} onClick={() => { actions.sendLink(appt, payEmail.trim()); setPayChoice(false); setShowEmail(false); }} />
+                      </div>
                     </>
                   )}
                 </>
@@ -1408,7 +1396,7 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
                     />
                     <div className="flex justify-between text-[10px] text-grey-muted mt-0.5"><span>0%</span><span>50%</span><span>100%</span></div>
                   </div>
-                  <div className="flex flex-col gap-2">
+                  <div className="grid grid-cols-2 gap-2.5">
                     <DAction
                       tone="danger" icon={<TriangleAlert size={18} />}
                       label={busy === "noshow"
@@ -1422,7 +1410,7 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
               ) : (
                 <>
                   <p className="text-sm text-grey px-0.5">No card on file — you can mark this as a no-show (no fee can be charged).</p>
-                  <div className="flex flex-col gap-2">
+                  <div className="grid grid-cols-2 gap-2.5">
                     <DAction tone="danger" icon={<TriangleAlert size={18} />} label={busy === "noshow" ? "Marking…" : "Mark no-show"} disabled={!!busy} onClick={() => actions.noShow(appt, 0)} />
                   </div>
                 </>
