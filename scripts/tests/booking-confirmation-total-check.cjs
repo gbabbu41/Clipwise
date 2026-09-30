@@ -18,4 +18,8 @@ assert(!/const dispTotal = confirmedSummary\?\.total \?\? total;/.test(client));
 assert(/const autoConfirm = !!bookingSettings\?\.auto_confirm;/.test(client), 'checkout reads the shop auto-confirm setting');
 assert(/autoConfirm \? "confirmed right away" : "reserved as pending until the shop confirms"/.test(client), 'pay-at-shop copy matches the real status');
 
-console.log('PASS booking confirmation: success screen shows the saved total incl. tax (server-authoritative), pay-at-shop copy follows auto-confirm');
+const fin = src('src/lib/finalize-booking-session.ts');
+assert(fin.includes('payment_method: isPayInPerson ? "cash" : "card",'), 'online-paid bookings record the card method (was blank)');
+assert(/const amountStr = formatCurrency\(/.test(fin) && !/toFixed\(0\)/.test(fin), 'owner alert shows the exact amount ($15.93, not $16)');
+assert(fin.includes('const friendly = prettyDateWithContext(m.date);'), 'owner alert date carries the weekday');
+console.log('PASS booking confirmation: success screen shows the saved total incl. tax (server-authoritative), pay-at-shop copy follows auto-confirm, online booking alert shows exact amount + weekday, card method recorded');
