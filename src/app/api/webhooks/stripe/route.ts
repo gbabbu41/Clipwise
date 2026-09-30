@@ -613,7 +613,7 @@ export async function POST(request: NextRequest) {
           .update({ payment_status: "failed" })
           .eq("payment_intent_id", pi.id)
           .in("payment_status", ["unpaid", "held", "saved"])
-          .select("shop_id, client_name").maybeSingle();
+          .select("id, shop_id, client_name").maybeSingle();
         if (appt?.shop_id) {
           const { data: shop } = await supabaseAdmin.from("shops").select("owner_id").eq("id", appt.shop_id).single();
           if (shop?.owner_id) {
@@ -622,7 +622,7 @@ export async function POST(request: NextRequest) {
               shop_id: appt.shop_id,
               title: "Payment failed",
               message: `A payment from ${appt.client_name ?? "a client"} failed.`,
-              type: "system",
+              type: "system", entity_type: "appointment", entity_id: appt.id,
             });
           }
         }

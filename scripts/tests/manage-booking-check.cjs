@@ -4,10 +4,10 @@ const root = path.resolve(__dirname, '../..');
 const appReq = Module.createRequire(path.join(root, 'package.json'));
 const ts = appReq('typescript'), { NextRequest } = appReq('next/server');
 const compile = source => ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
-let appt, writeError, missingRow, effects, writes, conflict, block, hours, past, limited, released;
+let appt, writeError, missingRow, effects, writes, conflict, block, hours, past, limited, released, beyond;
 function reset() {
   appt = { id: 'booking', shop_id: 'shop', barber_id: 'barber', service_id: 'service', date: '2030-10-01', time_slot: '10:00 AM', status: 'confirmed', duration_minutes: 60, payment_status: 'paid', payment_intent_id: 'pi_fixture', total_amount: 50, tip_amount: 5, tax_amount: 5, client_name: 'Fixture', client_email: 'fixture@example.invalid', client_phone: '+15555550100', services: { name: 'Cut' } };
-  writeError = null; missingRow = false; effects = []; writes = []; conflict = false; block = null; hours = 48; past = false; limited = null; released = false;
+  writeError = null; missingRow = false; effects = []; writes = []; conflict = false; block = null; hours = 48; past = false; beyond = false; limited = null; released = false;
 }
 const db = { from(table) {
   let values, filters = [], selected;
@@ -45,9 +45,9 @@ const mocks = {
   '@/lib/rate-limit': { enforceRateLimit: () => limited },
   '@/lib/waitlist-notify-server': { notifyWaitlistForSlot: async args => { assert.equal(args.date, appt.date); assert.equal(args.shop_id, appt.shop_id); effects.push('waitlist'); return { notified: 1 }; } },
   '@/lib/utils': { timeToMinutes: () => 600, prettyDate: d => d },
-  '@/lib/timezone': { hoursUntilBooking: () => hours, isBookingInPast: () => past },
+  '@/lib/timezone': { hoursUntilBooking: () => hours, isBookingInPast: () => past, isBeyondAdvanceWindow: () => beyond },
   '@/lib/availability': { OCCUPYING_STATUSES: ['pending', 'confirmed'], holdsSlot: () => true },
-  '@/lib/schedule-block': { scheduleBlockReason: async () => block },
+  '@/lib/schedule-block': { scheduleBlockReason: async () => block, bookableReason: async () => block },
 };
 const cache = {};
 function load(relative) {
@@ -117,6 +117,7 @@ async function checkUi(status, ok = true, networkFailure = false) {
   reset(); conflict = true; assert.equal((await invoke(move)).status, 409); assert.equal(writes.length, 0);
   reset(); block = 'Time off'; assert.equal((await invoke(move)).status, 409); assert.equal(writes.length, 0);
   reset(); past = true; assert.equal((await invoke(move)).status, 400); assert.equal(writes.length, 0);
+  reset(); beyond = true; assert.equal((await invoke(move)).status, 400, 'beyond the booking window'); assert.equal(writes.length, 0);
   reset(); limited = new Response('{}', { status: 429 }); assert.equal((await invoke(move)).status, 429); assert.equal(writes.length, 0);
   reset(); await checkUi(undefined); await checkUi('confirmed', false); await checkUi('confirmed', true, true);
   await checkCancelUi(true); await checkCancelUi(false); await checkCancelUi(true, true);

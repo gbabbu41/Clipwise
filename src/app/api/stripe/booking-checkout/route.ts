@@ -4,7 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
 import { ensurePlansHydrated } from "@/lib/plans-server";
 import { barberHasConflict, findAvailableBarber } from "@/lib/booking-conflict";
-import { scheduleBlockReason } from "@/lib/schedule-block";
+import { bookableReason } from "@/lib/schedule-block";
 import { timeToMinutes } from "@/lib/utils";
 import { fetchValidPromo, promoDiscount, promoBlockReason } from "@/lib/promo";
 import { taxCents, combinedTaxRate, type TaxConfig } from "@/lib/pricing";
@@ -138,9 +138,8 @@ export async function POST(request: NextRequest) {
   // this; the online path never did (the client only *renders* valid slots, and
   // a slot can be blocked after page load or the POST replayed). Checked BEFORE
   // taking any money so the customer is never charged for an unbookable time.
-  const blockReason = await scheduleBlockReason(
-    booking.shop_id, resolvedBarberId, booking.date, startMin, endMin, { includeBreaks: true },
-  );
+  // Working hours too (not just time-off/breaks) — same rule as the booking screen.
+  const blockReason = await bookableReason(booking.shop_id, resolvedBarberId, booking.date, startMin, endMin);
   if (blockReason) return NextResponse.json({ error: blockReason }, { status: 409 });
 
   // Online payments are a paid feature (per the admin-editable plans table)

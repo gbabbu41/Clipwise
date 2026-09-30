@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { getTwilio, sendSmsBestEffort, toE164 } from "@/lib/twilio";
 import { ensureClientRow } from "@/lib/ensure-client";
 import { isDoubleBookError, barberHasConflict, findAvailableBarber } from "@/lib/booking-conflict";
+import { bookableReason } from "@/lib/schedule-block";
 import { prettyDate, timeToMinutes } from "@/lib/utils";
 
 // Create a booking taken over the phone by the AI. Secret-gated (voice server
@@ -69,6 +70,9 @@ export async function POST(request: NextRequest) {
     if (await barberHasConflict(barberId, b.date, startMin, endMin)) {
       return NextResponse.json({ error: "That time was just taken — please offer the customer another time.", conflict: true }, { status: 409 });
     }
+    // Same rules as the booking screen: working hours, not paused, no time-off/break.
+    const reason = await bookableReason(b.shop_id, barberId, b.date, startMin, endMin);
+    if (reason) return NextResponse.json({ error: `${reason} Please offer the customer another time.`, conflict: true }, { status: 409 });
   } else {
     barberId = await findAvailableBarber(b.shop_id, b.date, startMin, endMin);
     if (!barberId) {

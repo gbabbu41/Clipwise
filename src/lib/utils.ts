@@ -380,6 +380,23 @@ export function prettyDateWithContext(d: string | null | undefined): string {
   return prefix ? `${prefix} · ${pretty}` : pretty;
 }
 
+/**
+ * Replace every raw "YYYY-MM-DD" in human-facing text (in-app alerts, SMS) with
+ * prettyDateWithContext ("Tuesday · October 6"). Applied centrally by the alert
+ * and SMS senders so no caller can ship "2026-10-06" to a person. Dates inside
+ * links / query strings (preceded by / = or a word char) are left untouched.
+ */
+export function humanizeDates(text: string): string {
+  if (!text) return text;
+  // No regex lookbehind: this file also ships to browsers, and older iOS Safari
+  // (< 16.4) can't even parse it. The preceding character is checked by hand.
+  return text.replace(/(\d{4}-\d{2}-\d{2})(?![\w-])/g, (m: string, _d: string, at: number) => {
+    const before = at > 0 ? text[at - 1] : "";
+    if (/[\w/=.-]/.test(before)) return m;   // inside a link / query string / identifier
+    return prettyDateWithContext(m) || m;
+  });
+}
+
 /** True if the given date is strictly before today (local time) */
 export function isDateInPast(date: Date): boolean {
   const today = new Date();

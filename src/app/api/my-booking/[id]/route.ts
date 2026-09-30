@@ -4,8 +4,8 @@ import { insertNotifications } from "@/lib/notify-server";
 import { getSlotsInRange, timeToMinutes, prettyDate, dbTimeToDisplay } from "@/lib/utils";
 import { barberHasConflict, isDoubleBookError } from "@/lib/booking-conflict";
 import { OCCUPYING_STATUSES, holdsSlot, apptDuration } from "@/lib/availability";
-import { scheduleBlockReason } from "@/lib/schedule-block";
-import { safeTz, todayInTz, nowMinutesInTz, isBookingInPast, hoursUntilBooking } from "@/lib/timezone";
+import { bookableReason } from "@/lib/schedule-block";
+import { safeTz, todayInTz, nowMinutesInTz, isBookingInPast, hoursUntilBooking, isBeyondAdvanceWindow } from "@/lib/timezone";
 import { refundOrReleaseHold } from "@/lib/stripe-refund";
 import { recordRefundLedger } from "@/lib/refund-ledger";
 import { notifyRefundIssued } from "@/lib/payment-notify";
@@ -44,6 +44,14 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       .from("appointments").select("barber_id, time_slot, shop_id, duration_minutes, services(duration_minutes), shops(timezone, booking_settings)").eq("id", id).maybeSingle();
     if (apptError) return unavailable();
     if (!appt?.barber_id) return NextResponse.json({ slots: [] }, { headers: NO_STORE });
+    // Nothing to offer beyond the shop's booking window (the PATCH enforces it too).
+    {
+      const rel = (appt as { shops?: { timezone?: string | null; booking_settings?: { advance_days?: number } | null } | { timezone?: string | null; booking_settings?: { advance_days?: number } | null }[] }).shops;
+      const so = Array.isArray(rel) ? rel[0] : rel;
+      if (isBeyondAdvanceWindow(slotsDate, Number(so?.booking_settings?.advance_days ?? 15), so?.timezone)) {
+        return NextResponse.json({ slots: [] }, { headers: NO_STORE });
+      }
+    }
     const dow = new Date(slotsDate + "T00:00:00").getDay();
     const [hoursRes, bookedRes, offRes, breaksRes] = await Promise.all([
       supabaseAdmin.from("time_slots").select("start_time, end_time")
@@ -220,7 +228,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       insertNotifications({
         user_id: shopRow.owner_id, shop_id: appt.shop_id, title: "Appointment cancelled",
         message: `${appt.client_name} cancelled their appointment with ${barberName ?? "any barber"} (was ${appt.date} at ${appt.time_slot})`,
-        type: "cancellation",
+        type: "cancellation", entity_type: "appointment", entity_id: appt.id,
       });
     }
     // Email the owner too (in-app alone misses them when they're out of the app).
@@ -273,9 +281,15 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     // recurring break — the conflict check above only looks at other
     // appointments, so without this a crafted PATCH (or a slot blocked after the
     // page loaded) could move the booking onto a day off / lunch.
+    // Same rules as a new booking: the barber must be working then (hours, not a
+    // day off, not paused), and the new date must be inside the booking window.
     if (appt.barber_id) {
-      const blockReason = await scheduleBlockReason(appt.shop_id, appt.barber_id, body.date, startMin, startMin + duration, { includeBreaks: true });
+      const blockReason = await bookableReason(appt.shop_id, appt.barber_id, body.date, startMin, startMin + duration);
       if (blockReason) return NextResponse.json({ error: blockReason }, { status: 409 });
+    }
+    const advanceDays = Number((shopCfg as { booking_settings?: { advance_days?: number } | null } | null)?.booking_settings?.advance_days ?? 15);
+    if (isBeyondAdvanceWindow(body.date, advanceDays, shopTz?.timezone)) {
+      return NextResponse.json({ error: "That date is beyond this shop's booking window." }, { status: 400 });
     }
     // Preserve the booking's state — a confirmed (card-held) booking stays
     // confirmed after a reschedule, so it does NOT go back to the owner as a new
@@ -344,6 +358,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     for (const uid of targets) {
       insertNotifications({
         user_id: uid, shop_id: appt.shop_id, title: "Appointment rescheduled", type: "booking",
+        entity_type: "appointment", entity_id: appt.id,
         message: uid === shopRow?.owner_id && uid !== bRow?.user_id ? ownerMsg : msg,
       });
     }

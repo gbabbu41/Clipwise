@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { timeToMinutes } from "@/lib/utils";
 import { OCCUPYING_STATUSES, holdsSlot, apptDuration } from "@/lib/availability";
+import { bookableReason } from "@/lib/schedule-block";
 
 /** Postgres unique-violation error code — raised by the double-booking index. */
 export const UNIQUE_VIOLATION = "23505";
@@ -101,6 +102,11 @@ export async function findAvailableBarber(
   startMin: number,
   endMin: number,
   preferredId?: string | null,
+  // "working" (default, customer paths): only a barber who is actually working
+  // then — hours, not paused, no time-off/break — same as the booking screen.
+  // "prefer-working" (staff): a working barber first, else any free one, since
+  // staff may deliberately book outside hours.
+  opts?: { mode?: "working" | "prefer-working" },
 ): Promise<string | null> {
   const { data: barbers } = await supabaseAdmin
     .from("barbers").select("id").eq("shop_id", shop_id).eq("is_active", true);
@@ -139,10 +145,11 @@ export async function findAvailableBarber(
     intervalsByBarber.set(r.barber_id, arr);
   }
 
-  for (const id of ordered) {
-    const intervals = intervalsByBarber.get(id) ?? [];
-    if (!intervals.some(([s, e]) => startMin < e && s < endMin)) return id;
+  const free = ordered.filter((id) => !(intervalsByBarber.get(id) ?? []).some(([s, e]) => startMin < e && s < endMin));
+  for (const id of free) {
+    if (!(await bookableReason(shop_id, id, date, startMin, endMin))) return id;
   }
+  if (opts?.mode === "prefer-working") return free[0] ?? null;
   return null;
 }
 
