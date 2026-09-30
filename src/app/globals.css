@@ -1763,12 +1763,11 @@ textarea:focus-visible {
 /* Borderless in both themes — the subtle theme-aware --surface-overlay fill from
    the base rule defines the pill against the card, so no outline is needed. */
 
-/* Light theme: appointment-sheet action buttons (DAction). Solid brand-green
-   PRIMARY (white text) so the main action clearly stands out, outlined red DANGER,
-   outlined neutral DEFAULT. Double class (.cwd-act.cwd-act--x) outranks the generic
-   tint overrides above. Light theme ONLY — dark keeps the Tailwind tints. */
-html[data-theme="light"] .portal .cwd-act.cwd-act--primary { background:#157a4a; border-color:#157a4a; color:#fff; }
-html[data-theme="light"] .portal .cwd-act.cwd-act--primary:hover:not(:disabled) { background:#12683f; border-color:#12683f; }
+/* Light theme: appointment-sheet action buttons (DAction). Theme foreground primary,
+   outlined red DANGER, outlined neutral DEFAULT. Double class (.cwd-act.cwd-act--x)
+   outranks the generic tint overrides above. */
+html[data-theme="light"] .portal .cwd-act.cwd-act--primary { background:var(--foreground); border-color:var(--foreground); color:var(--background); }
+html[data-theme="light"] .portal .cwd-act.cwd-act--primary:hover:not(:disabled) { opacity:.88; }
 html[data-theme="light"] .portal .cwd-act.cwd-act--danger { background:transparent; border-color:#d9534f; color:#b23127; }
 html[data-theme="light"] .portal .cwd-act.cwd-act--danger:hover:not(:disabled) { background:#fbeae8; }
 html[data-theme="light"] .portal .cwd-act.cwd-act--default { background:transparent; border-color:#c2c2c2; color:var(--foreground); }

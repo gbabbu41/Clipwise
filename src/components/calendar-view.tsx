@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo, Fragment, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence, MotionConfig } from "framer-motion";
-import { ChevronDown, ChevronLeft, ChevronRight, X, Plus, Users, Ban, Phone, Mail, MessageSquare, Search, Check, Scissors, Clock, LayoutGrid, Columns3, CalendarDays, LocateFixed } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, X, Plus, Users, Ban, Phone, Mail, MessageSquare, Search, Check, Scissors, Clock, LayoutGrid, Columns3, CalendarDays, LocateFixed, CreditCard, CircleCheck, Link2, Banknote, Gift, TriangleAlert, Pencil } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { HeaderControls } from "@/components/dashboard/header-controls";
@@ -728,20 +728,11 @@ export function makeApptActions(opts: {
   };
 }
 
-// One stacked action row in the appointment drawer (the demo's ".daction" look).
-function DAction({ icon, label, onClick, disabled, tone = "default", tile = false }: {
-  icon: string; label: string; onClick?: () => void; disabled?: boolean;
+// One compact action row in the appointment drawer.
+function DAction({ icon, label, onClick, disabled, tone = "default" }: {
+  icon: ReactNode; label: string; onClick?: () => void; disabled?: boolean;
   tone?: "default" | "primary" | "danger" | "muted";
-  // `tile`: a bigger, self-contained "box" for the main action menu (icon chip
-  // over a centered label) instead of the full-width row used by the sequential
-  // sub-flows (pay choice, no-show, balance) — same handlers, just a clearer,
-  // more commercial-app grid of tasks to tap.
-  tile?: boolean;
 }) {
-  const toneChip = tone === "primary" ? "bg-[#00e5a0]/15 text-[#00e5a0]"
-    : tone === "danger" ? "bg-[#ff6b6b]/15 text-[#ff6b6b]"
-    : tone === "muted" ? "bg-white/5 text-grey-muted"
-    : "bg-white/10 text-foreground";
   return (
     <button type="button" onClick={onClick} disabled={disabled || tone === "muted"}
       className={cn(
@@ -749,20 +740,14 @@ function DAction({ icon, label, onClick, disabled, tone = "default", tile = fals
         // solid/outlined buttons (see globals.css) — DARK theme keeps the tints below.
         "cwd-act", `cwd-act--${tone}`,
         "rounded-xl border text-sm font-medium transition-colors disabled:opacity-50",
-        tone === "primary" ? "bg-[#00e5a0]/10 border-[#00e5a0]/20 text-[#00e5a0] hover:bg-[#00e5a0]/15"
+        tone === "primary" ? "bg-foreground border-foreground text-background hover:opacity-90"
           : tone === "danger" ? "bg-[#ff6b6b]/[0.08] border-[#ff6b6b]/15 text-[#ff6b6b] hover:bg-[#ff6b6b]/[0.12]"
           : tone === "muted" ? "bg-surface-overlay border-border text-grey-muted cursor-not-allowed"
           : "bg-surface-overlay border-border text-foreground hover:bg-[#1e1e1e]",
-        tile
-          ? "flex flex-col items-center justify-center gap-2 text-center px-3 py-4 min-h-[96px]"
-          : "flex items-center gap-3 w-full px-3.5 py-3 text-left",
+        "flex min-h-11 w-full items-center gap-3 px-3.5 py-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-card-raised",
       )}>
-      {tile ? (
-        <span className={cn("w-10 h-10 rounded-full flex items-center justify-center text-lg flex-shrink-0", toneChip)}>{icon}</span>
-      ) : (
-        <span className="text-base leading-none flex-shrink-0">{icon}</span>
-      )}
-      <span className={tile ? "leading-tight text-[13px]" : "truncate"}>{label}</span>
+      <span aria-hidden="true" className={cn("flex-shrink-0", tone === "danger" ? "text-red-400" : tone === "primary" ? "text-current" : "text-grey")}>{icon}</span>
+      <span className="min-w-0 flex-1 break-words">{label}</span>
     </button>
   );
 }
@@ -1048,46 +1033,33 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
   const sheetRef = useRef<HTMLDivElement | null>(null);
   const { dragY, dragging } = useSheetDrag(sheetRef, close);
 
-  // Header bits — one meta line + a single status/payment badge (demo look).
+  // Structured appointment facts keep appointment status separate from payment.
   const serviceName = (appt.services as { name: string } | null)?.name ?? "—";
   const pm = appt.payment_method as string | null | undefined;
   const methodWord = pm === "cash" ? "Cash" : pm === "online" ? "Online" : pm === "gift_card" ? "Gift card" : "Card";
-  const badge = paid
-    ? { text: `Paid · ${methodWord}`, cls: "bg-surface-overlay border border-border text-grey" }
+  const paymentLabel = paid
+    ? `Paid · ${methodWord}`
     : refunded
-      ? { text: "Refunded", cls: "bg-white/5 text-grey" }
-    : heldOrSaved
-      ? { text: `Card ${appt.payment_status === "saved" ? "on file" : "held"}${willCapture > 0 ? ` · ${formatCurrency(willCapture)}` : ""}`, cls: "bg-[#4a9eff]/10 text-[#4a9eff]" }
-      : cardOnFile
-        ? { text: `Pay at shop · card on file${amtPaid > 0 ? ` · ${formatCurrency(amtPaid)}` : ""}`, cls: "bg-[#f5c542]/10 text-[#f5c542]" }
-      : awaiting
-        ? { text: "Awaiting payment", cls: "bg-sky-400/10 text-sky-400" }
-        : appt.status === "pending"
-          ? { text: "Pending confirmation", cls: "bg-[#f5c542]/10 text-[#f5c542]" }
-          : appt.status === "completed"
-            ? { text: "Completed · Unpaid", cls: "bg-white/5 text-[#bbb]" }
-            : appt.status === "cancelled"
-              ? { text: "Cancelled", cls: "bg-white/5 text-grey" }
-              : appt.status === "no-show"
-                ? { text: "No-show", cls: "bg-white/5 text-grey" }
-                : appt.payment_method === "cash"
-                  ? { text: "Pay at shop", cls: "bg-white/5 text-[#bbb]" }
-                  : { text: "Booked", cls: "bg-[#00e5a0]/10 text-[#00e5a0]" };
-  // Time range + duration ("9:30 – 10:00 PM · 30 min"), then the price. The price
-  // is total_amount = service + tax (NO tip); a tip, if any, is shown separately so
-  // it's unambiguous that the main figure is pre-tip.
+      ? "Refunded"
+      : heldOrSaved
+        ? `Card ${appt.payment_status === "saved" ? "on file" : "held"}${willCapture > 0 ? ` · ${formatCurrency(willCapture)}` : ""}`
+        : cardOnFile
+          ? `Card on file · pay at shop${amtPaid > 0 ? ` · ${formatCurrency(amtPaid)}` : ""}`
+          : awaiting
+            ? "Awaiting payment"
+            : outstanding && appt.status !== "pending" && appt.status !== "confirmed"
+              ? "Payment due"
+              : appt.status === "completed" ? "Unpaid" : "Not collected";
+  // total_amount includes service + tax, not tip. Keep those facts distinct.
   const endMin = appt.time_slot ? timeToMinutes(appt.time_slot) + duration : null;
   const endTime = endMin != null ? formatFriendlyTime(`${Math.floor((endMin % 1440) / 60)}:${String(endMin % 60).padStart(2, "0")}`) : "";
   const timeRange = appt.time_slot ? (endTime ? `${appt.time_slot} – ${endTime}` : appt.time_slot) : "";
-  const priceLabel = amt > 0
-    ? (tipAmt > 0 ? `${formatCurrency(amt)} + ${formatCurrency(tipAmt)} tip` : formatCurrency(amt))
-    : null;
+  const appointmentDate = appt.date ? friendlyDate(appt.date) : "—";
   // Multi-service appointments already carry their full service list in the
   // documented `Services: …` notes field. Show that list below instead of
   // repeating the primary service in the compact header.
   const serviceNoteText = appt.notes?.trim().match(/^services:\s*(.+)$/i)?.[1] ?? null;
-  const serviceBarberLine = [serviceNoteText ? null : serviceName, barber?.name ?? "Any"].filter(Boolean).join(" · ");
-  const scheduleLine = [timeRange, duration ? `${duration} min` : null, priceLabel].filter(Boolean).join(" · ");
+  const serviceLabel = serviceNoteText ?? serviceName;
 
   return (
     <>
@@ -1112,17 +1084,52 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
             <div className="w-10 h-1.5 rounded-full bg-[#3a3a3a]" />
           </div>
 
-          {/* Header — name · meta line · single status/payment badge */}
+          {/* Subject and grouped appointment/payment facts */}
           <div className="px-[18px] pb-3.5 border-b border-border">
             <div className="flex items-start justify-between gap-2">
-              <h3 className="text-base font-bold text-foreground truncate">{appt.client_name}</h3>
-              <button aria-label="Close appointment details" onClick={close} className="text-grey hover:text-foreground flex-shrink-0 -mr-1"><X size={18} /></button>
+              <h3 className="min-w-0 flex-1 break-words text-base font-bold text-foreground">{appt.client_name}</h3>
+              <button aria-label="Close appointment details" onClick={close}
+                className="-mr-2 -mt-2 inline-flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl text-grey hover:bg-surface-overlay hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
+                <X size={18} />
+              </button>
             </div>
-            <div className="mt-1 space-y-0.5 pr-6">
-              <p className="text-xs text-grey leading-relaxed">{serviceBarberLine}</p>
-              {scheduleLine && <p className="text-xs text-grey leading-relaxed">{scheduleLine}</p>}
+            <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3">
+              <div className="col-span-2 min-w-0">
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-grey">Service</div>
+                <p className="mt-0.5 break-words text-sm leading-snug text-foreground">{serviceLabel}</p>
+              </div>
+              <div className="min-w-0">
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-grey">Barber</div>
+                <p className="mt-0.5 break-words text-sm leading-snug text-foreground">{barber?.name ?? "Any"}</p>
+              </div>
+              <div className="min-w-0">
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-grey">Date</div>
+                <p className="mt-0.5 break-words text-sm leading-snug text-foreground">{appointmentDate}</p>
+              </div>
+              <div className="col-span-2 min-w-0">
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-grey">Time</div>
+                <p className="mt-0.5 break-words text-sm leading-snug text-foreground">
+                  <span className="font-mono tabular-nums">{timeRange || "—"}</span>
+                  {duration > 0 && <span className="ml-2 text-xs text-grey">· {duration} min</span>}
+                </p>
+              </div>
+              <div className="col-span-2 grid grid-cols-2 gap-3 border-t border-border pt-2.5">
+                <div className="min-w-0">
+                  <div className="text-[10px] font-semibold uppercase tracking-wide text-grey">Payment</div>
+                  <span className="mt-1 inline-flex max-w-full items-center rounded-md border border-border bg-surface-overlay px-2 py-1 text-xs font-medium leading-snug text-grey">{paymentLabel}</span>
+                </div>
+                <div className="min-w-0">
+                  <div className="text-[10px] font-semibold uppercase tracking-wide text-grey">Appointment</div>
+                  <span className="mt-1 inline-flex items-center gap-1.5 text-xs font-medium text-foreground">
+                    {statusLabel(appt.status)}
+                  </span>
+                </div>
+                {tipAmt <= 0 && <div className="col-span-2 flex items-center justify-between gap-3 border-t border-border pt-2">
+                  <span className="text-xs text-grey">{taxAmt > 0 ? "Service + tax" : "Amount"}</span>
+                  <span className="font-mono text-sm font-semibold tabular-nums text-foreground">{formatCurrency(amt)}</span>
+                </div>}
+              </div>
             </div>
-            <span className={cn("inline-flex items-center mt-2.5 text-[11px] font-semibold px-2.5 py-1 rounded-full", badge.cls)}>{badge.text}</span>
           </div>
 
           {/* Customer contact — tap the phone to call, or email/text directly. */}
@@ -1131,12 +1138,12 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
               {appt.client_phone && (
                 <div className="flex items-center gap-2.5">
                   <a href={`tel:${appt.client_phone}`} aria-label={`Call ${appt.client_name}`}
-                    className="w-9 h-9 flex-shrink-0 rounded-full bg-surface-overlay border border-border text-grey flex items-center justify-center hover:text-foreground active:opacity-70 transition-colors">
+                    className="w-11 h-11 flex-shrink-0 rounded-xl bg-surface-overlay border border-border text-grey flex items-center justify-center hover:text-foreground active:opacity-70 transition-colors">
                     <Phone size={16} />
                   </a>
                   <a href={`tel:${appt.client_phone}`} className="text-sm font-medium text-foreground hover:underline truncate">{formatPhone(appt.client_phone)}</a>
                   <a href={`sms:${appt.client_phone}`} aria-label={`Text ${appt.client_name}`}
-                    className="ml-auto w-9 h-9 flex-shrink-0 rounded-full bg-surface-overlay text-grey hover:text-foreground active:opacity-70 flex items-center justify-center transition-colors">
+                    className="ml-auto w-11 h-11 flex-shrink-0 rounded-xl bg-surface-overlay border border-border text-grey hover:text-foreground active:opacity-70 flex items-center justify-center transition-colors">
                     <MessageSquare size={15} />
                   </a>
                 </div>
@@ -1144,7 +1151,7 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
               {appt.client_email && (
                 <div className="flex items-center gap-2.5">
                   <a href={`mailto:${appt.client_email}`} aria-label={`Email ${appt.client_name}`}
-                    className="w-9 h-9 flex-shrink-0 rounded-full bg-surface-overlay text-grey hover:text-foreground active:opacity-70 flex items-center justify-center transition-colors">
+                    className="w-11 h-11 flex-shrink-0 rounded-xl bg-surface-overlay border border-border text-grey hover:text-foreground active:opacity-70 flex items-center justify-center transition-colors">
                     <Mail size={15} />
                   </a>
                   <a href={`mailto:${appt.client_email}`} className="text-sm text-foreground hover:underline truncate">{appt.client_email}</a>
@@ -1173,14 +1180,11 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
             </div>
           )}
 
-          {serviceNoteText && (
-            <div className="mx-[18px] mt-3 bg-surface-overlay rounded-xl p-3 text-xs text-grey">
-              <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-grey">Services</div>
-              {serviceNoteText}
-            </div>
-          )}
           {appt.notes && !serviceNoteText && (
-            <div className="mx-[18px] mt-3 bg-surface-overlay rounded-xl p-3 text-xs text-grey">{appt.notes}</div>
+            <div className="mx-[18px] mt-3 rounded-xl border border-border bg-card px-3.5 py-3 text-sm text-grey">
+              <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-grey">Notes</div>
+              <p className="whitespace-pre-wrap break-words">{appt.notes}</p>
+            </div>
           )}
 
           {/* Leftover balance (a price raised above the held card collected less
@@ -1192,16 +1196,16 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
                 <span className="text-sm font-semibold text-foreground">Balance to collect</span>
                 <span className="text-base font-extrabold text-foreground tabular-nums">{formatCurrency(balanceDue)}</span>
               </div>
-              <div className="mt-2.5 grid grid-cols-2 gap-2.5">
+              <div className="mt-2.5 flex flex-col gap-2">
                 {!!appt.stripe_payment_method_id && (
-                  <DAction tile tone="primary" icon="✓"
+                  <DAction tone="primary" icon={<CircleCheck size={18} />}
                     label={busy === "balance-card" ? "Charging…" : `Charge card on file · ${formatCurrency(balanceDue)}`}
                     disabled={!!busy} onClick={() => actions.collectBalance(appt, "card")} />
                 )}
-                <DAction tile icon="↗"
+                <DAction icon={<Link2 size={18} />}
                   label={busy === "balance-link" ? "Sending…" : "Send payment link"}
                   disabled={!!busy} onClick={() => actions.sendBalanceLink(appt)} />
-                <DAction tile icon="$"
+                <DAction icon={<Banknote size={18} />}
                   label={busy === "balance-cash" ? "Saving…" : `Mark collected · cash`}
                   disabled={!!busy} onClick={() => actions.collectBalance(appt, "cash")} />
               </div>
@@ -1291,24 +1295,24 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
           ) : payChoice ? (
             <div className="px-[18px] pt-3.5 flex flex-col gap-2.5">
               {paid ? (
-                <div className="grid grid-cols-2 gap-2.5">
-                  <DAction tile tone="primary" icon="✓" label={busy === "complete" ? "Completing…" : "Mark complete · already paid"} disabled={!!busy} onClick={() => actions.complete(appt)} />
+                <div className="flex flex-col gap-2">
+                  <DAction tone="primary" icon={<CircleCheck size={18} />} label={busy === "complete" ? "Completing…" : "Mark complete · already paid"} disabled={!!busy} onClick={() => actions.complete(appt)} />
                 </div>
               ) : (
                 <>
                   {/* Every parallel way to settle this appointment, as one grid of
                       boxes — tapping "Send payment link" swaps it for the email
                       form below instead of squeezing an input into a tile. */}
-                  <div className="grid grid-cols-2 gap-2.5">
+                  <div className="flex flex-col gap-2">
                     {(heldOrSaved || cardOnFile) && (
-                      <DAction tile tone="primary" icon="✓" label={busy === "capture" ? "Charging…" : cardOnFile ? `Charge card on file${amtPaid > 0 ? ` · ${formatCurrency(amtPaid)}` : ""}` : `Complete + Capture${willCapture > 0 ? ` · ${formatCurrency(willCapture)}` : ""}`} disabled={!!busy} onClick={() => actions.captureComplete(appt)} />
+                      <DAction tone="primary" icon={<CircleCheck size={18} />} label={busy === "capture" ? "Charging…" : cardOnFile ? `Charge card on file${amtPaid > 0 ? ` · ${formatCurrency(amtPaid)}` : ""}` : `Complete + Capture${willCapture > 0 ? ` · ${formatCurrency(willCapture)}` : ""}`} disabled={!!busy} onClick={() => actions.captureComplete(appt)} />
                     )}
                     {!showEmail && (
-                      <DAction tile icon="↗" label="Send payment link" onClick={() => { setShowEmail(true); setShowGift(false); }} />
+                      <DAction icon={<Link2 size={18} />} label="Send payment link" onClick={() => { setShowEmail(true); setShowGift(false); }} />
                     )}
-                    <DAction tile icon="💵" label={busy === "cash" ? "Saving…" : "Pay cash · Complete"} disabled={!!busy} onClick={() => actions.cashComplete(appt)} />
+                    <DAction icon={<Banknote size={18} />} label={busy === "cash" ? "Saving…" : "Pay cash · Complete"} disabled={!!busy} onClick={() => actions.cashComplete(appt)} />
                     {!showGift && (
-                      <DAction tile icon="🎁" label="Gift card" disabled={!!busy} onClick={() => { setShowGift(true); setShowEmail(false); }} />
+                      <DAction icon={<Gift size={18} />} label="Gift card" disabled={!!busy} onClick={() => { setShowGift(true); setShowEmail(false); }} />
                     )}
                   </div>
                   {showGift && (
@@ -1321,7 +1325,7 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
                         autoCapitalize="characters"
                         className="w-full bg-surface-sunken border border-border-strong rounded-xl px-3.5 py-3 text-base sm:text-sm font-mono text-foreground placeholder:text-grey-muted focus:outline-none focus:border-foreground"
                       />
-                      <DAction tone="primary" icon="🎁" label={busy === "gift" ? "Applying…" : `Pay with gift card${amtPaid > 0 ? ` · ${formatCurrency(amtPaid)}` : ""}`} disabled={!!busy || !giftCode.trim()}
+                      <DAction tone="primary" icon={<Gift size={18} />} label={busy === "gift" ? "Applying…" : `Pay with gift card${amtPaid > 0 ? ` · ${formatCurrency(amtPaid)}` : ""}`} disabled={!!busy || !giftCode.trim()}
                         onClick={async () => { if (await actions.giftPay(appt, giftCode.trim())) { setPayChoice(false); setShowGift(false); setGiftCode(""); } }} />
                       <p className="text-[11px] text-grey-muted text-center px-2">If the card doesn&apos;t cover it all, the rest shows as a balance to collect.</p>
                     </>
@@ -1341,7 +1345,7 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
                         autoFocus
                         className="w-full bg-surface-sunken border border-border-strong rounded-xl px-3.5 py-3 text-sm text-foreground placeholder:text-grey-muted focus:outline-none focus:border-foreground"
                       />
-                      <DAction tone="primary" icon="↗" label={busy === "link" ? "Sending…" : `Send link${appt.client_phone ? " · email/text" : " · email"}`} disabled={!!busy} onClick={() => { actions.sendLink(appt, payEmail.trim()); setPayChoice(false); setShowEmail(false); }} />
+                      <DAction tone="primary" icon={<Link2 size={18} />} label={busy === "link" ? "Sending…" : `Send link${appt.client_phone ? " · email/text" : " · email"}`} disabled={!!busy} onClick={() => { actions.sendLink(appt, payEmail.trim()); setPayChoice(false); setShowEmail(false); }} />
                     </>
                   )}
                 </>
@@ -1367,9 +1371,9 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
                     />
                     <div className="flex justify-between text-[10px] text-grey-muted mt-0.5"><span>0%</span><span>50%</span><span>100%</span></div>
                   </div>
-                  <div className="grid grid-cols-2 gap-2.5">
+                  <div className="flex flex-col gap-2">
                     <DAction
-                      tile tone="danger" icon="⚠️"
+                      tone="danger" icon={<TriangleAlert size={18} />}
                       label={busy === "noshow"
                         ? (noShowFeeCents > 0 ? "Charging…" : "Marking…")
                         : (noShowFeeCents > 0 ? `Charge ${formatCurrency(noShowFee)} · mark no-show` : "Mark no-show · no charge")}
@@ -1381,34 +1385,51 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
               ) : (
                 <>
                   <p className="text-sm text-grey px-0.5">No card on file — you can mark this as a no-show (no fee can be charged).</p>
-                  <div className="grid grid-cols-2 gap-2.5">
-                    <DAction tile tone="danger" icon="⚠️" label={busy === "noshow" ? "Marking…" : "Mark no-show"} disabled={!!busy} onClick={() => actions.noShow(appt, 0)} />
+                  <div className="flex flex-col gap-2">
+                    <DAction tone="danger" icon={<TriangleAlert size={18} />} label={busy === "noshow" ? "Marking…" : "Mark no-show"} disabled={!!busy} onClick={() => actions.noShow(appt, 0)} />
                   </div>
                 </>
               )}
               <button className="text-xs text-grey hover:text-foreground pt-1 pb-0.5" onClick={() => setNoShowMode(false)}>Cancel</button>
             </div>
           ) : (
-            <div className="px-[18px] pt-3.5 grid grid-cols-2 gap-2.5">
-              {/* Edit — change the time / day / client / barber before checkout. */}
-              {appt.status !== "completed" && appt.status !== "cancelled" && (
-                <DAction tile icon="✏️" label="Edit appointment" disabled={!!busy} onClick={openEdit} />
-              )}
+            <div className="px-[18px] pt-3.5 flex flex-col gap-2">
+              {/* One primary action for the current appointment state. */}
               {appt.status === "pending" && (
-                <DAction tile tone="primary" icon="✓" label={busy === "approve" ? "Approving…" : "Approve"} disabled={!!busy} onClick={() => actions.approve(appt)} />
+                <DAction tone="primary" icon={<CircleCheck size={18} />} label={busy === "approve" ? "Approving…" : "Approve appointment"} disabled={!!busy} onClick={() => actions.approve(appt)} />
               )}
               {appt.status === "confirmed" && (
-                <DAction tile tone="primary" icon="💳" label="Check out" disabled={!!busy} onClick={() => { setPayChoice(true); setShowEmail(false); }} />
-              )}
-              {/* No-show — only once the slot's start time (+ grace) has passed. */}
-              {appt.status === "confirmed" && startedForNoShow && (
-                <DAction tile icon="⚠️" label="Charge no-show" disabled={!!busy} onClick={() => setNoShowMode(true)} />
+                <DAction tone="primary" icon={paid ? <CircleCheck size={18} /> : <CreditCard size={18} />}
+                  label={paid ? "Complete appointment" : "Check out"} disabled={!!busy}
+                  onClick={() => { setPayChoice(true); setShowEmail(false); }} />
               )}
               {outstanding && appt.status !== "pending" && appt.status !== "confirmed" && (
-                <DAction tile tone="primary" icon="💳" label={`Take Payment · ${formatCurrency(amt)}`} disabled={!!busy} onClick={() => { setPayChoice(true); setShowEmail(false); }} />
+                <DAction tone="primary" icon={<CreditCard size={18} />} label={`Take payment · ${formatCurrency(amt)}`} disabled={!!busy} onClick={() => { setPayChoice(true); setShowEmail(false); }} />
               )}
+
+              {/* Edit stays available as the compact secondary action. */}
+              {appt.status !== "completed" && appt.status !== "cancelled" && (
+                <button type="button" disabled={!!busy} onClick={openEdit}
+                  className="inline-flex min-h-11 w-full items-center gap-3 rounded-xl border border-border bg-transparent px-3.5 py-2.5 text-left text-sm font-medium text-foreground hover:bg-surface-overlay disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
+                  <Pencil aria-hidden="true" size={18} className="flex-shrink-0 text-grey" />
+                  <span>Edit appointment</span>
+                </button>
+              )}
+
               {(appt.status === "pending" || appt.status === "confirmed") && (
-                <DAction tile tone="danger" icon="✗" label={busy === "reject" ? "Rejecting…" : "Reject"} disabled={!!busy} onClick={() => actions.reject(appt)} />
+                <details className="rounded-xl border border-border bg-card">
+                  <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium text-grey hover:bg-surface-overlay focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] [&::-webkit-details-marker]:hidden">
+                    <span>More actions</span>
+                    <ChevronDown aria-hidden="true" size={16} className="text-grey" />
+                  </summary>
+                  <div className="flex flex-col gap-2 border-t border-border p-2">
+                    {/* No-show — only offered when the existing eligibility gate permits it. */}
+                    {appt.status === "confirmed" && startedForNoShow && (
+                      <DAction icon={<TriangleAlert size={18} />} label="Charge no-show" disabled={!!busy} onClick={() => setNoShowMode(true)} />
+                    )}
+                    <DAction tone="danger" icon={<X size={18} />} label={busy === "reject" ? "Rejecting…" : "Reject appointment"} disabled={!!busy} onClick={() => actions.reject(appt)} />
+                  </div>
+                </details>
               )}
             </div>
           )}
