@@ -574,10 +574,26 @@ export function Sidebar() {
                         // Inline actions only when we have a linked appointment (phase16).
                         const inlineAppt = c.actionable && n.entity_type === "appointment" && !!n.entity_id;
                         const acting = notifActing === n.id;
+                        const approvalButtons = inlineAppt && (
+                          <div className="flex items-center gap-2 mt-2.5">
+                            <button type="button" disabled={acting}
+                              onClick={(e) => { e.preventDefault(); e.stopPropagation(); actOnBooking(n, "approve"); }}
+                              className="flex-1 inline-flex items-center justify-center gap-1 rounded-lg bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-xs font-semibold py-1.5 hover:bg-emerald-500/25 disabled:opacity-50 transition-colors">
+                              <Check size={13} /> {acting ? "Working…" : "Approve"}
+                            </button>
+                            <button type="button" disabled={acting}
+                              onClick={(e) => { e.preventDefault(); e.stopPropagation(); actOnBooking(n, "decline"); }}
+                              className="flex-1 inline-flex items-center justify-center gap-1 rounded-lg bg-rose-500/15 text-rose-300 border border-rose-500/30 text-xs font-semibold py-1.5 hover:bg-rose-500/25 disabled:opacity-50 transition-colors">
+                              <X size={13} /> Decline
+                            </button>
+                          </div>
+                        );
                         const cls = cn("block rounded-xl border border-border mb-2 transition-colors", appointmentSummary ? "px-3 py-2.5" : "px-3 py-3",
                           n.is_read ? "bg-card" : "bg-white/[0.04]");
                         const body = appointmentSummary ? (
-                          <AppointmentNotificationContent summary={appointmentSummary} createdAt={n.created_at} isRead={n.is_read} />
+                          <AppointmentNotificationContent summary={appointmentSummary} createdAt={n.created_at} isRead={n.is_read}>
+                            {approvalButtons}
+                          </AppointmentNotificationContent>
                         ) : (
                           <div className="flex gap-3">
                             <span className="cw-notification-icon w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0">
@@ -588,18 +604,7 @@ export function Sidebar() {
                               <p className="text-xs text-grey line-clamp-2 mt-0.5">{n.message}</p>
                               {inlineAppt ? (
                                 <>
-                                  <div className="flex items-center gap-2 mt-2.5">
-                                    <button type="button" disabled={acting}
-                                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); actOnBooking(n, "approve"); }}
-                                      className="flex-1 inline-flex items-center justify-center gap-1 rounded-lg bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-xs font-semibold py-1.5 hover:bg-emerald-500/25 disabled:opacity-50 transition-colors">
-                                      <Check size={13} /> {acting ? "Working…" : "Approve"}
-                                    </button>
-                                    <button type="button" disabled={acting}
-                                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); actOnBooking(n, "decline"); }}
-                                      className="flex-1 inline-flex items-center justify-center gap-1 rounded-lg bg-rose-500/15 text-rose-300 border border-rose-500/30 text-xs font-semibold py-1.5 hover:bg-rose-500/25 disabled:opacity-50 transition-colors">
-                                      <X size={13} /> Decline
-                                    </button>
-                                  </div>
+                                  {approvalButtons}
                                   <span className="block text-[11px] text-grey mt-1.5">{timeAgo(n.created_at)}</span>
                                 </>
                               ) : (
