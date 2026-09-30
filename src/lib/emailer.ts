@@ -59,6 +59,16 @@ const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "admin@clipwise.ca";
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://clipwise.ca";
 
 // ── Shared email wrapper ──────────────────────────────────────────────────────
+// Discount rows (promo / loyalty points) before a Total — data.discounts is
+// "label::amount||label::amount" (price-breakdown discountEmailField). Escaped.
+function discountRows(raw?: string) {
+  if (!raw) return "";
+  return raw.split("||").map(p => {
+    const [label, amount] = p.split("::");
+    return label && amount ? `<div class="row"><span class="label">${escapeHtml(label)}</span><span class="val">${escapeHtml(amount)}</span></div>` : "";
+  }).join("");
+}
+
 function wrap(content: string) {
   // Premium, high-contrast, monochrome brand — matches the ClipWise marketing site
   // (Manrope, tight bold display, black accents) and reads clean like the best
@@ -417,6 +427,7 @@ function bookingConfirmation(data: Record<string, string>) {
     <div class="row"><span class="label">Service</span><span class="val">${data.serviceName}</span></div>
     <div class="row"><span class="label">Date</span><span class="val">${data.date}</span></div>
     <div class="row"><span class="label">Time</span><span class="val">${data.time}</span></div>
+    ${discountRows(data.discounts)}
     <div class="row"><span class="label">Total</span><span class="val">${data.total}</span></div>
     ${addressBlock(data.shopAddressLine, data.shopDirectionsUrl)}
     <hr class="divider">
@@ -578,6 +589,7 @@ function newBookingOwner(data: Record<string, string>) {
     <div class="row"><span class="label">Barber</span><span class="val">${data.barberName}</span></div>
     <div class="row"><span class="label">Date</span><span class="val">${data.date}</span></div>
     <div class="row"><span class="label">Time</span><span class="val">${data.time}</span></div>
+    ${discountRows(data.discounts)}
     <div class="row"><span class="label">Total</span><span class="val">${data.total}</span></div>
     <div class="row"><span class="label">Booking ID</span><span class="val">#${data.bookingId}</span></div>
     <hr class="divider">
@@ -598,6 +610,7 @@ function newBookingBarber(data: Record<string, string>) {
     <div class="row"><span class="label">Service</span><span class="val">${data.serviceName}</span></div>
     <div class="row"><span class="label">Date</span><span class="val">${data.date}</span></div>
     <div class="row"><span class="label">Time</span><span class="val">${data.time}</span></div>
+    ${discountRows(data.discounts)}
     <div class="row"><span class="label">Total</span><span class="val">${data.total}</span></div>
     <hr class="divider">
     <a href="${BASE_URL}/barber-dashboard/schedule" class="btn">View My Schedule →</a>

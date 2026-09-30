@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { ExternalLink, RefreshCw, Send, CreditCard, Banknote, Clock, Check, ChevronLeft, ChevronRight, ChevronDown, SlidersHorizontal, AlertTriangle, Gift } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { discountLines, discountSummary, readPriceBreakdown } from "@/lib/price-breakdown";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
 import { FeatureLock } from "@/components/dashboard/feature-lock";
 import { DashboardHeader } from "@/components/dashboard/page-header";
@@ -249,7 +250,7 @@ export default function PaymentsPage() {
       readAllRows((from, to) => supabase.from("appointments")
         .select("*, services(name), barbers(name)")
         .eq("shop_id", shop.id).or("total_amount.gt.0,status.eq.completed").order("date", { ascending: false }).order("id").range(from, to)),
-      readAllRows((from, to) => supabase.from("transactions").select(`${TX_COLS}, client_email`).eq("shop_id", shop.id).order("created_at", { ascending: false }).order("id").range(from, to)),
+      readAllRows((from, to) => supabase.from("transactions").select(`${TX_COLS}, client_email, price_breakdown`).eq("shop_id", shop.id).order("created_at", { ascending: false }).order("id").range(from, to)),
     ]);
     if (!mountedRef.current || paymentScopeRef.current !== paymentScope || sequence !== loadSequence.current) return;
     setAppts((a ?? []) as unknown as ApptRow[]);
@@ -352,6 +353,7 @@ export default function PaymentsPage() {
   type FeedItem = {
     key: string; name: string; sub: string; amount: number; tax: number;
     giftApplied?: number;   // gift-card value on this line — already counted at sale
+    priceBreakdown?: unknown; // promo / loyalty points behind a discounted total (phase72)
     giftSale?: boolean;     // selling a gift card: money in, but not a cut
     tipExtra?: number;      // booking tip NOT already inside `amount` (POS tips already are)
     statusLabel: string; tone: string; settled: boolean;
@@ -429,7 +431,8 @@ export default function PaymentsPage() {
         const tsIso = paid ? (a.paid_at ?? a.created_at) : a.created_at;
         return {
           key: `a${a.id}`, name: a.client_name,
-          sub: `${a.services?.name ?? "Service"}${a.barbers?.name ? ` · ${a.barbers.name}` : ""}`,
+          sub: `${a.services?.name ?? "Service"}${a.barbers?.name ? ` · ${a.barbers.name}` : ""}${discountSummary((a as { price_breakdown?: unknown }).price_breakdown) ? ` · ${discountSummary((a as { price_breakdown?: unknown }).price_breakdown)}` : ""}`,
+          priceBreakdown: (a as { price_breakdown?: unknown }).price_breakdown,
           amount: a.total_amount ?? 0, tax: a.tax_amount ?? 0,
           giftApplied: (a as { gift_applied?: number }).gift_applied ?? 0,
           tipExtra: sepTipped.has(a.id) ? 0 : (a as { tip_amount?: number }).tip_amount ?? 0, // a separately-paid tip is its own line
@@ -449,7 +452,8 @@ export default function PaymentsPage() {
       const barberName = barbers.find(b => b.id === t.barber_id)?.name ?? null;
       return {
         key: `t${t.id}`, name: t.client_name || "Walk-in", giftSale: t.source === "gift_card_sale",
-        sub: noShow ? (t.service_name ?? "No-show fee") : `${t.service_name || "Sale"}${barberName ? ` · ${barberName}` : ""} · POS`,
+        sub: noShow ? (t.service_name ?? "No-show fee") : `${t.service_name || "Sale"}${barberName ? ` · ${barberName}` : ""} · POS${discountSummary((t as { price_breakdown?: unknown }).price_breakdown) ? ` · ${discountSummary((t as { price_breakdown?: unknown }).price_breakdown)}` : ""}`,
+        priceBreakdown: (t as { price_breakdown?: unknown }).price_breakdown,
         amount: transactionCollectedAmount(t), tax: t.tax ?? 0,
         statusLabel: refunded ? "Refunded" : (noShow ? "No-show · Paid" : (t.payment_method === "cash" ? "Paid · Cash" : "Paid · Card")),
         tone: refunded ? "muted" : "good",
@@ -1178,6 +1182,17 @@ export default function PaymentsPage() {
                   )}
                   <div className="flex justify-between"><span className="text-grey">Method</span><span className="text-foreground">{methodLabel(i)}</span></div>
                   <div className="flex justify-between"><span className="text-grey">Status</span><span className="text-foreground">{i.statusLabel}</span></div>
+                  {/* How the price was reached — promo / loyalty points (phase72). */}
+                  {discountLines(i.priceBreakdown).length > 0 && (
+                    <>
+                      {(readPriceBreakdown(i.priceBreakdown)?.subtotal ?? 0) > 0 && (
+                        <div className="flex justify-between"><span className="text-grey">Service price</span><span className="text-foreground">{formatCurrency(readPriceBreakdown(i.priceBreakdown)!.subtotal!)}</span></div>
+                      )}
+                      {discountLines(i.priceBreakdown).map(d => (
+                        <div key={d.label} className="flex justify-between"><span className="text-grey">{d.label}</span><span className="text-[#00e5a0]">−{formatCurrency(-d.amount)}</span></div>
+                      ))}
+                    </>
+                  )}
                   {/* Money breakdown. For a card payment with a known fee, spell out
                       gross → fee → net so "after fee" is never ambiguous (the old
                       single "Amount" row actually showed the net, which read unclear). */}

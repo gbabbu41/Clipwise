@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe, stripeFeeCents } from "@/lib/stripe";
+import { buildPriceBreakdown } from "@/lib/price-breakdown";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { insertLedgerRow } from "@/lib/ledger-insert";
 import { insertNotifications } from "@/lib/notify-server";
@@ -79,10 +80,19 @@ export async function POST(request: NextRequest) {
       payment_intent_id: piId,
       source: "pos",
     };
+    // How the price was reached (promo / loyalty points) — display-only (phase72).
+    {
+      const rate = Number((shop.booking_settings as { loyalty?: { redemption_rate?: number } } | null)?.loyalty?.redemption_rate ?? 5);
+      const pb = buildPriceBreakdown({
+        subtotal, promoCode: m.promo_code || null, promoDiscount: m.promo_code ? discount : 0,
+        loyaltyPoints: rate > 0 ? Math.round((loyaltyDiscount / rate) * 100) : 0, loyaltyDiscount,
+      });
+      if (pb) fullRow.price_breakdown = pb;
+    }
     // Insert; drop only optional columns prod may lag on (tax = phase30,
     // stripe_fee = phase38, client_email). The Stripe ids are never dropped — a
     // failed save returns 500 and the retry (same session) records it once.
-    const ins = await insertLedgerRow(fullRow, ["tax", "stripe_fee", "client_email"]);
+    const ins = await insertLedgerRow(fullRow, ["tax", "stripe_fee", "client_email", "price_breakdown"]);
     if (ins.error) {
       console.error("[pos-finalize] transaction insert failed:", ins.error.message);
       return NextResponse.json({ error: "Couldn't record the sale. Please try again." }, { status: 500 });

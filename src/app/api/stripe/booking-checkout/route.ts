@@ -172,12 +172,14 @@ export async function POST(request: NextRequest) {
   // Server subtotal is authoritative; the client's subtotal/total_amount is ignored.
   let effectiveTotal = charge.subtotal;
   let promoCodeForMeta = "";
+  let promoAmount = 0;
   if (booking.promo_code) {
     const promo = await fetchValidPromo(booking.shop_id, booking.promo_code);
     if (!promo) return NextResponse.json({ error: "Invalid or expired promo code." }, { status: 400 });
     const blocked = await promoBlockReason(promo, booking.client_email, booking.client_phone);
     if (blocked) return NextResponse.json({ error: blocked }, { status: 409 });
-    effectiveTotal = Math.max(0, charge.subtotal - promoDiscount(promo, charge.subtotal));
+    promoAmount = promoDiscount(promo, charge.subtotal);
+    effectiveTotal = Math.max(0, charge.subtotal - promoAmount);
     promoCodeForMeta = promo.code;
   }
 
@@ -255,6 +257,10 @@ export async function POST(request: NextRequest) {
     pin: booking.pay_in_person ? "1" : "", // save-card chosen as "pay at the shop"
     promo_code: promoCodeForMeta,
     redeem_points: String(redemption.points),
+    // How the price was reached (display: calendar, Payments, alerts, receipts).
+    subtotal: String(charge.subtotal),
+    promo_discount: String(promoAmount),
+    loyalty_discount: String(redemption.discount),
     gift_code: giftCodeMeta,
     gift_applied: String(giftAppliedCents / 100),
     // CASL consent (proof-of-consent record written to the client row on finalize).

@@ -739,6 +739,9 @@ export default function POSPage() {
           promo_code: promoApplied?.code ?? null,
           redeem_loyalty: redeemLoyalty && !!posLoyalty?.eligible,
           loyalty_discount: loyaltyDiscount,
+          // Display-only: how the price was reached (Payments shows the lines).
+          subtotal,
+          promo_discount: discount,
           products,
           items: receiptItems,
           gift_card: giftCard ? { id: giftCard.id, remaining_value: giftCard.remaining_value, applied: giftApplied } : null,

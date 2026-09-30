@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { buildPriceBreakdown } from "@/lib/price-breakdown";
 import { insertNotifications } from "@/lib/notify-server";
 import { fetchValidPromo, promoBlockReason, consumePromo, type PromoRow } from "@/lib/promo";
 import { redeemPointsForDiscount } from "@/lib/loyalty-redeem";
@@ -93,6 +94,18 @@ export async function POST(req: Request) {
       type: b.type || "service",
       source: "pos",
     };
+    // How the price was reached (promo / loyalty points) — display-only (phase72).
+    // Staff-entered amounts are clamped; points use the same rate as the deduction.
+    {
+      const clampMoney = (v: unknown) => Math.min(100000, Math.max(0, Number(v) || 0));
+      const loyaltyDollars = b.redeem_loyalty ? clampMoney(b.loyalty_discount) : 0;
+      const rate = Number((shop.booking_settings as { loyalty?: { redemption_rate?: number } } | null)?.loyalty?.redemption_rate ?? 5);
+      const pb = buildPriceBreakdown({
+        subtotal: clampMoney(b.subtotal), promoCode: validPromo?.code, promoDiscount: validPromo ? clampMoney(b.promo_discount) : 0,
+        loyaltyPoints: rate > 0 ? Math.round((loyaltyDollars / rate) * 100) : 0, loyaltyDiscount: loyaltyDollars,
+      });
+      if (pb) fullRow.price_breakdown = pb;
+    }
 
     // Insert; on a "column does not exist" error, accumulate-drop the optional
     // columns prod may lag on (tax = phase30, commission_amount, source) so a
@@ -107,7 +120,7 @@ export async function POST(req: Request) {
     let ins = await attempt();
     for (let i = 0; i < 4 && ins.error && /column|does not exist|schema cache/i.test(ins.error.message); i++) {
       let added = false;
-      for (const col of ["tax", "commission_amount", "source", "client_email"]) {
+      for (const col of ["tax", "commission_amount", "source", "client_email", "price_breakdown"]) {
         if (!dropped.includes(col) && new RegExp(`\\b${col}\\b`).test(ins.error.message)) { dropped.push(col); added = true; }
       }
       if (!added) break;
