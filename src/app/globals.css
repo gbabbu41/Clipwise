@@ -14,6 +14,7 @@
    surface where transparency is unsupported or disabled. */
 .cw-glass-popover { background: var(--card-raised); box-shadow: 0 14px 34px rgba(0,0,0,.22); }
 .portal .cw-glass-sheet { background: var(--surface); box-shadow: 0 18px 44px rgba(0,0,0,.25); }
+.portal .cw-notification-icon { background-color: var(--surface-overlay); color: var(--grey); border: 1px solid var(--border); }
 .cw-booking-action-surface { box-shadow: 0 8px 32px rgba(0,0,0,.45); }
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .portal .cw-glass-popover,

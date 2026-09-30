@@ -575,7 +575,7 @@ export function Sidebar() {
                           n.is_read ? "bg-card" : "bg-white/[0.04]");
                         const body = (
                           <div className="flex gap-3">
-                            <span className={cn("w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0", c.chip)}>
+                            <span className="cw-notification-icon w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0">
                               <c.Icon size={16} />
                             </span>
                             <div className="flex-1 min-w-0">
@@ -601,14 +601,14 @@ export function Sidebar() {
                                 <div className="flex items-center justify-between mt-1.5">
                                   <span className="text-[11px] text-grey">{timeAgo(n.created_at)}</span>
                                   {c.actionable && (
-                                    <span className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-amber-300">
+                                    <span className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-foreground">
                                       Review <ChevronRight size={12} />
                                     </span>
                                   )}
                                 </div>
                               )}
                             </div>
-                            {!n.is_read && <span className="w-2 h-2 rounded-full bg-accent flex-shrink-0 mt-1" />}
+                            {!n.is_read && <span className="w-2 h-2 rounded-full bg-foreground flex-shrink-0 mt-1" />}
                           </div>
                         );
                         return inlineAppt ? (
