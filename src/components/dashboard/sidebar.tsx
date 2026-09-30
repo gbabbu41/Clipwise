@@ -18,6 +18,8 @@ import { UnreadBadge } from "@/components/notification-badge";
 import { AvatarImage } from "@/components/ui/avatar-image";
 import { ProfileMenu, OWNER_MENU_ITEMS } from "@/components/profile-menu";
 import { useConfirm } from "@/components/ui/confirm-dialog";
+import { AppointmentNotificationContent } from "@/components/appointment-notification-content";
+import { parseAppointmentNotification } from "@/lib/notification-presentation";
 
 // Tap a notification → jump to the page where you act on it, routed by what the
 // notification is actually about (NOT "/dashboard/pending" — that's the shop's
@@ -568,12 +570,15 @@ export function Sidebar() {
                       const earlier = rest.filter(n => !isToday(n.created_at));
                       const card = (n: (typeof recentNotifs)[number]) => {
                         const c = classifyNotif(n);
+                        const appointmentSummary = parseAppointmentNotification(n);
                         // Inline actions only when we have a linked appointment (phase16).
                         const inlineAppt = c.actionable && n.entity_type === "appointment" && !!n.entity_id;
                         const acting = notifActing === n.id;
-                        const cls = cn("block rounded-xl border border-border mb-2 px-3 py-3 transition-colors",
+                        const cls = cn("block rounded-xl border border-border mb-2 transition-colors", appointmentSummary ? "px-3 py-2.5" : "px-3 py-3",
                           n.is_read ? "bg-card" : "bg-white/[0.04]");
-                        const body = (
+                        const body = appointmentSummary ? (
+                          <AppointmentNotificationContent summary={appointmentSummary} createdAt={n.created_at} isRead={n.is_read} />
+                        ) : (
                           <div className="flex gap-3">
                             <span className="cw-notification-icon w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0">
                               <c.Icon size={16} />

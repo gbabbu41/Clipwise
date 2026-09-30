@@ -22,6 +22,8 @@ import { ShopSwitcher } from "@/components/dashboard/shop-switcher";
 import { PortalThemeToggle } from "@/components/portal-theme";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { DEFAULT_BARBER_PERMISSIONS, type BarberPermissions } from "@/lib/database.types";
+import { AppointmentNotificationContent } from "@/components/appointment-notification-content";
+import { parseAppointmentNotification } from "@/lib/notification-presentation";
 
 // Notification visual config — one clean type-icon, tinted chip (mirrors owner).
 const NOTIF_ICON: Record<string, { Icon: typeof Bell; cls: string }> = {
@@ -311,8 +313,11 @@ export function BarberSidebar() {
                   <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain divide-y divide-border">
                     {recentNotifs.map(n => {
                       const { Icon } = notifIcon(n.type);
+                      const appointmentSummary = parseAppointmentNotification(n);
                       const isWaitlist = n.entity_type === "waitlist" && !!n.entity_id;
-                      const body = (
+                      const body = appointmentSummary ? (
+                        <AppointmentNotificationContent summary={appointmentSummary} createdAt={n.created_at} isRead={n.is_read} />
+                      ) : (
                         <>
                           <span className="cw-notification-icon w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0">
                             <Icon size={16} />
@@ -330,7 +335,7 @@ export function BarberSidebar() {
                           {!n.is_read && <span className="w-2 h-2 rounded-full bg-foreground flex-shrink-0 mt-1.5" />}
                         </>
                       );
-                      const rowCls = cn("flex gap-3 px-4 py-3.5 transition-colors active:bg-white/[0.06] w-full text-left", n.is_read ? "hover:bg-card-raised" : "bg-white/[0.04] hover:bg-white/[0.07]");
+                      const rowCls = cn("flex transition-colors active:bg-white/[0.06] w-full text-left", appointmentSummary ? "gap-2.5 px-4 py-2.5" : "gap-3 px-4 py-3.5", n.is_read ? "hover:bg-card-raised" : "bg-white/[0.04] hover:bg-white/[0.07]");
                       return isWaitlist ? (
                         <button key={n.id} type="button" onClick={() => openAssign(n.entity_id!)} className={rowCls}>{body}</button>
                       ) : (
