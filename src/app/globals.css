@@ -1775,6 +1775,7 @@ html[data-theme="light"] .portal .cwd-act.cwd-act--muted { background:var(--surf
 /* The appointment sheet's main square tiles retain semantic green/red treatments. */
 html[data-theme="light"] .portal .appt-action-tile--primary { background:#157a4a; border-color:#157a4a; color:#fff; }
 html[data-theme="light"] .portal .appt-action-tile--primary:hover:not(:disabled) { background:#12683f; border-color:#12683f; }
+html[data-theme="light"] .portal .appt-action-tile--primary > span[aria-hidden="true"] { color:#157a4a; }
 html[data-theme="light"] .portal .appt-action-tile--danger { background:transparent; border-color:#d9534f; color:#b23127; }
 html[data-theme="light"] .portal .appt-action-tile--danger:hover:not(:disabled) { background:#fbeae8; }
 
