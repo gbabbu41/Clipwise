@@ -1051,7 +1051,7 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
   const pm = appt.payment_method as string | null | undefined;
   const methodWord = pm === "cash" ? "Cash" : pm === "online" ? "Online" : pm === "gift_card" ? "Gift card" : "Card";
   const paymentLabel = paid
-    ? `Paid · ${methodWord}`
+    ? `Paid by ${methodWord.toLowerCase()}`
     : refunded
       ? "Refunded"
       : heldOrSaved
@@ -1067,7 +1067,11 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
   const endMin = appt.time_slot ? timeToMinutes(appt.time_slot) + duration : null;
   const endTime = endMin != null ? formatFriendlyTime(`${Math.floor((endMin % 1440) / 60)}:${String(endMin % 60).padStart(2, "0")}`) : "";
   const timeRange = appt.time_slot ? (endTime ? `${appt.time_slot} – ${endTime}` : appt.time_slot) : "";
-  const appointmentDate = appt.date ? friendlyDate(appt.date) : "—";
+  const appointmentDate = appt.date ? (() => {
+    const [year, month, day] = appt.date.slice(0, 10).split("-").map(Number);
+    const date = new Date(year, month - 1, day);
+    return date.toLocaleDateString("en-CA", { weekday: "short", month: "short", day: "numeric" });
+  })() : "—";
   // Multi-service appointments already carry their full service list in the
   // documented `Services: …` notes field. Show that list below instead of
   // repeating the primary service in the compact header.
@@ -1097,10 +1101,13 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
             <div className="w-10 h-1.5 rounded-full bg-[#3a3a3a]" />
           </div>
 
-          {/* Subject and grouped appointment/payment facts */}
+          {/* Appointment header: subject, schedule, and payment facts. */}
           <div className="px-[18px] pb-3.5 border-b border-border">
             <div className="flex items-start justify-between gap-2">
-              <h3 className="min-w-0 flex-1 break-words text-base font-bold text-foreground">{appt.client_name}</h3>
+              <div className="min-w-0 flex-1">
+                <h3 className="break-words text-base font-bold text-foreground">{appt.client_name}</h3>
+                <p className="mt-0.5 text-xs text-grey">{statusLabel(appt.status)}</p>
+              </div>
               <button aria-label="Close appointment details" onClick={close}
                 className="-mr-2 -mt-2 inline-flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl text-grey hover:bg-surface-overlay hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
                 <X size={18} />
@@ -1110,20 +1117,17 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
               <p className="break-words text-sm leading-snug text-foreground">
                 {serviceLabel}<span className="text-grey"> · {barber?.name ?? "Any"}</span>
               </p>
-              <p className="text-xs text-grey">{appointmentDate}</p>
               <p className="break-words text-sm leading-snug text-foreground">
+                <span className="text-grey">{appointmentDate} · </span>
                 <span className="font-mono tabular-nums">{timeRange || "—"}</span>
-                {duration > 0 && <span className="ml-2 text-xs text-grey">· {duration} min</span>}
               </p>
-              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 border-t border-border pt-2">
-                <span className="flex min-w-0 items-baseline gap-2">
+              {duration > 0 && <p className="text-xs text-grey">{duration} min</p>}
+              <div className="border-t border-border pt-2">
+                <div className="flex items-baseline justify-between gap-3">
                   <span className="text-xs text-grey">{taxAmt > 0 ? "Service + tax" : "Service"}</span>
                   <span className="font-mono text-sm font-semibold tabular-nums text-foreground">{formatCurrency(amt)}</span>
-                </span>
-                <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5">
-                  <span className="inline-flex max-w-full items-center rounded-md border border-border bg-surface-overlay px-2 py-1 text-xs font-medium leading-snug text-grey">{paymentLabel}</span>
-                  <span className="inline-flex items-center rounded-md border border-border bg-card px-2 py-1 text-xs font-medium text-grey">{statusLabel(appt.status)}</span>
                 </div>
+                <p className="mt-0.5 text-xs leading-snug text-grey">{paymentLabel}</p>
               </div>
             </div>
           </div>
@@ -1133,24 +1137,26 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
             <div className="px-[18px] py-3 border-b border-border flex flex-col gap-2">
               {appt.client_phone && (
                 <div className="flex items-center gap-2.5">
-                  <a href={`tel:${appt.client_phone}`} aria-label={`Call ${appt.client_name}`}
-                    className="w-11 h-11 flex-shrink-0 rounded-xl bg-surface-overlay border border-border text-grey flex items-center justify-center hover:text-foreground active:opacity-70 transition-colors">
-                    <Phone size={16} />
-                  </a>
-                  <a href={`tel:${appt.client_phone}`} className="text-sm font-medium text-foreground hover:underline truncate">{formatPhone(appt.client_phone)}</a>
-                  <a href={`sms:${appt.client_phone}`} aria-label={`Text ${appt.client_name}`}
-                    className="ml-auto w-11 h-11 flex-shrink-0 rounded-xl bg-surface-overlay border border-border text-grey hover:text-foreground active:opacity-70 flex items-center justify-center transition-colors">
-                    <MessageSquare size={15} />
-                  </a>
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{formatPhone(appt.client_phone)}</span>
+                  <div className="flex flex-shrink-0 gap-1.5">
+                    <a href={`tel:${appt.client_phone}`} aria-label={`Call ${appt.client_name}`}
+                      className="w-11 h-11 rounded-xl bg-surface-overlay border border-border text-grey flex items-center justify-center hover:text-foreground active:opacity-70 transition-colors">
+                      <Phone size={16} />
+                    </a>
+                    <a href={`sms:${appt.client_phone}`} aria-label={`Text ${appt.client_name}`}
+                      className="w-11 h-11 rounded-xl bg-surface-overlay border border-border text-grey hover:text-foreground active:opacity-70 flex items-center justify-center transition-colors">
+                      <MessageSquare size={15} />
+                    </a>
+                  </div>
                 </div>
               )}
               {appt.client_email && (
                 <div className="flex items-center gap-2.5">
+                  <span className="min-w-0 flex-1 truncate text-sm text-foreground">{appt.client_email}</span>
                   <a href={`mailto:${appt.client_email}`} aria-label={`Email ${appt.client_name}`}
                     className="w-11 h-11 flex-shrink-0 rounded-xl bg-surface-overlay border border-border text-grey hover:text-foreground active:opacity-70 flex items-center justify-center transition-colors">
                     <Mail size={15} />
                   </a>
-                  <a href={`mailto:${appt.client_email}`} className="text-sm text-foreground hover:underline truncate">{appt.client_email}</a>
                 </div>
               )}
             </div>
