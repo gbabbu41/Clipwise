@@ -7,6 +7,7 @@ import { AvatarImage } from "@/components/ui/avatar-image";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatCurrency, formatDateForDb, isDateInPast, getSlotsInRange, generate24hSlots, timeToMinutes, dbTimeToDisplay, occupiedSlots, prettyDate } from "@/lib/utils";
+import { useResetOnReturn } from "@/lib/use-reset-on-return";
 import { shopChargesTax, taxLinesFor, combinedTaxRate, type TaxConfig } from "@/lib/pricing";
 import { formatPhone, validatePhone, validateEmail, isWithin6Months, isSlotInPast, effectivePlan, planHasFeature, isPaidPlan } from "@/lib/validation";
 import { supabase } from "@/lib/supabase";
@@ -250,6 +251,9 @@ export default function BookingClient({ Landing = ShopLanding, presentation }: {
     date: string; time: string; total: number; tip?: number; clientEmail: string; paymentNote: string;
   } | null>(null);
   const [saving, setSaving] = useState(false);
+  // Back from the Stripe page (e.g. to change the tip): the browser restores this
+  // page with `saving` frozen on "Booking…" — clear it so the customer can continue.
+  useResetOnReturn(() => setSaving(false));
   const [clientErrors, setClientErrors] = useState<Record<string, string>>({});
   /** Customer's payment-method pick. `null` means not yet decided. The
    *  choice screen only appears when both online (shop has Stripe Connect)

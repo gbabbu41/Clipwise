@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Gift, Plus, Search, Copy, Mail, SlidersHorizontal } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { useResetOnReturn } from "@/lib/use-reset-on-return";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
 import { FeatureLock } from "@/components/dashboard/feature-lock";
 import { supabase } from "@/lib/supabase";
@@ -79,6 +80,8 @@ export default function GiftCardsPage() {
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState<BlankForm>(BLANK);
   const [saving, setSaving] = useState(false);
+  // Back from the Stripe "Charge card" page: don't leave the button spinning.
+  useResetOnReturn(() => setSaving(false));
   // "Manage" sheet: owner corrections (adjust / void / reactivate) + the card's history.
   const [managing, setManaging] = useState<GiftCard | null>(null);
   const [history, setHistory] = useState<LedgerRow[] | null>(null);
