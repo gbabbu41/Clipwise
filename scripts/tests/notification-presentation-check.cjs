@@ -12,7 +12,7 @@ function load(file) {
   loaded.filename = filename;
   loaded.require = id => id.startsWith('@/') ? load(`src/${id.slice(2)}.ts`) : req(id);
   loaded._compile(ts.transpileModule(fs.readFileSync(filename, 'utf8'), {
-    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
   }).outputText, filename);
   return loaded.exports;
 }
@@ -27,6 +27,12 @@ assert.equal(moved.event, 'Appointment rescheduled');
 assert.deepEqual(moved.previous, { date: 'Oct 6, 2026', time: '11:00 AM' });
 assert.deepEqual(moved.current, { date: 'Dec 1, 2026', time: '10:00 AM' });
 assert.equal(moved.barber, 'Gill');
+const { AppointmentNotificationContent } = load('src/components/appointment-notification-content.tsx');
+const html = req('react-dom/server').renderToStaticMarkup(req('react').createElement(AppointmentNotificationContent, {
+  summary: moved, createdAt: '2026-09-30T12:00:00Z', isRead: false,
+}));
+assert.match(html, /rescheduled · with Gill/);
+assert.equal((html.match(/with Gill/g) ?? []).length, 1);
 
 const customerMoved = parseAppointmentNotification({
   type: 'booking', title: 'Appointment rescheduled',
