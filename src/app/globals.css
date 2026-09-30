@@ -1835,9 +1835,19 @@ html[data-theme="light"] .portal .cwd-act.cwd-act--muted { background:var(--surf
 .cwd-sep { width:1px; height:34px; background:var(--cwd-div); flex-shrink:0; }
 .cwd-who { flex:1; min-width:0; }
 .cwd-wn { font-size:13px; font-weight:500; color:var(--foreground); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.cwd-sch-status { color:var(--grey); font-size:10px; font-weight:600; }
 .cwd-ws { font-size:11.5px; color:var(--grey); margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.cwd-rt { text-align:right; flex-shrink:0; }
+.cwd-rt { display:flex; flex-direction:column; align-items:flex-end; gap:6px; text-align:right; flex-shrink:0; }
 .cwd-amt { font-size:13px; font-weight:600; color:var(--foreground); }
+@media (max-width:480px) {
+  .cwd-sch, .cwd-sch-mobile { display:grid; grid-template-columns:52px minmax(0,1fr); align-items:start; column-gap:12px; row-gap:5px; }
+  .cwd-tm, .cwd-mobile-time { grid-column:1; grid-row:1 / span 2; }
+  .cwd-sep, .cwd-mobile-sep { display:none; }
+  .cwd-who, .cwd-mobile-who { grid-column:2; grid-row:1; }
+  .cwd-rt, .cwd-mobile-rt { grid-column:2; grid-row:2; display:flex; flex-direction:row; align-items:center; justify-content:space-between; gap:8px; text-align:left; min-width:0; }
+  .cwd-rt .cwd-amt, .cwd-mobile-rt > span:first-child { flex-shrink:0; }
+  .cwd-rt > span, .cwd-mobile-rt > span:last-child { max-width:none; }
+}
 
 .cwd-staff { display:flex; align-items:center; gap:11px; padding:11px 0; border-bottom:1px solid var(--surface-overlay); }
 .cwd-staff:last-child { border-bottom:0; padding-bottom:2px; }

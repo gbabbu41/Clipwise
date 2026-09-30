@@ -360,21 +360,22 @@ export default function BarberOverviewPage() {
                 const [hh, mer] = (apt.time_slot ?? "").split(" ");
                 return (
                   <button key={apt.id} onClick={() => setSelectedAppt(apt)}
-                    className="w-full text-left flex items-center gap-3 py-3 border-b border-border last:border-0 hover:bg-white/[0.02] transition-colors">
-                    <div className="text-center min-w-[52px]">
+                    className="cwd-sch-mobile w-full text-left flex items-center gap-3 py-3 border-b border-border last:border-0 hover:bg-white/[0.02] transition-colors">
+                    <div className="cwd-mobile-time text-center min-w-[52px]">
                       <p className="text-xs text-foreground font-medium">{hh}</p>
                       <p className="text-[10px] text-grey">{mer}</p>
                     </div>
-                    <div className="w-px h-10 bg-[#1e1e1e]" />
-                    <div className="flex-1 min-w-0">
-                      <p className={cn("text-sm font-medium text-foreground truncate", dimmed && "line-through opacity-60")}>{apt.client_name}</p>
+                    <div className="cwd-mobile-sep w-px h-10 bg-[#1e1e1e]" />
+                    <div className="cwd-mobile-who flex-1 min-w-0">
+                      <p className={cn("cwd-wn flex-1 min-w-0 text-sm font-medium text-foreground", dimmed && "line-through opacity-60")}>{apt.client_name}</p>
                       <p className="text-xs text-grey truncate">
                         {(apt.services as { name?: string } | null)?.name ?? "Service"}{mins ? ` · ${mins} min` : ""}
                       </p>
+                      {dimmed && <p className="cwd-sch-status">{apt.status === "cancelled" ? "Cancelled" : "No-show"}</p>}
                     </div>
-                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                    <div className="cwd-mobile-rt flex flex-col items-end gap-1 flex-shrink-0">
                       <span className="text-sm font-semibold text-foreground">{formatCurrency(apt.total_amount)}</span>
-                      <PaymentTag appt={apt} />
+                      <PaymentTag appt={apt} variant="schedule" />
                     </div>
                   </button>
                 );

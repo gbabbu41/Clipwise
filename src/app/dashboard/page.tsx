@@ -962,10 +962,11 @@ export default function DashboardPage() {
                           <div className="cwd-who">
                             <div className={cn("cwd-wn", dimmed && "line-through opacity-60")}>{apt.client_name}</div>
                             <div className="cwd-ws">{apt.services?.name ?? "Service"} · {apt.barbers?.name ?? "Barber"}{mins ? ` · ${mins} min` : ""}</div>
+                            {dimmed && <div className="cwd-sch-status">{apt.status === "cancelled" ? "Cancelled" : "No-show"}</div>}
                           </div>
                           <div className="cwd-rt">
                             <div className="cwd-amt cwd-mono">{formatCurrency(Number(apt.total_amount ?? 0) + Number(apt.tip_amount ?? 0))}</div>
-                            <PaymentTag appt={apt} />
+                            <PaymentTag appt={apt} variant="schedule" />
                           </div>
                         </button>
                       );
