@@ -13,6 +13,7 @@ import { ensurePlansHydrated } from "@/lib/plans-server";
 import { computeRedemption, deductRedeemedPoints } from "@/lib/loyalty-redeem";
 import { redeemGiftForBooking, findRedeemableGift } from "@/lib/gift-redeem";
 import { taxCents, combinedTaxRate, type TaxConfig } from "@/lib/pricing";
+import { buildPriceBreakdown } from "@/lib/price-breakdown";
 import { ensureClientRow } from "@/lib/ensure-client";
 import { recordBookingConsent, clientIpFrom } from "@/lib/consent";
 import { sendNewBookingStaffEmails, sendCustomerBookingEmail } from "@/lib/notify-booking-emails";
@@ -152,12 +153,14 @@ export async function POST(request: NextRequest) {
 
   let validPromo: PromoRow | null = null;
   let effectiveTotal = charge.subtotal;
+  let promoAmount = 0;
   if (b.promo_code) {
     validPromo = await fetchValidPromo(b.shop_id, b.promo_code);
     if (!validPromo) return NextResponse.json({ error: "Invalid or expired promo code." }, { status: 400 });
     const blocked = await promoBlockReason(validPromo, b.client_email, b.client_phone);
     if (blocked) return NextResponse.json({ error: blocked }, { status: 409 });
-    effectiveTotal = Math.max(0, charge.subtotal - promoDiscount(validPromo, charge.subtotal));
+    promoAmount = promoDiscount(validPromo, charge.subtotal);
+    effectiveTotal = Math.max(0, charge.subtotal - promoAmount);
   }
 
   // ── Loyalty redemption (server-authoritative) — applied after any promo. The
@@ -317,9 +320,15 @@ export async function POST(request: NextRequest) {
   // Insert with duration_minutes; if the column doesn't exist yet (pre-phase14),
   // retry without it so booking still works (occupancy degrades to the primary
   // service duration until the migration is run).
+  // How the price was reached (promo / points) — shown on the calendar, Payments,
+  // alerts and receipts. Display-only; the money columns above are unchanged.
+  const priceBreakdown = buildPriceBreakdown({
+    subtotal: charge.subtotal, promoCode: validPromo?.code, promoDiscount: promoAmount,
+    loyaltyPoints: redemption.points, loyaltyDiscount: redemption.discount,
+  });
   let inserted = await supabaseAdmin
-    .from("appointments").insert({ ...baseRow, duration_minutes: duration }).select("id, status, barber_id").single();
-  if (inserted.error && /duration_minutes/.test(inserted.error.message)) {
+    .from("appointments").insert({ ...baseRow, duration_minutes: duration, ...(priceBreakdown ? { price_breakdown: priceBreakdown } : {}) }).select("id, status, barber_id").single();
+  if (inserted.error && /duration_minutes|price_breakdown/.test(inserted.error.message)) {
     inserted = await supabaseAdmin
       .from("appointments").insert(baseRow).select("id, status, barber_id").single();
   }

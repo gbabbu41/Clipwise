@@ -8,6 +8,7 @@
 // contact columns are blank (they usually are). Awaited + best-effort; the
 // barber send is skipped when it's the owner's own address (owner-as-barber).
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { discountEmailField } from "@/lib/price-breakdown";
 import { sendAppEmail } from "@/lib/emailer";
 
 /**
@@ -117,7 +118,7 @@ export async function sendCustomerBookingEmail(appointmentId: string): Promise<v
   try {
     const { data: appt } = await supabaseAdmin
       .from("appointments")
-      .select("id, shop_id, barber_id, client_name, client_email, status, date, time_slot, total_amount, tip_amount, services(name)")
+      .select("id, shop_id, barber_id, client_name, client_email, status, date, time_slot, total_amount, tip_amount, price_breakdown, services(name)")
       .eq("id", appointmentId).maybeSingle();
     if (!appt || !appt.client_email) return;
     if (appt.status !== "confirmed" && appt.status !== "pending") return;
@@ -149,6 +150,7 @@ export async function sendCustomerBookingEmail(appointmentId: string): Promise<v
       total: `$${(Number(appt.total_amount ?? 0) + Number(appt.tip_amount ?? 0)).toFixed(2)}`,
       bookingId: appt.id.slice(0, 8).toUpperCase(),
       appointmentId: appt.id,
+      discounts: discountEmailField((appt as { price_breakdown?: unknown }).price_breakdown),
     };
 
     const type = appt.status === "pending" ? "booking_request_received" : "booking_confirmation";

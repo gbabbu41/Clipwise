@@ -116,8 +116,9 @@ never against a stale checkbox in TODO.md or a migration file header.
 - New migrations added AFTER 2026-08-12 are the only ones to track as "to run."
   phase66, phase67 (one ledger row per charge), phase68 (loyalty ledger integrity),
   phase69 (gift-card ledger), phase70 (owner gift-card corrections; browser can't write
-  `gift_cards`) and phase71 (`gift_pay_appointment` — "Gift card" at checkout) are
-  **applied on prod** (verified 2026-09-28/29).
+  `gift_cards`), phase71 (`gift_pay_appointment` — "Gift card" at checkout) and phase72
+  (`price_breakdown` jsonb on appointments + transactions: promo / loyalty points behind a
+  discounted total, display-only) are **applied on prod** (verified 2026-09-28/30).
 - If a feature "silently does nothing," still capture the supabase `error` (don't only
   read `data`) — but the cause is far more likely code/config than a missing column now.
 
@@ -150,6 +151,12 @@ never against a stale checkbox in TODO.md or a migration file header.
   count their cuts as **profit, not commission** — do NOT change that stored 0; the **per-barber**
   earnings views pass `isOwner=true` (barber-earnings.ts) so the owner *sees* 100%. Full detail in
   KNOWLEDGE-BOOK §9.3.
+- **Loyalty / promo discounts & barber pay (owner decision 2026-09-30):** a discount (loyalty
+  points or promo) lowers the service price, and the barber's commission is on the **discounted**
+  price — e.g. Skin Fade $35 − 423 pts ($21.15) → Gill (50%) earns 50% × $13.85 = $6.93. The
+  discount is shared shop/barber "and they figure it out between them". **Do not change this** to
+  commission-on-list-price. How the price was reached is stored in `price_breakdown` (phase72) and
+  shown on the calendar, Payments, alerts and emails — money columns are unchanged.
 - **Stripe Connect:** charges run on each shop's **connected account** (shop = merchant
   of record, 0% platform fee). The Stripe **webhook must listen to connected-account
   events** or `payment_status` never flips to paid. The platform-charge fallback for

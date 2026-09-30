@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { discountSummary } from "@/lib/price-breakdown";
 import { prettyDateWithContext } from "@/lib/utils";
 import { insertNotifications } from "@/lib/notify-server";
 
@@ -25,7 +26,7 @@ export async function notifyNewBookingStaff(
   try {
     const { data: appt } = await supabaseAdmin
       .from("appointments")
-      .select("id, shop_id, barber_id, client_name, date, time_slot, status, payment_status, services(name)")
+      .select("id, shop_id, barber_id, client_name, date, time_slot, status, payment_status, price_breakdown, services(name)")
       .eq("id", appointmentId)
       .maybeSingle();
     if (!appt) return;
@@ -58,7 +59,9 @@ export async function notifyNewBookingStaff(
     // The barber sees their own booking; the owner sees WHICH barber it's with.
     const when = `on ${friendly} at ${appt.time_slot}${needsApproval ? " · tap to approve" : ""}`;
     const barberMessage = `${appt.client_name} — ${serviceName} ${when}`;
-    const ownerMessage = `${appt.client_name} — ${serviceName} with ${barberName ?? "any barber"} ${when}`;
+    // The owner also sees any points / promo the customer used (price_breakdown).
+    const used = discountSummary((appt as { price_breakdown?: unknown }).price_breakdown);
+    const ownerMessage = `${appt.client_name} — ${serviceName} with ${barberName ?? "any barber"} ${when}${used ? ` · ${used}` : ""}`;
 
     // In-app notifications (service role — the anon booking page can't insert).
     // Dedupe when the barber IS the owner; drop the owner when a richer owner

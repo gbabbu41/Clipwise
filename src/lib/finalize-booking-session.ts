@@ -8,6 +8,7 @@ import { recordOnlinePaymentTx } from "@/lib/finalize-appointment-payment";
 import { insertNotifications } from "@/lib/notify-server";
 import { notifyNewBookingStaff } from "@/lib/notify-staff-server";
 import { timeToMinutes, prettyDateWithContext, formatCurrency } from "@/lib/utils";
+import { buildPriceBreakdown, discountSummary, discountEmailField } from "@/lib/price-breakdown";
 import { fetchValidPromo, consumePromo } from "@/lib/promo";
 import { deductRedeemedPoints } from "@/lib/loyalty-redeem";
 import { logGiftFailure, redeemGiftForBooking } from "@/lib/gift-redeem";
@@ -179,9 +180,19 @@ export async function finalizeBookingFromSession(params: {
   // drop whichever lags on prod and retry so a booking is NEVER lost after the
   // customer has paid. gift_applied lets revenue subtract the gift portion so a
   // gift-redeemed booking isn't counted twice (once at sale, once here).
-  const withExtras = { ...baseRow, tip_amount: Number(m.tip_amount ?? 0), tax_amount: Number(m.tax_amount ?? 0), gift_applied: Number(m.gift_applied ?? 0) };
+  // How the price was reached (promo / points) — display-only (phase72).
+  const priceBreakdown = buildPriceBreakdown({
+    subtotal: Number(m.subtotal ?? 0), promoCode: m.promo_code || null, promoDiscount: Number(m.promo_discount ?? 0),
+    loyaltyPoints: Number(m.redeem_points ?? 0), loyaltyDiscount: Number(m.loyalty_discount ?? 0),
+  });
+  const withExtras = { ...baseRow, tip_amount: Number(m.tip_amount ?? 0), tax_amount: Number(m.tax_amount ?? 0), gift_applied: Number(m.gift_applied ?? 0), ...(priceBreakdown ? { price_breakdown: priceBreakdown } : {}) };
   const colMissing = (msg: string) => /column|does not exist|schema cache/i.test(msg);
   let ins = await supabaseAdmin.from("appointments").insert(withExtras).select("id").single();
+  if (ins.error && /price_breakdown/.test(ins.error.message) && colMissing(ins.error.message)) {
+    const noPb: Record<string, unknown> = { ...withExtras };
+    delete noPb.price_breakdown;
+    ins = await supabaseAdmin.from("appointments").insert(noPb).select("id").single();
+  }
   if (ins.error && /gift_applied/.test(ins.error.message) && colMissing(ins.error.message)) {
     const { gift_applied: _g, ...noGift } = withExtras;
     ins = await supabaseAdmin.from("appointments").insert(noGift).select("id").single();
@@ -281,7 +292,7 @@ export async function finalizeBookingFromSession(params: {
       user_id: shopRow.owner_id,
       shop_id: m.shop_id,
       title: bookingTitle,
-      message: `${m.client_name} booked ${ns?.name ?? "an appointment"} with ${nb?.name ?? "any barber"} ${bookingVerb} for ${friendly} at ${m.time_slot}`,
+      message: `${m.client_name} booked ${ns?.name ?? "an appointment"} with ${nb?.name ?? "any barber"} ${bookingVerb} for ${friendly} at ${m.time_slot}${discountSummary(priceBreakdown) ? ` · ${discountSummary(priceBreakdown)}` : ""}`,
       type: "booking",
       entity_type: "appointment",
       entity_id: appt.id,
@@ -344,6 +355,7 @@ export async function finalizeBookingFromSession(params: {
         : isHold ? "Card on hold — charged after your visit"
         : "Paid online",
       bookingId: appt.id.slice(0, 8).toUpperCase(), appointmentId: appt.id,
+      discounts: discountEmailField(priceBreakdown),   // "Loyalty points (423 pts) −$21.15" rows
     };
     // Send the confirmation emails DIRECTLY (no self-fetch to /api/send-email —
     // that HTTP hop can silently drop on serverless) and AWAIT them before this

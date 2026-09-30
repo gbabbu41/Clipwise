@@ -13,6 +13,7 @@ import {
   isCheckoutAllowed, CHECKOUT_LEAD_HOURS,
 } from "@/lib/utils";
 import { freesSlot, apptDuration } from "@/lib/availability";
+import { discountLines, readPriceBreakdown } from "@/lib/price-breakdown";
 import { clientMatchesQuery } from "@/lib/client-search";
 import { safeTz, todayInTz, nowMinutesInTz } from "@/lib/timezone";
 import { calendarFocusTop, calendarHourOffset, calendarLandingHour, fullDayCalendarWindow, startCalendarAutofocus } from "@/lib/calendar-autofocus";
@@ -1017,6 +1018,9 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
   const tipAmt = Number(appt.tip_amount ?? 0);
   const taxAmt = Number(appt.tax_amount ?? 0);
   const amtPaid = amt + tipAmt;
+  // Promo / loyalty points behind a discounted total (phase72) — shown as lines.
+  const discounts = discountLines((appt as { price_breakdown?: unknown }).price_breakdown);
+  const listPrice = readPriceBreakdown((appt as { price_breakdown?: unknown }).price_breakdown)?.subtotal ?? 0;
   // What a "Capture" will ACTUALLY charge: a HELD card can only be captured up to
   // what it authorized, so if the price was raised above the hold, cap the shown
   // amount at the hold and surface the balance still to collect. Saved / cash
@@ -1174,19 +1178,41 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
             </div>
           )}
 
-          {/* Money breakdown — itemize the tip so the owner sees service vs tip,
-              not one lump. Only shown once a tip exists (tips are added at
-              payment/completion). */}
-          {tipAmt > 0 && (
+          {/* Money breakdown — itemize the tip and any promo / loyalty points so the
+              owner sees how the total was reached, not one lump. Shown once there's
+              a tip or a discount. */}
+          {(tipAmt > 0 || discounts.length > 0) && (
             <div className="px-[18px] py-3 border-b border-border">
+              {discounts.length > 0 && listPrice > 0 && (
+                <div className="flex items-center justify-between text-xs mb-1.5">
+                  <span className="text-grey">Service price</span>
+                  <span className="text-foreground font-medium tabular-nums">{formatCurrency(listPrice)}</span>
+                </div>
+              )}
+              {discounts.map(d => (
+                <div key={d.label} className="flex items-center justify-between text-xs mb-1.5">
+                  <span className="text-grey">{d.label}</span>
+                  <span className="text-[#00e5a0] font-medium tabular-nums">−{formatCurrency(-d.amount)}</span>
+                </div>
+              ))}
+              {discounts.length > 0 && taxAmt > 0 && (
+                <div className="flex items-center justify-between text-xs mb-1.5">
+                  <span className="text-grey">Tax</span>
+                  <span className="text-foreground font-medium tabular-nums">{formatCurrency(taxAmt)}</span>
+                </div>
+              )}
+              {discounts.length === 0 && (
               <div className="flex items-center justify-between text-xs mb-1.5">
                 <span className="text-grey">Service{taxAmt > 0 ? " + tax" : ""}</span>
                 <span className="text-foreground font-medium tabular-nums">{formatCurrency(amt)}</span>
               </div>
+              )}
+              {tipAmt > 0 && (
               <div className="flex items-center justify-between text-xs">
                 <span className="text-grey">Tip</span>
                 <span className="text-foreground font-medium tabular-nums">{formatCurrency(tipAmt)}</span>
               </div>
+              )}
               <div className="flex items-center justify-between text-sm mt-2 pt-2 border-t border-border">
                 <span className="font-semibold text-foreground">Total</span>
                 <span className="font-bold text-foreground tabular-nums">{formatCurrency(amtPaid)}</span>
