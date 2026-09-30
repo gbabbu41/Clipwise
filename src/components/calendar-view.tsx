@@ -1064,9 +1064,20 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
               ? "Payment due"
               : appt.status === "completed" ? "Unpaid" : "Not collected";
   // total_amount includes service + tax, not tip. Keep those facts distinct.
-  const endMin = appt.time_slot ? timeToMinutes(appt.time_slot) + duration : null;
+  const startMin = appt.time_slot ? timeToMinutes(appt.time_slot) : null;
+  const endMin = startMin != null && Number.isFinite(startMin) ? startMin + duration : null;
   const endTime = endMin != null ? formatFriendlyTime(`${Math.floor((endMin % 1440) / 60)}:${String(endMin % 60).padStart(2, "0")}`) : "";
-  const timeRange = appt.time_slot ? (endTime ? `${appt.time_slot} – ${endTime}` : appt.time_slot) : "";
+  const startTime = startMin != null && Number.isFinite(startMin)
+    ? formatFriendlyTime(`${Math.floor((startMin % 1440) / 60)}:${String(startMin % 60).padStart(2, "0")}`)
+    : "";
+  const startParts = startTime.match(/^(.*)\s(AM|PM)$/i);
+  const endParts = endTime.match(/^(.*)\s(AM|PM)$/i);
+  const samePeriod = !!startParts && !!endParts && startParts[2].toUpperCase() === endParts[2].toUpperCase();
+  const timeRange = startTime
+    ? endTime && startParts && endParts
+      ? `${startParts[1]}${samePeriod ? "" : ` ${startParts[2]}`}–${endTime}`
+      : endTime ? `${startTime}–${endTime}` : startTime
+    : "";
   const appointmentDate = appt.date ? (() => {
     const [year, month, day] = appt.date.slice(0, 10).split("-").map(Number);
     const date = new Date(year, month - 1, day);
@@ -1102,10 +1113,10 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
           </div>
 
           {/* Appointment header: subject, schedule, and payment facts. */}
-          <div className="px-[18px] pb-3.5 border-b border-border">
+          <div className="px-[18px]">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0 flex-1">
-                <h3 className="break-words text-base font-bold text-foreground">{appt.client_name}</h3>
+                <h3 className="break-words text-[19px] font-semibold leading-[1.35] text-foreground">{appt.client_name}</h3>
                 <p className="mt-0.5 text-xs text-grey">{statusLabel(appt.status)}</p>
               </div>
               <button aria-label="Close appointment details" onClick={close}
@@ -1113,19 +1124,20 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
                 <X size={18} />
               </button>
             </div>
-            <div className="mt-2 space-y-1.5">
-              <p className="break-words text-sm leading-snug text-foreground">
-                {serviceLabel}<span className="text-grey"> · {barber?.name ?? "Any"}</span>
-              </p>
-              <p className="break-words text-sm leading-snug text-foreground">
-                <span className="text-grey">{appointmentDate} · </span>
-                <span className="font-mono tabular-nums">{timeRange || "—"}</span>
-              </p>
-              {duration > 0 && <p className="text-xs text-grey">{duration} min</p>}
-              <div className="border-t border-border pt-2">
+            <div className="mt-1">
+              <div className="space-y-1.5 border-b appt-detail-divider py-4">
+                <p className="break-words text-sm font-medium leading-snug text-foreground">
+                  {serviceLabel}<span className="text-grey"> · with {barber?.name ?? "Any barber"}</span>
+                </p>
+                <p className="break-words text-sm leading-snug tabular-nums text-foreground">
+                  <span className="text-grey">{appointmentDate} · </span>{timeRange || "—"}
+                </p>
+                {duration > 0 && <p className="text-xs text-grey">{duration} minutes</p>}
+              </div>
+              <div className="border-b appt-detail-divider py-4">
                 <div className="flex items-baseline justify-between gap-3">
-                  <span className="text-xs text-grey">{taxAmt > 0 ? "Service + tax" : "Service"}</span>
-                  <span className="font-mono text-sm font-semibold tabular-nums text-foreground">{formatCurrency(amt)}</span>
+                  <span className="text-sm text-grey">{taxAmt > 0 ? "Service + tax" : "Service"}</span>
+                  <span className="font-mono text-xl font-medium tabular-nums text-foreground">{formatCurrency(amt)}</span>
                 </div>
                 <p className="mt-0.5 text-xs leading-snug text-grey">{paymentLabel}</p>
               </div>

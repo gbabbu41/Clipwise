@@ -9,6 +9,8 @@
 .portal [data-calendar-controls] { gap: 8px; margin-left: auto; }
 .portal [data-calendar-controls] > button,
 .portal [data-calendar-controls] > div > button { min-width: 44px; min-height: 44px; justify-content: center; }
+.portal .appt-detail-divider { border-color: #34363a; }
+html[data-theme="light"] .portal .appt-detail-divider { border-color: #dfe1e4; }
 
 /* Glass is reserved for compact controls and navigation. Keep a solid theme
    surface where transparency is unsupported or disabled. */
