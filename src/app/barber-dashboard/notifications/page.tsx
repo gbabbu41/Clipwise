@@ -6,9 +6,11 @@ import { useAuth } from "@/lib/auth-context";
 import { useBarber } from "@/lib/barber-context";
 import { supabase } from "@/lib/supabase";
 import { fetchShopNotifications } from "@/lib/notify";
-import { cn, friendlyDate } from "@/lib/utils";
+import { cn, timeAgo } from "@/lib/utils";
 import { NotifSoundToggle } from "@/components/notif-sound-toggle";
 import { Switch } from "@/components/ui/switch";
+import { NotificationContent } from "@/components/appointment-notification-content";
+import { humanizeNotificationMessage, parseAppointmentNotification } from "@/lib/notification-presentation";
 import { getNotifPrefs, setNotifPref, NOTIF_PREF_DEFAULTS, type NotifPrefKey } from "@/lib/notif-prefs";
 import type { Notification } from "@/lib/database.types";
 
@@ -34,17 +36,6 @@ const classify = (n: { title: string; message: string; type: string }) => {
 const isToday = (iso: string) => { const d = new Date(iso); const n = new Date(); return d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth() && d.getDate() === n.getDate(); };
 const cleanNotifTitle = (t: string) => t.replace(/^[^A-Za-z0-9]+/, "").trim() || t;
 // Older messages stored a raw YYYY-MM-DD — humanize at render time.
-const humanizeMessage = (msg: string) => msg.replace(/\b(\d{4}-\d{2}-\d{2})\b/g, (iso) => friendlyDate(iso));
-function notifTime(dateStr: string) {
-  const date = new Date(dateStr);
-  const diff = Math.floor((Date.now() - date.getTime()) / 1000);
-  if (diff < 60) return "Just now";
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  const t = date.toLocaleTimeString("en-CA", { hour: "numeric", minute: "2-digit" });
-  return `${friendlyDate(date)}, ${t}`;
-}
-
 // Where an actionable notification should take the barber so "Review ›" actually
 // does something (it used to only mark the row read). Keyed off the classify badge.
 const destForBadge = (badge: string): string | null => {
@@ -151,6 +142,7 @@ export default function BarberNotificationsPage() {
 
   const card = (notif: Notification) => {
     const c = classify(notif);
+    const summary = parseAppointmentNotification(notif);
     return (
       <div key={notif.id} onClick={() => {
           if (!notif.is_read) markRead(notif.id);
@@ -161,24 +153,15 @@ export default function BarberNotificationsPage() {
         }}
         className={cn("relative flex items-start gap-3 p-3.5 rounded-2xl border transition-colors cursor-pointer active:bg-white/[0.06]",
           notif.is_read ? "bg-card border-border" : "bg-card-raised border-border")}>
-        <div className="cw-notification-icon w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0">
-          <c.Icon size={16} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            {!notif.is_read && <span className="w-2 h-2 rounded-full bg-foreground flex-shrink-0" />}
-            <p className={cn("text-sm leading-tight truncate flex-1", notif.is_read ? "font-semibold text-[#dcdcdc]" : "font-bold text-foreground")}>{cleanNotifTitle(notif.title)}</p>
-          </div>
-          <p className="text-[13px] text-grey mt-1 leading-relaxed line-clamp-2">{humanizeMessage(notif.message)}</p>
-          <div className="flex items-center justify-between mt-1.5">
-            <span className="text-xs text-grey">{notifTime(notif.created_at)}</span>
-            {c.actionable && <span className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-foreground">Review <ChevronRight size={12} /></span>}
-          </div>
-        </div>
+        <NotificationContent summary={summary} title={cleanNotifTitle(notif.title)}
+          message={humanizeNotificationMessage(notif.message)} icon={<c.Icon size={14} />}
+          createdAt={notif.created_at} ageLabel={timeAgo(notif.created_at)} isRead={notif.is_read}>
+          {c.actionable && <span className="mt-1.5 inline-flex items-center gap-0.5 text-[11px] font-semibold text-foreground">Review <ChevronRight size={12} /></span>}
+        </NotificationContent>
         {/* Always-visible dismiss — a hover-only X is invisible on touch. */}
         <button type="button" aria-label="Dismiss notification"
           onClick={(e) => { e.stopPropagation(); dismiss(notif.id); }}
-          className="flex-shrink-0 -mr-1 -mt-0.5 w-8 h-8 rounded-full flex items-center justify-center text-grey hover:text-foreground hover:bg-white/5 active:bg-white/10 transition-colors">
+          className="flex-shrink-0 -mr-1 -mt-0.5 w-11 h-11 rounded-full flex items-center justify-center text-grey hover:text-foreground hover:bg-white/5 active:bg-white/10 transition-colors">
           <X size={16} />
         </button>
       </div>

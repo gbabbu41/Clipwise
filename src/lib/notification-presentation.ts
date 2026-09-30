@@ -3,7 +3,7 @@ import { formatFriendlyTime, prettyDate, timeToMinutes } from "@/lib/utils";
 export type AppointmentNotificationSummary = {
   clientName: string;
   event: string;
-  current?: { date: string; time: string };
+  current?: { date: string; time?: string };
   previous?: { date: string; time: string };
   service?: string;
   barber?: string;
@@ -15,6 +15,10 @@ type NotificationText = { title: string; message: string; type: string };
 
 function humanDate(value: string) {
   return /^\d{4}-\d{2}-\d{2}$/.test(value) ? prettyDate(value) : value;
+}
+
+export function humanizeNotificationMessage(message: string) {
+  return message.replace(/\b(\d{4}-\d{2}-\d{2})\b/g, iso => prettyDate(iso));
 }
 
 function humanTime(value: string) {
@@ -37,10 +41,20 @@ function dateAndTime(value: string) {
   return { date: humanDate(value.slice(0, splitAt)), time: humanTime(value.slice(splitAt + 4)) };
 }
 
-/** Parse only the two known appointment-change message formats; legacy or
- * unfamiliar messages stay on the original generic notification renderer. */
+/** Parse recognized customer-facing notification formats; unfamiliar messages
+ * stay intact in the generic notification renderer. */
 export function parseAppointmentNotification(n: NotificationText): AppointmentNotificationSummary | null {
   const title = n.title.replace(/^[^A-Za-z0-9]+/, "").trim();
+  const waitlist = n.type === "booking" && title === "Waitlist request" && n.message.match(/^(.+?) is waiting for a spot on (.+)$/i);
+  if (waitlist) return { clientName: waitlist[1], event: "Waiting for a spot", current: { date: humanDate(waitlist[2]) } };
+
+  if (n.type === "booking" && /^Payment received$/i.test(title)) {
+    const payment = n.message.match(/^Charged (.+?)'s card(?: (\$[\d,]+\.\d{2}))? on completion(?: \((.+)\))?\.$/i);
+    if (payment) return {
+      clientName: payment[1], event: "Payment received", amount: payment[2], payment: "Card charged on completion",
+      current: payment[3] ? { date: humanDate(payment[3]) } : undefined,
+    };
+  }
   if (n.type === "cancellation" || n.type === "no-show") {
     const match = n.message.match(/^(.+?)'s (.+?) on (.+?) at (.+?) was (.+)\.$/);
     if (match) {
