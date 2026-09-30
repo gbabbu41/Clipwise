@@ -7,6 +7,8 @@ export type AppointmentNotificationSummary = {
   previous?: { date: string; time: string };
   service?: string;
   barber?: string;
+  amount?: string;
+  payment?: string;
 };
 
 type NotificationText = { title: string; message: string; type: string };
@@ -22,7 +24,8 @@ function humanTime(value: string) {
   const hour = Number(valid[1]);
   const minute = Number(valid[2]);
   if (minute > 59 || (valid[3] ? hour < 1 || hour > 12 : hour > 23)) return value;
-  const minutes = timeToMinutes(input);
+  const normalizedInput = `${valid[1]}:${valid[2]}${valid[3] ? ` ${valid[3].toUpperCase()}` : ""}`;
+  const minutes = timeToMinutes(normalizedInput);
   if (!Number.isFinite(minutes)) return value;
   const normalized = `${Math.floor((minutes % 1440) / 60)}:${String(minutes % 60).padStart(2, "0")}`;
   return formatFriendlyTime(normalized) || value;
@@ -60,25 +63,63 @@ export function parseAppointmentNotification(n: NotificationText): AppointmentNo
     return null;
   }
 
-  if (n.type !== "booking" || !/reschedul/i.test(title)) return null;
+  if (n.type !== "booking") return null;
 
-  const moved = n.message.match(/^(.+?):\s*(.+?)\s*→\s*(.+?)(?:\s·\swith\s+(.+))?$/);
-  if (moved) {
-    const previous = dateAndTime(moved[2]);
-    const current = dateAndTime(moved[3]);
-    if (!previous || !current) return null;
-    return { clientName: moved[1], event: title, previous, current, barber: moved[4] };
+  if (/reschedul/i.test(title)) {
+    const moved = n.message.match(/^(.+?):\s*(.+?)\s*→\s*(.+?)(?:\s·\swith\s+(.+))?$/);
+    if (moved) {
+      const previous = dateAndTime(moved[2]);
+      const current = dateAndTime(moved[3]);
+      if (!previous || !current) return null;
+      return { clientName: moved[1], event: title, previous, current, barber: moved[4] };
+    }
+
+    const selfRescheduled = n.message.match(/^(.+?) rescheduled to (.+?) at (.+?) \(was (.+?) at (.+?)\)(?: · with (.+))?$/);
+    if (selfRescheduled) {
+      return {
+        clientName: selfRescheduled[1],
+        event: title,
+        current: { date: humanDate(selfRescheduled[2]), time: humanTime(selfRescheduled[3]) },
+        previous: { date: humanDate(selfRescheduled[4]), time: humanTime(selfRescheduled[5]) },
+        barber: selfRescheduled[6],
+      };
+    }
+    return null;
   }
 
-  const selfRescheduled = n.message.match(/^(.+?) rescheduled to (.+?) at (.+?) \(was (.+?) at (.+?)\)(?: · with (.+))?$/);
-  if (selfRescheduled) {
-    return {
-      clientName: selfRescheduled[1],
-      event: title,
-      current: { date: humanDate(selfRescheduled[2]), time: humanTime(selfRescheduled[3]) },
-      previous: { date: humanDate(selfRescheduled[4]), time: humanTime(selfRescheduled[5]) },
-      barber: selfRescheduled[6],
-    };
+  const bookingTitle = title.match(/^New booking(?:\s*[·—]\s*(.+))?$/i);
+  if (!bookingTitle) return null;
+  const suffix = bookingTitle[1]?.trim();
+  const amount = suffix && /^[$€£]\s?[\d,]+(?:\.\d{1,2})?$/.test(suffix) ? suffix : undefined;
+  const event = amount ? "New booking" : title;
+
+  const finalizeMessage = n.message.match(/^(.+?) booked (.+?) with (.+?) (& paid|\((?:pay at shop · card on file|card saved|card on hold)\)) for (.+?) at (.+)$/i);
+  if (finalizeMessage) {
+    const current = dateAndTime(`${finalizeMessage[5]} at ${finalizeMessage[6]}`);
+    if (!current) return null;
+    const payment = finalizeMessage[4].toLowerCase() === "& paid" ? "Paid" : finalizeMessage[4].slice(1, -1);
+    return { clientName: finalizeMessage[1], event, amount, service: finalizeMessage[2], barber: finalizeMessage[3], payment, current };
+  }
+
+  const simplePaidMessage = n.message.match(/^(.+?) booked & paid for (.+?) at (.+)$/i);
+  if (simplePaidMessage) {
+    const current = dateAndTime(`${simplePaidMessage[2]} at ${simplePaidMessage[3]}`);
+    if (!current) return null;
+    return { clientName: simplePaidMessage[1], event, amount, payment: "Paid", current };
+  }
+
+  const withBarberMessage = n.message.match(/^(.+?) — (.+?) with (.+?) on (.+?) at (.+?)(?: · tap to approve)?$/i);
+  if (withBarberMessage) {
+    const current = dateAndTime(`${withBarberMessage[4]} at ${withBarberMessage[5]}`);
+    if (!current) return null;
+    return { clientName: withBarberMessage[1], event, amount, service: withBarberMessage[2], barber: withBarberMessage[3], current };
+  }
+
+  const noBarberMessage = n.message.match(/^(.+?) — (.+?) on (.+?) at (.+?)(?: · tap to approve)?$/i);
+  if (noBarberMessage) {
+    const current = dateAndTime(`${noBarberMessage[3]} at ${noBarberMessage[4]}`);
+    if (!current) return null;
+    return { clientName: noBarberMessage[1], event, amount, service: noBarberMessage[2], current };
   }
 
   return null;

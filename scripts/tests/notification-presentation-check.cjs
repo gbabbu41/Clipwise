@@ -42,6 +42,59 @@ assert.equal(customerMoved.current.date, load('src/lib/utils.ts').prettyDate('20
 assert.equal(customerMoved.current.time, '1:30 PM');
 assert.equal(customerMoved.previous.time, '10:00 AM');
 
+const richBooking = parseAppointmentNotification({
+  type: 'booking', title: 'New booking · $16',
+  message: 'Cw test booking booked Skin Fade with Gill & paid for October 5 at 9:00 AM',
+});
+assert.equal(richBooking.clientName, 'Cw test booking');
+assert.equal(richBooking.service, 'Skin Fade');
+assert.equal(richBooking.barber, 'Gill');
+assert.equal(richBooking.amount, '$16');
+assert.equal(richBooking.payment, 'Paid');
+assert.deepEqual(richBooking.current, { date: 'October 5', time: '9:00 AM' });
+const bookingHtml = req('react-dom/server').renderToStaticMarkup(req('react').createElement(AppointmentNotificationContent, {
+  summary: richBooking, createdAt: '2026-09-30T12:00:00Z', isRead: false,
+}));
+assert.match(bookingHtml, /New booking · \$16 · with Gill/);
+assert.match(bookingHtml, /Skin Fade · Paid/);
+
+const approvalBooking = parseAppointmentNotification({
+  type: 'booking', title: 'New booking — needs approval',
+  message: 'New client — Beard Trim with Lee on Monday · October 5 at 10:00 AM · tap to approve',
+});
+assert.equal(approvalBooking.clientName, 'New client');
+assert.equal(approvalBooking.service, 'Beard Trim');
+assert.equal(approvalBooking.barber, 'Lee');
+assert.equal(approvalBooking.payment, undefined);
+assert.equal(approvalBooking.amount, undefined);
+
+const noBarberBooking = parseAppointmentNotification({
+  type: 'booking', title: 'New booking',
+  message: 'Client Two — Skin Fade on Tomorrow · September 19 at 9:00 AM',
+});
+assert.equal(noBarberBooking.service, 'Skin Fade');
+assert.equal(noBarberBooking.barber, undefined);
+
+const simpleBooking = parseAppointmentNotification({
+  type: 'booking', title: 'New booking',
+  message: 'Client Three booked & paid for September 27 at 9:00 AM',
+});
+assert.equal(simpleBooking.payment, 'Paid');
+assert.equal(simpleBooking.service, undefined);
+
+for (const [verb, expected] of [
+  ['(card saved)', 'card saved'],
+  ['(card on hold)', 'card on hold'],
+  ['(pay at shop · card on file)', 'pay at shop · card on file'],
+]) {
+  const cardBooking = parseAppointmentNotification({
+    type: 'booking', title: 'New booking · $48.10',
+    message: `Client Four booked Cut with Gill ${verb} for October 5 at 1:30pm`,
+  });
+  assert.equal(cardBooking.payment, expected);
+  assert.equal(cardBooking.current.time, '1:30 PM');
+}
+
 const cancelled = parseAppointmentNotification({
   type: 'cancellation', title: 'Appointment cancelled',
   message: "CW Test Customer cancelled their appointment with Gill (was 2026-10-06 at 11:00 AM)",
