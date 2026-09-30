@@ -446,6 +446,9 @@ export async function POST(request: NextRequest) {
     id: inserted.data.id,
     status: inserted.data.status,
     barber_id: inserted.data.barber_id,
+    // The saved total (service + tax) — what the shop will actually charge — so
+    // the confirmation screen never shows the pre-tax price.
+    total: grossTotal,
     // What the customer actually paid when a gift card covered it (incl. tax), so
     // the confirmation shows the real total and what's left on the card.
     ...(giftPaid ? { paid_with_gift: true, total: giftPaid.gross, gift_applied: giftPaid.applied, gift_remaining: giftPaid.remaining } : {}),
