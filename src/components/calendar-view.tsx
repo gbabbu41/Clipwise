@@ -1053,7 +1053,7 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
   const pm = appt.payment_method as string | null | undefined;
   const methodWord = pm === "cash" ? "Cash" : pm === "online" ? "Online" : pm === "gift_card" ? "Gift card" : "Card";
   const badge = paid
-    ? { text: `Paid · ${methodWord}`, cls: "bg-[#00e5a0]/10 text-[#00e5a0]" }
+    ? { text: `Paid · ${methodWord}`, cls: "bg-surface-overlay border border-border text-grey" }
     : refunded
       ? { text: "Refunded", cls: "bg-white/5 text-grey" }
     : heldOrSaved
@@ -1082,7 +1082,12 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
   const priceLabel = amt > 0
     ? (tipAmt > 0 ? `${formatCurrency(amt)} + ${formatCurrency(tipAmt)} tip` : formatCurrency(amt))
     : null;
-  const metaLine = [serviceName, barber?.name ?? "Any", timeRange, duration ? `${duration} min` : null, priceLabel].filter(Boolean).join(" · ");
+  // Multi-service appointments already carry their full service list in the
+  // documented `Services: …` notes field. Show that list below instead of
+  // repeating the primary service in the compact header.
+  const serviceNoteText = appt.notes?.trim().match(/^services:\s*(.+)$/i)?.[1] ?? null;
+  const serviceBarberLine = [serviceNoteText ? null : serviceName, barber?.name ?? "Any"].filter(Boolean).join(" · ");
+  const scheduleLine = [timeRange, duration ? `${duration} min` : null, priceLabel].filter(Boolean).join(" · ");
 
   return (
     <>
@@ -1113,7 +1118,10 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
               <h3 className="text-base font-bold text-foreground truncate">{appt.client_name}</h3>
               <button aria-label="Close appointment details" onClick={close} className="text-grey hover:text-foreground flex-shrink-0 -mr-1"><X size={18} /></button>
             </div>
-            <p className="text-xs text-grey mt-1 leading-relaxed pr-6">{metaLine}</p>
+            <div className="mt-1 space-y-0.5 pr-6">
+              <p className="text-xs text-grey leading-relaxed">{serviceBarberLine}</p>
+              {scheduleLine && <p className="text-xs text-grey leading-relaxed">{scheduleLine}</p>}
+            </div>
             <span className={cn("inline-flex items-center mt-2.5 text-[11px] font-semibold px-2.5 py-1 rounded-full", badge.cls)}>{badge.text}</span>
           </div>
 
@@ -1123,7 +1131,7 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
               {appt.client_phone && (
                 <div className="flex items-center gap-2.5">
                   <a href={`tel:${appt.client_phone}`} aria-label={`Call ${appt.client_name}`}
-                    className="w-9 h-9 flex-shrink-0 rounded-full bg-[#00e5a0]/12 text-[#00e5a0] flex items-center justify-center hover:bg-[#00e5a0]/20 active:opacity-70 transition-colors">
+                    className="w-9 h-9 flex-shrink-0 rounded-full bg-surface-overlay border border-border text-grey flex items-center justify-center hover:text-foreground active:opacity-70 transition-colors">
                     <Phone size={16} />
                   </a>
                   <a href={`tel:${appt.client_phone}`} className="text-sm font-medium text-foreground hover:underline truncate">{formatPhone(appt.client_phone)}</a>
@@ -1165,7 +1173,13 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
             </div>
           )}
 
-          {appt.notes && (
+          {serviceNoteText && (
+            <div className="mx-[18px] mt-3 bg-surface-overlay rounded-xl p-3 text-xs text-grey">
+              <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-grey">Services</div>
+              {serviceNoteText}
+            </div>
+          )}
+          {appt.notes && !serviceNoteText && (
             <div className="mx-[18px] mt-3 bg-surface-overlay rounded-xl p-3 text-xs text-grey">{appt.notes}</div>
           )}
 
