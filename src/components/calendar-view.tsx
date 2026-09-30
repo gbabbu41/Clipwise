@@ -728,26 +728,39 @@ export function makeApptActions(opts: {
   };
 }
 
-// One compact action row in the appointment drawer.
-function DAction({ icon, label, onClick, disabled, tone = "default" }: {
+// Appointment action: compact rows in focused flows, square tiles in the main menu.
+function DAction({ icon, label, onClick, disabled, tone = "default", tile = false }: {
   icon: ReactNode; label: string; onClick?: () => void; disabled?: boolean;
   tone?: "default" | "primary" | "danger" | "muted";
+  tile?: boolean;
 }) {
+  const toneChip = tone === "primary" ? "bg-[#00e5a0]/15 text-current"
+    : tone === "danger" ? "bg-[#ff6b6b]/15 text-current"
+    : tone === "muted" ? "bg-white/5 text-grey-muted"
+    : "bg-white/10 text-current";
   return (
     <button type="button" onClick={onClick} disabled={disabled || tone === "muted"}
       className={cn(
-        // `cwd-act cwd-act--<tone>` markers let the light theme restyle these into
-        // solid/outlined buttons (see globals.css) — DARK theme keeps the tints below.
-        "cwd-act", `cwd-act--${tone}`,
-        "rounded-xl border text-sm font-medium transition-colors disabled:opacity-50",
-        tone === "primary" ? "bg-foreground border-foreground text-background hover:opacity-90"
-          : tone === "danger" ? "bg-[#ff6b6b]/[0.08] border-[#ff6b6b]/15 text-[#ff6b6b] hover:bg-[#ff6b6b]/[0.12]"
-          : tone === "muted" ? "bg-surface-overlay border-border text-grey-muted cursor-not-allowed"
-          : "bg-surface-overlay border-border text-foreground hover:bg-[#1e1e1e]",
-        "flex min-h-11 w-full items-center gap-3 px-3.5 py-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-card-raised",
+        tile ? "appt-action-tile" : cn("cwd-act", `cwd-act--${tone}`),
+        "rounded-xl border text-sm font-medium transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-card-raised",
+        tile
+          ? cn("flex min-h-[96px] w-full flex-col items-center justify-center gap-2 px-3 py-4 text-center", `appt-action-tile--${tone}`,
+            tone === "primary" ? "bg-[#00e5a0]/10 border-[#00e5a0]/20 text-[#00e5a0] hover:bg-[#00e5a0]/15"
+              : tone === "danger" ? "bg-[#ff6b6b]/[0.08] border-[#ff6b6b]/15 text-[#ff6b6b] hover:bg-[#ff6b6b]/[0.12]"
+              : tone === "muted" ? "bg-surface-overlay border-border text-grey-muted cursor-not-allowed"
+              : "bg-surface-overlay border-border text-foreground hover:bg-[#1e1e1e]")
+          : cn("flex min-h-11 w-full items-center gap-3 px-3.5 py-2.5 text-left",
+            tone === "primary" ? "bg-foreground border-foreground text-background hover:opacity-90"
+              : tone === "danger" ? "bg-[#ff6b6b]/[0.08] border-[#ff6b6b]/15 text-[#ff6b6b] hover:bg-[#ff6b6b]/[0.12]"
+                : tone === "muted" ? "bg-surface-overlay border-border text-grey-muted cursor-not-allowed"
+                  : "bg-surface-overlay border-border text-foreground hover:bg-[#1e1e1e]"),
       )}>
-      <span aria-hidden="true" className={cn("flex-shrink-0", tone === "danger" ? "text-red-400" : tone === "primary" ? "text-current" : "text-grey")}>{icon}</span>
-      <span className="min-w-0 flex-1 break-words">{label}</span>
+      {tile ? (
+        <span aria-hidden="true" className={cn("flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full", toneChip)}>{icon}</span>
+      ) : (
+        <span aria-hidden="true" className={cn("flex-shrink-0", tone === "danger" ? "text-red-400" : tone === "primary" ? "text-current" : "text-grey")}>{icon}</span>
+      )}
+      <span className={cn("min-w-0 break-words", tile ? "leading-tight text-[13px]" : "flex-1")}>{label}</span>
     </button>
   );
 }
@@ -1076,7 +1089,7 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
           }}
           className={cn(
             "pointer-events-auto w-full sm:max-w-md bg-card-raised border-t sm:border border-border rounded-t-2xl sm:rounded-2xl shadow-2xl",
-            "pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:pb-5 max-h-[88vh] overflow-y-auto overscroll-contain",
+            "pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:pb-5 h-[90svh] max-h-[94svh] overflow-y-auto overscroll-contain sm:h-auto sm:max-h-[88vh]",
           )}
         >
           {/* Grab handle — pull down anywhere to dismiss, or tap the handle */}
@@ -1093,6 +1106,30 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
                 <X size={18} />
               </button>
             </div>
+            {!editMode && !readOnly && !payChoice && !noShowMode && (
+              <div className="mt-3 grid grid-cols-2 gap-2.5">
+                {appt.status !== "completed" && appt.status !== "cancelled" && (
+                  <DAction tile icon={<Pencil size={18} />} label="Edit appointment" disabled={!!busy} onClick={openEdit} />
+                )}
+                {appt.status === "pending" && (
+                  <DAction tile tone="primary" icon={<CircleCheck size={18} />} label={busy === "approve" ? "Approving…" : "Approve appointment"} disabled={!!busy} onClick={() => actions.approve(appt)} />
+                )}
+                {appt.status === "confirmed" && (
+                  <DAction tile tone="primary" icon={paid ? <CircleCheck size={18} /> : <CreditCard size={18} />}
+                    label={paid ? "Complete appointment" : "Check out"} disabled={!!busy}
+                    onClick={() => { setPayChoice(true); setShowEmail(false); }} />
+                )}
+                {appt.status === "confirmed" && startedForNoShow && (
+                  <DAction tile icon={<TriangleAlert size={18} />} label="Charge no-show" disabled={!!busy} onClick={() => setNoShowMode(true)} />
+                )}
+                {outstanding && appt.status !== "pending" && appt.status !== "confirmed" && (
+                  <DAction tile tone="primary" icon={<CreditCard size={18} />} label={`Take payment · ${formatCurrency(amt)}`} disabled={!!busy} onClick={() => { setPayChoice(true); setShowEmail(false); }} />
+                )}
+                {(appt.status === "pending" || appt.status === "confirmed") && (
+                  <DAction tile tone="danger" icon={<X size={18} />} label={busy === "reject" ? "Rejecting…" : "Reject appointment"} disabled={!!busy} onClick={() => actions.reject(appt)} />
+                )}
+              </div>
+            )}
             <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3">
               <div className="col-span-2 min-w-0">
                 <div className="text-[10px] font-semibold uppercase tracking-wide text-grey">Service</div>
@@ -1392,47 +1429,7 @@ export function ApptDetail({ appt, barbers, services, onClose, actions, busy, re
               )}
               <button className="text-xs text-grey hover:text-foreground pt-1 pb-0.5" onClick={() => setNoShowMode(false)}>Cancel</button>
             </div>
-          ) : (
-            <div className="px-[18px] pt-3.5 flex flex-col gap-2">
-              {/* One primary action for the current appointment state. */}
-              {appt.status === "pending" && (
-                <DAction tone="primary" icon={<CircleCheck size={18} />} label={busy === "approve" ? "Approving…" : "Approve appointment"} disabled={!!busy} onClick={() => actions.approve(appt)} />
-              )}
-              {appt.status === "confirmed" && (
-                <DAction tone="primary" icon={paid ? <CircleCheck size={18} /> : <CreditCard size={18} />}
-                  label={paid ? "Complete appointment" : "Check out"} disabled={!!busy}
-                  onClick={() => { setPayChoice(true); setShowEmail(false); }} />
-              )}
-              {outstanding && appt.status !== "pending" && appt.status !== "confirmed" && (
-                <DAction tone="primary" icon={<CreditCard size={18} />} label={`Take payment · ${formatCurrency(amt)}`} disabled={!!busy} onClick={() => { setPayChoice(true); setShowEmail(false); }} />
-              )}
-
-              {/* Edit stays available as the compact secondary action. */}
-              {appt.status !== "completed" && appt.status !== "cancelled" && (
-                <button type="button" disabled={!!busy} onClick={openEdit}
-                  className="inline-flex min-h-11 w-full items-center gap-3 rounded-xl border border-border bg-transparent px-3.5 py-2.5 text-left text-sm font-medium text-foreground hover:bg-surface-overlay disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
-                  <Pencil aria-hidden="true" size={18} className="flex-shrink-0 text-grey" />
-                  <span>Edit appointment</span>
-                </button>
-              )}
-
-              {(appt.status === "pending" || appt.status === "confirmed") && (
-                <details className="rounded-xl border border-border bg-card">
-                  <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium text-grey hover:bg-surface-overlay focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] [&::-webkit-details-marker]:hidden">
-                    <span>More actions</span>
-                    <ChevronDown aria-hidden="true" size={16} className="text-grey" />
-                  </summary>
-                  <div className="flex flex-col gap-2 border-t border-border p-2">
-                    {/* No-show — only offered when the existing eligibility gate permits it. */}
-                    {appt.status === "confirmed" && startedForNoShow && (
-                      <DAction icon={<TriangleAlert size={18} />} label="Charge no-show" disabled={!!busy} onClick={() => setNoShowMode(true)} />
-                    )}
-                    <DAction tone="danger" icon={<X size={18} />} label={busy === "reject" ? "Rejecting…" : "Reject appointment"} disabled={!!busy} onClick={() => actions.reject(appt)} />
-                  </div>
-                </details>
-              )}
-            </div>
-          )}
+          ) : null}
         </div>
       </div>
     </>
