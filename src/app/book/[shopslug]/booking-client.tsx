@@ -1057,6 +1057,16 @@ export default function BookingClient({ Landing = ShopLanding, presentation }: {
         total: Number(result.total), clientEmail: clientInfo.email,
         paymentNote: `Paid with gift card${result.gift_remaining != null && Number.isFinite(left) ? ` · ${formatCurrency(left)} left on the card` : ""}`,
       });
+    } else if (Number.isFinite(Number(result.total))) {
+      // The server's saved total (incl. tax) — what the shop will charge.
+      setConfirmedSummary({
+        shopName: shop.name,
+        barberName: barbers.find(x => x.id === finalBarberId)?.name ?? "Any Available",
+        serviceName: isMulti ? servicesPicked.map(s => s.name).join(" + ") : (service?.name ?? ""),
+        date: formatDateForDb(selectedDate), time: selectedTime ?? "",
+        total: Number(result.total), clientEmail: clientInfo.email,
+        paymentNote: method === "in_person" ? "Pay at the shop" : "",
+      });
     }
     setConfirmed(true);
 
@@ -1180,7 +1190,9 @@ export default function BookingClient({ Landing = ShopLanding, presentation }: {
   const amountDue = Math.max(0, grandTotalWithTip - giftApplied);
 
   // ── No-show policy (from the shop's booking_settings JSON) ─────────────────
-  const bookingSettings = (shop?.booking_settings ?? null) as { no_show_protection?: boolean; no_show_fee_percent?: number; cancellation_hours?: number } | null;
+  const bookingSettings = (shop?.booking_settings ?? null) as { no_show_protection?: boolean; no_show_fee_percent?: number; cancellation_hours?: number; auto_confirm?: boolean } | null;
+  // Mirrors the server: a customer booking is confirmed at once when the shop auto-confirms.
+  const autoConfirm = !!bookingSettings?.auto_confirm;
   const noShowProtection = !!bookingSettings?.no_show_protection;
   // Footer reassurance reflects the SHOP's actual cancellation notice
   // (booking_settings.cancellation_hours, default 2) — never a hardcoded "24h".
@@ -1471,7 +1483,7 @@ export default function BookingClient({ Landing = ShopLanding, presentation }: {
     const dispService = confirmedSummary?.serviceName ?? service?.name ?? "";
     const dispDateObj = confirmedSummary ? new Date(`${confirmedSummary.date}T12:00:00`) : selectedDate;
     const dispTime = confirmedSummary?.time ?? selectedTime ?? "";
-    const dispTotal = confirmedSummary?.total ?? total;
+    const dispTotal = confirmedSummary?.total ?? grandTotal;   // incl. tax, never the pre-tax price
     const dispEmail = confirmedSummary?.clientEmail || clientInfo.email;
     return (
       <div className="min-h-screen bg-black flex flex-col items-center justify-center px-4">
@@ -2369,7 +2381,7 @@ export default function BookingClient({ Landing = ShopLanding, presentation }: {
             {((effectiveMethod === "online" && cardForNoShow) || (effectiveMethod === "in_person" && payInPersonSavesCard)) && noShowConsentBox}
             {/* Footer reassurance, matched to the chosen method. */}
             {effectiveMethod === "in_person"
-              ? <p className="text-xs text-[#999] text-center">{payInPersonSavesCard ? `Pay at the shop · card on file, charged only if you no-show · ${cancelNotice}` : `Pay at the shop · reserved as pending until the shop confirms · ${cancelNotice}`}</p>
+              ? <p className="text-xs text-[#999] text-center">{payInPersonSavesCard ? `Pay at the shop · card on file, charged only if you no-show · ${cancelNotice}` : `Pay at the shop · ${autoConfirm ? "confirmed right away" : "reserved as pending until the shop confirms"} · ${cancelNotice}`}</p>
               : effectiveMethod === "online"
                 ? <p className="text-xs text-[#999] text-center">Secure online payment · {cancelNotice}</p>
                 : <p className="text-xs text-[#999] text-center">{cancelNotice}</p>
