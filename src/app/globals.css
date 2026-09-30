@@ -1763,9 +1763,8 @@ textarea:focus-visible {
 /* Borderless in both themes — the subtle theme-aware --surface-overlay fill from
    the base rule defines the pill against the card, so no outline is needed. */
 
-/* Light theme: appointment-sheet action buttons (DAction). Theme foreground primary,
-   outlined red DANGER, outlined neutral DEFAULT. Double class (.cwd-act.cwd-act--x)
-   outranks the generic tint overrides above. */
+/* Light theme: compact appointment-sheet action rows (DAction), kept neutral outside
+   the separate square primary/danger tiles below. */
 html[data-theme="light"] .portal .cwd-act.cwd-act--primary { background:var(--foreground); border-color:var(--foreground); color:var(--background); }
 html[data-theme="light"] .portal .cwd-act.cwd-act--primary:hover:not(:disabled) { opacity:.88; }
 html[data-theme="light"] .portal .cwd-act.cwd-act--danger { background:transparent; border-color:#d9534f; color:#b23127; }
@@ -1773,6 +1772,11 @@ html[data-theme="light"] .portal .cwd-act.cwd-act--danger:hover:not(:disabled) {
 html[data-theme="light"] .portal .cwd-act.cwd-act--default { background:transparent; border-color:#c2c2c2; color:var(--foreground); }
 html[data-theme="light"] .portal .cwd-act.cwd-act--default:hover:not(:disabled) { background:var(--surface-overlay); }
 html[data-theme="light"] .portal .cwd-act.cwd-act--muted { background:var(--surface-overlay); border-color:var(--border); color:var(--grey-2); }
+/* The appointment sheet's main square tiles retain semantic green/red treatments. */
+html[data-theme="light"] .portal .appt-action-tile--primary { background:#157a4a; border-color:#157a4a; color:#fff; }
+html[data-theme="light"] .portal .appt-action-tile--primary:hover:not(:disabled) { background:#12683f; border-color:#12683f; }
+html[data-theme="light"] .portal .appt-action-tile--danger { background:transparent; border-color:#d9534f; color:#b23127; }
+html[data-theme="light"] .portal .appt-action-tile--danger:hover:not(:disabled) { background:#fbeae8; }
 
 .cwd-hero { background:var(--card); border:0; border-radius:20px; padding:18px 18px 14px; margin-bottom:12px; box-shadow:var(--cwd-lift); }
 /* Revenue carousel slides — borderless soft lift (dark). Light keeps its own
