@@ -310,11 +310,11 @@ export function BarberSidebar() {
                 ) : (
                   <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain divide-y divide-border">
                     {recentNotifs.map(n => {
-                      const { Icon, cls } = notifIcon(n.type);
+                      const { Icon } = notifIcon(n.type);
                       const isWaitlist = n.entity_type === "waitlist" && !!n.entity_id;
                       const body = (
                         <>
-                          <span className={cn("w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0", cls)}>
+                          <span className="cw-notification-icon w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0">
                             <Icon size={16} />
                           </span>
                           <div className="flex-1 min-w-0">
@@ -324,10 +324,10 @@ export function BarberSidebar() {
                             </div>
                             <p className="text-xs text-grey line-clamp-2 mt-0.5">{n.message}</p>
                             {isWaitlist && (
-                              <span className="inline-flex items-center gap-0.5 mt-1.5 text-[11px] font-semibold text-amber-300">Accept &amp; assign ›</span>
+                              <span className="inline-flex items-center gap-0.5 mt-1.5 text-[11px] font-semibold text-foreground">Accept &amp; assign ›</span>
                             )}
                           </div>
-                          {!n.is_read && <span className="w-2 h-2 rounded-full bg-accent flex-shrink-0 mt-1.5" />}
+                          {!n.is_read && <span className="w-2 h-2 rounded-full bg-foreground flex-shrink-0 mt-1.5" />}
                         </>
                       );
                       const rowCls = cn("flex gap-3 px-4 py-3.5 transition-colors active:bg-white/[0.06] w-full text-left", n.is_read ? "hover:bg-card-raised" : "bg-white/[0.04] hover:bg-white/[0.07]");

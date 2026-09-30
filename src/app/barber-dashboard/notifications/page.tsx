@@ -161,24 +161,24 @@ export default function BarberNotificationsPage() {
         }}
         className={cn("relative flex items-start gap-3 p-3.5 rounded-2xl border transition-colors cursor-pointer active:bg-white/[0.06]",
           notif.is_read ? "bg-card border-border" : "bg-card-raised border-border")}>
-        <div className={cn("w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0", c.chip)}>
+        <div className="cw-notification-icon w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0">
           <c.Icon size={16} />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            {!notif.is_read && <span className="w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0" />}
+            {!notif.is_read && <span className="w-2 h-2 rounded-full bg-foreground flex-shrink-0" />}
             <p className={cn("text-sm leading-tight truncate flex-1", notif.is_read ? "font-semibold text-[#dcdcdc]" : "font-bold text-foreground")}>{cleanNotifTitle(notif.title)}</p>
           </div>
           <p className="text-[13px] text-grey mt-1 leading-relaxed line-clamp-2">{humanizeMessage(notif.message)}</p>
           <div className="flex items-center justify-between mt-1.5">
-            <span className="text-xs text-grey-muted">{notifTime(notif.created_at)}</span>
-            {c.actionable && <span className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-amber-300">Review <ChevronRight size={12} /></span>}
+            <span className="text-xs text-grey">{notifTime(notif.created_at)}</span>
+            {c.actionable && <span className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-foreground">Review <ChevronRight size={12} /></span>}
           </div>
         </div>
         {/* Always-visible dismiss — a hover-only X is invisible on touch. */}
         <button type="button" aria-label="Dismiss notification"
           onClick={(e) => { e.stopPropagation(); dismiss(notif.id); }}
-          className="flex-shrink-0 -mr-1 -mt-0.5 w-8 h-8 rounded-full flex items-center justify-center text-grey-muted hover:text-foreground hover:bg-white/5 active:bg-white/10 transition-colors">
+          className="flex-shrink-0 -mr-1 -mt-0.5 w-8 h-8 rounded-full flex items-center justify-center text-grey hover:text-foreground hover:bg-white/5 active:bg-white/10 transition-colors">
           <X size={16} />
         </button>
       </div>
@@ -232,7 +232,7 @@ export default function BarberNotificationsPage() {
               {f.l}
               {count > 0 && (
                 <span className={cn("text-[10px] font-bold rounded-full px-1.5 min-w-[18px] text-center",
-                  f.v === "all" ? "bg-emerald-500 text-black" : active ? "bg-background/15 text-background" : "bg-white/10 text-grey")}>
+                  f.v === "all" ? "bg-background text-foreground border border-border" : active ? "bg-background/15 text-background" : "bg-white/10 text-grey")}>
                   {count}
                 </span>
               )}
@@ -281,7 +281,7 @@ export default function BarberNotificationsPage() {
             {PREF_ROWS.map(row => (
               <div key={row.key} className="flex items-center justify-between gap-4 p-3.5 rounded-2xl border border-border bg-card">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0", row.tint)}>
+                  <div className="cw-notification-icon w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0">
                     <row.Icon size={18} />
                   </div>
                   <div className="min-w-0">
@@ -292,7 +292,7 @@ export default function BarberNotificationsPage() {
                 <Switch checked={!!prefs[row.key]} onChange={() => togglePref(row.key)} />
               </div>
             ))}
-            <p className="text-[11px] text-grey-muted px-1 pt-1 leading-relaxed">
+            <p className="text-[11px] text-grey px-1 pt-1 leading-relaxed">
               Turning one off only silences its pop-up + chime on this device — it still appears in the list above.
             </p>
           </div>
