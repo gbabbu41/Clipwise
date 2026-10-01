@@ -27,21 +27,25 @@ export function MarketingLightShell({ children }: { children: ReactNode }) {
           <header className={styles.nav}>
             <Link href="/" className={styles.wordmark} aria-label="ClipWise home">CLIPWISE</Link>
             <nav aria-label="Main navigation" className={styles.links}>
-              <a href="/#product">Product</a>
-              <a href="/#plans">Pricing</a>
-              <Link href="/login">Log in</Link>
+              <Link href="/features">Product</Link>
+              <Link href="/online-booking">Booking</Link>
+              <Link href="/payments">Payments</Link>
+              <Link href="/shops">Find a shop</Link>
+              <Link href="/pricing" className={styles.mobileNavVisible}>Pricing</Link>
+              <Link href="/login" className={styles.mobileNavVisible}>Log in</Link>
             </nav>
             <Link href="/signup" className={styles.navCta}>Get started</Link>
           </header>
           {children}
           <footer className={styles.footer}>
-            <Link href="/" className={styles.wordmark}>CLIPWISE</Link>
-            <span>Barbershop software, built for Canadian shops.</span>
-            <nav aria-label="Footer" className={styles.footerLinks}>
-              <Link href="/pricing">Pricing</Link>
-              <Link href="/privacy">Privacy</Link>
-              <Link href="/terms">Terms</Link>
-              <a href="mailto:support@clipwise.ca">Contact</a>
+            <div className={styles.footerBrand}>
+              <Link href="/" className={styles.wordmark}>CLIPWISE</Link>
+              <span>Barbershop software, built for Canadian shops.</span>
+            </div>
+            <nav aria-label="Footer" className={styles.footerNavigation}>
+              <div className={styles.footerGroup}><h2>Explore</h2><Link href="/features">Features</Link><Link href="/online-booking">Online booking</Link><Link href="/payments">Payments</Link><Link href="/shops">Find a Barber</Link></div>
+              <div className={styles.footerGroup}><h2>Company &amp; help</h2><Link href="/why-clipwise">Why ClipWise</Link><Link href="/pricing">Pricing</Link><Link href="/support">How payments work</Link><a href="mailto:support@clipwise.ca">Contact</a></div>
+              <div className={styles.footerGroup}><h2>Legal</h2><Link href="/privacy">Privacy</Link><Link href="/terms">Terms</Link><Link href="/cookies">Cookies</Link></div>
             </nav>
           </footer>
         </div>

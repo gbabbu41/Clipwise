@@ -12,7 +12,7 @@ import LoginForm from "./login-form";
 export default function LoginPage() {
   const native = isNativeUserAgent(headers().get("user-agent"));
   return (
-    <AuthShell title="Welcome back" subtitle="Sign in to your ClipWise account" showBack={!native}>
+    <AuthShell title="Welcome back" subtitle="Sign in to your ClipWise account" showBack={!native} light={!native}>
       <LoginForm native={native} />
     </AuthShell>
   );
