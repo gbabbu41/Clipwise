@@ -5,6 +5,7 @@ import { MKT_CSS } from "@/lib/marketing-theme";
 
 const DIRECTORY_LIGHT_THEME = `${MKT_CSS}
 .mkt.lightMarketing{--bg:#f4f6f8;--s1:#fff;--s2:#eef2f6;--line:#dfe4ea;--line2:#cbd4de;--t1:#172334;--t2:#586678;--t3:#68778a;--t4:#8591a0;--ok:#234b70;--warn:#80561a;background:var(--bg);color:var(--t1)}
+.mkt.lightMarketing .navCta{color:#fff;background:#101d2e;border-color:#101d2e}
 .mkt.lightMarketing .dir .badge-warn{color:#354255!important;background:#e9eff6!important;border-color:#c9d7e7!important}
 .mkt.lightMarketing .dir .search input{background:#fff;border-color:#cbd4de;color:#172334}
 .mkt.lightMarketing .dir .search input::placeholder{color:#68778a}
