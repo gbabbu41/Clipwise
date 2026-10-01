@@ -2836,12 +2836,12 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                 calendarApptClass(c.a),
                 flashIds.has(c.a.id) && "ring-2 ring-[#00e5a0] animate-pulse",
               )}>
-              <span className="text-xs font-medium text-grey">{rangeLabel(c.a.time_slot, apptDuration(c.a))}</span>
               <div className="min-w-0">
                 <div className="flex items-center justify-between gap-1 min-w-0">
-                  <p className="text-sm font-semibold truncate">{c.a.client_name}</p>
+                  <p className="cw-cal-card-name text-sm font-semibold truncate">{c.a.client_name}</p>
                   <span className={cn("text-[10px] font-semibold flex-shrink-0", calendarStatusClass(c.a.status))}>{statusLabel(c.a.status)}</span>
                 </div>
+                <p className="cw-cal-card-time mt-0.5 text-xs leading-tight">{c.a.time_slot}</p>
                 <p className="text-[11px] text-grey truncate">
                   {(c.a.services as { name: string } | null)?.name ?? "—"}
                   {(Number(c.a.total_amount ?? 0) + Number(c.a.tip_amount ?? 0)) > 0 ? ` · ${formatCurrency(Number(c.a.total_amount ?? 0) + Number(c.a.tip_amount ?? 0))}` : ""}
@@ -3074,27 +3074,27 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                           onClick={() => setSelectedAppt(appt)}
                         >
                           <div className="flex items-center justify-between gap-1 leading-tight">
-                            <p className="text-[11px] font-semibold truncate">{appt.client_name}</p>
+                            <p className="cw-cal-card-name text-[11px] font-semibold truncate">{appt.client_name}</p>
                             <span className={cn("text-[10px] font-semibold flex-shrink-0", calendarStatusClass(appt.status))}>{statusLabel(appt.status)}</span>
                           </div>
-                          {height > 24 && (
-                            <div className="flex items-baseline justify-between gap-1.5 leading-tight">
-                              <span className="cw-cal-secondary text-[9px] truncate">{rangeLabel(appt.time_slot, duration)}</span>
-                              <span className="cw-cal-payment text-[8px] font-normal flex-shrink-0 whitespace-nowrap">
-                                {paymentTag(appt).segments.map((s, i) => (
-                                  <Fragment key={i}>
-                                    {i > 0 && <span className="text-grey-muted">·</span>}
-                                    <span className={s.className}>{s.text}</span>
-                                  </Fragment>
-                                ))}
-                              </span>
-                            </div>
+                          {height > 34 && (
+                            <p className="cw-cal-card-time mt-0.5 text-[9px] leading-tight truncate">{appt.time_slot}</p>
                           )}
                           {height > 64 && (
-                            <p className="text-[9px] text-grey truncate leading-tight">
+                            <p className="mt-0.5 text-[9px] text-grey truncate leading-tight">
                               {(appt.services as { name: string } | null)?.name ?? "—"}
                               {(Number(appt.total_amount ?? 0) + Number(appt.tip_amount ?? 0)) > 0 ? ` · ${formatCurrency(Number(appt.total_amount ?? 0) + Number(appt.tip_amount ?? 0))}` : ""}
                             </p>
+                          )}
+                          {height > 96 && (
+                            <div className="cw-cal-payment mt-0.5 text-[8px] font-normal leading-tight truncate">
+                              {paymentTag(appt).segments.map((s, i) => (
+                                <Fragment key={i}>
+                                  {i > 0 && <span className="text-grey-muted"> · </span>}
+                                  <span className={s.className}>{s.text}</span>
+                                </Fragment>
+                              ))}
+                            </div>
                           )}
                         </button>
                       );
@@ -3296,10 +3296,10 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                             calendarApptClass(appt), flashIds.has(appt.id) && "ring-2 ring-[#00e5a0] animate-pulse z-10")}
                           onClick={() => setSelectedAppt(appt)}>
                           <div className="flex items-center justify-between gap-1 leading-tight">
-                            <p className="text-[11px] font-semibold truncate">{appt.client_name}</p>
+                            <p className="cw-cal-card-name text-[11px] font-semibold truncate">{appt.client_name}</p>
                             <span className={cn("text-[9px] font-semibold flex-shrink-0", calendarStatusClass(appt.status))}>{statusLabel(appt.status)}</span>
                           </div>
-                          {height > 34 && <p className="text-[9px] text-[#bbb] truncate leading-tight">{appt.time_slot}</p>}
+                          {height > 34 && <p className="cw-cal-card-time mt-0.5 text-[9px] truncate leading-tight">{appt.time_slot}</p>}
                         </button>
                       );
                     })}
@@ -3404,17 +3404,18 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                         title={`${appt.client_name} · ${statusLabel(appt.status ?? "unknown")} · ${rangeLabel(appt.time_slot, duration)}`}
                         data-status={appt.status ?? "unknown"}
                         className={cn(
-                          "rounded-r-lg rounded-l-sm px-2.5 py-1.5 text-left overflow-hidden pointer-events-auto",
+                          "rounded-r-lg rounded-l-sm px-2.5 py-1 text-left overflow-hidden pointer-events-auto",
                           calendarApptClass(appt),
                         )}
                         onClick={() => setSelectedAppt(appt)}
                       >
                         <div className="flex items-center justify-between gap-1 leading-tight">
-                          <p className="text-xs font-semibold truncate">{appt.time_slot} · {appt.client_name}</p>
+                          <p className="cw-cal-card-name text-[11px] font-semibold truncate">{appt.client_name}</p>
                           <span className={cn("text-[10px] font-semibold flex-shrink-0", calendarStatusClass(appt.status))}>{statusLabel(appt.status)}</span>
                         </div>
+                        {height > 34 && <p className="cw-cal-card-time mt-0.5 text-[10px] leading-tight truncate">{appt.time_slot}</p>}
                         {height > 44 && (
-                          <p className="text-[11px] text-grey truncate">
+                          <p className="mt-0.5 text-[11px] text-grey truncate">
                             {(appt.services as { name: string } | null)?.name} · {barber?.name ?? "Any"}
                           </p>
                         )}
@@ -3541,11 +3542,11 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                           onClick={() => setSelectedAppt(appt)}
                         >
                           <div className="flex items-center justify-between gap-1 leading-tight">
-                            <p className="text-[11px] font-semibold truncate">{appt.client_name}</p>
+                            <p className="cw-cal-card-name text-[11px] font-semibold truncate">{appt.client_name}</p>
                             <span className={cn("text-[9px] font-semibold flex-shrink-0", calendarStatusClass(appt.status))}>{statusLabel(appt.status)}</span>
                           </div>
                           {height > 36 && (
-                            <p className="text-[10px] text-grey truncate">{appt.time_slot}</p>
+                            <p className="cw-cal-card-time mt-0.5 text-[10px] leading-tight truncate">{appt.time_slot}</p>
                           )}
                         </button>
                       );
