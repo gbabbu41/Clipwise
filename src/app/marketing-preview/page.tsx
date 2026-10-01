@@ -19,7 +19,6 @@ const capabilities = [
 ];
 
 const ASSETS = {
-  checkout: { src: "/marketing-preview/checkout-light.png", width: 1440, height: 896, alt: "Fade Mechanic’s ClipWise checkout with service selection and payment options" },
   servicesMobile: { src: "/marketing-preview/services-mobile.png", width: 368, height: 796, alt: "Fade Mechanic booking flow showing service choices" },
   timesMobile: { src: "/marketing-preview/times-mobile.png", width: 368, height: 796, alt: "Fade Mechanic booking flow showing available times and barbers" },
   shopMobile: { src: "/marketing-preview/shop-mobile.png", width: 384, height: 832, alt: "Fade Mechanic’s shop page in the ClipWise booking experience" },
@@ -47,10 +46,10 @@ export default function MarketingPreviewPage() {
           </div>
           <p className={styles.heroNote}>Less admin.<br />More good cuts.</p>
         </div>
-        <div className={styles.heroVisual} aria-label="ClipWise in-shop checkout preview">
+        <div className={styles.heroVisual}>
           <div className={styles.laptop}>
             <div className={styles.laptopScreen}>
-              <Image src={ASSETS.checkout.src} alt={ASSETS.checkout.alt} width={ASSETS.checkout.width} height={ASSETS.checkout.height} priority sizes="(max-width: 900px) 100vw, 64vw" />
+              <Image src="/marketing-preview/calendar-demo.svg" alt="ClipWise calendar with ten illustrative demo appointments for two barbers at Fade Mechanic" width={1440} height={896} priority sizes="(max-width: 900px) 100vw, 64vw" />
             </div>
             <div className={styles.laptopBase} aria-hidden="true" />
           </div>
@@ -66,7 +65,7 @@ export default function MarketingPreviewPage() {
               </div>
             </figure>
           </div>
-          <p className={styles.visualCaption}>In-shop checkout · Fade Mechanic</p>
+          <p className={styles.visualCaption}>Calendar · Illustrative demo appointments</p>
         </div>
       </section>
 
