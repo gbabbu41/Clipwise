@@ -58,6 +58,49 @@ const bookingHtml = req('react-dom/server').renderToStaticMarkup(req('react').cr
 assert.match(bookingHtml, /New booking · \$16 · with Gill/);
 assert.match(bookingHtml, /Skin Fade · Paid/);
 
+// Loyalty / promo discounts ride at the end of new-booking alerts (price-breakdown
+// discountSummary) — they must become their own line, never part of the time.
+const pointsBooking = parseAppointmentNotification({
+  type: 'booking', title: 'New booking · $15.93',
+  message: 'Cw test booking booked Skin Fade with Gill & paid for Monday · October 5 at 9:00 AM · 423 pts −$21.15',
+});
+assert.equal(pointsBooking.amount, '$15.93');
+assert.equal(pointsBooking.service, 'Skin Fade');
+assert.equal(pointsBooking.payment, 'Paid');
+assert.deepEqual(pointsBooking.current, { date: 'Monday · October 5', time: '9:00 AM' });
+assert.equal(pointsBooking.discount, '423 pts −$21.15');
+const pointsHtml = req('react-dom/server').renderToStaticMarkup(req('react').createElement(AppointmentNotificationContent, {
+  summary: pointsBooking, createdAt: '2026-09-30T12:00:00Z', isRead: false,
+}));
+assert.match(pointsHtml, /Skin Fade · Paid · 423 pts −\$21\.15/);
+assert.doesNotMatch(pointsHtml, /9:00 AM · 423/);
+
+const inShopDiscount = parseAppointmentNotification({
+  type: 'booking', title: 'New booking — needs approval',
+  message: 'Baljit — Haircut with Gill on Tuesday · October 6 at 10:15 AM · tap to approve · 200 pts −$10.00 · promo SAVE10 −$3.00',
+});
+assert.equal(inShopDiscount.barber, 'Gill');
+assert.equal(inShopDiscount.current.time, '10:15 AM');
+assert.equal(inShopDiscount.discount, '200 pts −$10.00 · promo SAVE10 −$3.00');
+
+const promoOnly = parseAppointmentNotification({
+  type: 'booking', title: 'New booking',
+  message: 'Client Five — Beard Trim on Tomorrow · October 2 at 1:00 PM · promo −$2.50',
+});
+assert.equal(promoOnly.current.time, '1:00 PM');
+assert.equal(promoOnly.discount, 'promo −$2.50');
+
+// Must agree with what the server actually writes.
+const { discountSummary } = load('src/lib/price-breakdown.ts');
+const written = discountSummary({ loyalty_points: 423, loyalty_discount: 21.15, promo_code: 'SAVE10', promo_discount: 5 });
+const roundTrip = parseAppointmentNotification({
+  type: 'booking', title: 'New booking · $9.50',
+  message: `Client Six booked Skin Fade with Gill (card saved) for October 5 at 9:00 AM · ${written}`,
+});
+assert.equal(roundTrip.discount, written);
+assert.equal(roundTrip.current.time, '9:00 AM');
+assert.equal(richBooking.discount, undefined);
+
 const approvalBooking = parseAppointmentNotification({
   type: 'booking', title: 'New booking — needs approval',
   message: 'New client — Beard Trim with Lee on Monday · October 5 at 10:00 AM · tap to approve',
@@ -120,4 +163,4 @@ assert.equal(malformedTime.previous.time, '11:00 AM extra');
 
 assert.equal(parseAppointmentNotification({ type: 'system', title: 'Plan updated', message: 'Your account is ready.' }), null);
 assert.equal(parseAppointmentNotification({ type: 'booking', title: 'Appointment rescheduled', message: 'Legacy update without recognized fields' }), null);
-console.log('PASS notification presentation: reschedule/cancel templates, timezone-safe raw date, 12h time, safe fallback');
+console.log('PASS notification presentation: reschedule/cancel templates, timezone-safe raw date, 12h time, discount line, safe fallback');

@@ -9,6 +9,8 @@ export type AppointmentNotificationSummary = {
   barber?: string;
   amount?: string;
   payment?: string;
+  /** Points / promo behind a discounted total ("423 pts −$21.15 · promo SAVE10 −$5.00"). */
+  discount?: string;
 };
 
 type NotificationText = { title: string; message: string; type: string };
@@ -37,6 +39,12 @@ function dateAndTime(value: string) {
   return { date: humanDate(value.slice(0, splitAt)), time: humanTime(value.slice(splitAt + 4)) };
 }
 
+// The trailing "· 423 pts −$21.15 · promo SAVE10 −$5.00" that new-booking alerts
+// carry (price-breakdown.ts discountSummary). Split off before the templates below
+// so it never lands inside the time.
+const DISCOUNT_PART = String.raw`(?:\d[\d,]* pts|points|promo(?: [^·]+?)?) [−-]\$[\d,]+(?:\.\d{1,2})?`;
+const DISCOUNT_TAIL = new RegExp(String.raw`\s·\s(${DISCOUNT_PART}(?:\s·\s${DISCOUNT_PART})*)$`);
+
 /** Parse only the two known appointment-change message formats; legacy or
  * unfamiliar messages stay on the original generic notification renderer. */
 export function parseAppointmentNotification(n: NotificationText): AppointmentNotificationSummary | null {
@@ -64,9 +72,15 @@ export function parseAppointmentNotification(n: NotificationText): AppointmentNo
   }
 
   if (n.type !== "booking") return null;
+  const tail = n.message.match(DISCOUNT_TAIL);
+  const summary = parseBooking(title, tail ? n.message.slice(0, tail.index) : n.message);
+  return summary && tail ? { ...summary, discount: tail[1] } : summary;
+}
+
+function parseBooking(title: string, message: string): AppointmentNotificationSummary | null {
 
   if (/reschedul/i.test(title)) {
-    const moved = n.message.match(/^(.+?):\s*(.+?)\s*→\s*(.+?)(?:\s·\swith\s+(.+))?$/);
+    const moved = message.match(/^(.+?):\s*(.+?)\s*→\s*(.+?)(?:\s·\swith\s+(.+))?$/);
     if (moved) {
       const previous = dateAndTime(moved[2]);
       const current = dateAndTime(moved[3]);
@@ -74,7 +88,7 @@ export function parseAppointmentNotification(n: NotificationText): AppointmentNo
       return { clientName: moved[1], event: title, previous, current, barber: moved[4] };
     }
 
-    const selfRescheduled = n.message.match(/^(.+?) rescheduled to (.+?) at (.+?) \(was (.+?) at (.+?)\)(?: · with (.+))?$/);
+    const selfRescheduled = message.match(/^(.+?) rescheduled to (.+?) at (.+?) \(was (.+?) at (.+?)\)(?: · with (.+))?$/);
     if (selfRescheduled) {
       return {
         clientName: selfRescheduled[1],
@@ -93,7 +107,7 @@ export function parseAppointmentNotification(n: NotificationText): AppointmentNo
   const amount = suffix && /^[$€£]\s?[\d,]+(?:\.\d{1,2})?$/.test(suffix) ? suffix : undefined;
   const event = amount ? "New booking" : title;
 
-  const finalizeMessage = n.message.match(/^(.+?) booked (.+?) with (.+?) (& paid|\((?:pay at shop · card on file|card saved|card on hold)\)) for (.+?) at (.+)$/i);
+  const finalizeMessage = message.match(/^(.+?) booked (.+?) with (.+?) (& paid|\((?:pay at shop · card on file|card saved|card on hold)\)) for (.+?) at (.+)$/i);
   if (finalizeMessage) {
     const current = dateAndTime(`${finalizeMessage[5]} at ${finalizeMessage[6]}`);
     if (!current) return null;
@@ -101,21 +115,21 @@ export function parseAppointmentNotification(n: NotificationText): AppointmentNo
     return { clientName: finalizeMessage[1], event, amount, service: finalizeMessage[2], barber: finalizeMessage[3], payment, current };
   }
 
-  const simplePaidMessage = n.message.match(/^(.+?) booked & paid for (.+?) at (.+)$/i);
+  const simplePaidMessage = message.match(/^(.+?) booked & paid for (.+?) at (.+)$/i);
   if (simplePaidMessage) {
     const current = dateAndTime(`${simplePaidMessage[2]} at ${simplePaidMessage[3]}`);
     if (!current) return null;
     return { clientName: simplePaidMessage[1], event, amount, payment: "Paid", current };
   }
 
-  const withBarberMessage = n.message.match(/^(.+?) — (.+?) with (.+?) on (.+?) at (.+?)(?: · tap to approve)?$/i);
+  const withBarberMessage = message.match(/^(.+?) — (.+?) with (.+?) on (.+?) at (.+?)(?: · tap to approve)?$/i);
   if (withBarberMessage) {
     const current = dateAndTime(`${withBarberMessage[4]} at ${withBarberMessage[5]}`);
     if (!current) return null;
     return { clientName: withBarberMessage[1], event, amount, service: withBarberMessage[2], barber: withBarberMessage[3], current };
   }
 
-  const noBarberMessage = n.message.match(/^(.+?) — (.+?) on (.+?) at (.+?)(?: · tap to approve)?$/i);
+  const noBarberMessage = message.match(/^(.+?) — (.+?) on (.+?) at (.+?)(?: · tap to approve)?$/i);
   if (noBarberMessage) {
     const current = dateAndTime(`${noBarberMessage[3]} at ${noBarberMessage[4]}`);
     if (!current) return null;
