@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback, useRef, useMemo, Fragment, type ReactNode } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo, Fragment, type ReactNode, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence, MotionConfig } from "framer-motion";
 import { ChevronDown, ChevronLeft, ChevronRight, X, Plus, Users, Ban, Phone, Mail, MessageSquare, Search, Check, Scissors, Clock, LayoutGrid, Columns3, CalendarDays, LocateFixed, CreditCard, CircleCheck, Link2, Banknote, Gift, TriangleAlert, Pencil } from "lucide-react";
@@ -20,6 +20,7 @@ import { calendarFocusTop, calendarHourOffset, calendarLandingHour, fullDayCalen
 import { cacheGet, cacheSet } from "@/lib/view-cache";
 import { calendarEditTotals, type CalendarAddContext } from "@/lib/calendar-workflow";
 import { clampNoShowPct, NO_SHOW_LEAD_MINUTES, formatPhone } from "@/lib/validation";
+import { calendarBarberTint, calendarStatusTone } from "@/lib/calendar-appearance";
 
 // 15-minute slot grid (display strings) for the appointment-edit time picker —
 // keeps edited times on the slot windows instead of a free-form "5:03 PM".
@@ -161,32 +162,7 @@ const isSameMonth = (a: Date, b: Date) => a.getMonth() === b.getMonth() && a.get
 const initials = (name?: string | null) =>
   (name ?? "?").trim().split(/\s+/).map(w => w[0]).slice(0, 2).join("").toUpperCase() || "?";
 
-// ── Barber palette ───────────────────────────────────────────────────────────
-// Colored avatar/dot per barber so "who is doing what" reads at a glance.
-const BARBER_DOT_PALETTE = [
-  "bg-sky-400", "bg-emerald-400", "bg-violet-400", "bg-rose-400",
-  "bg-orange-400", "bg-cyan-400", "bg-fuchsia-400", "bg-lime-400",
-];
-
-// ── Status palettes ──────────────────────────────────────────────────────────
-// The calendar canvas is LIGHT (Fresha-style), so appointment blocks use a pale
-// fill + a colored left edge + dark text. Identity by status: booked / pending /
-// completed / cancelled read at a glance.
-const STATUS_BLOCK: Record<string, string> = {
-  pending:   "bg-amber-50 text-amber-900 border-l-4 border-amber-400",
-  confirmed: "bg-emerald-50 text-emerald-900 border-l-4 border-emerald-400",
-  completed: "bg-sky-50 text-sky-900 border-l-4 border-sky-400",
-  cancelled: "bg-rose-50 text-rose-800 border-l-4 border-rose-300",
-  "no-show": "bg-zinc-100 text-zinc-600 border-l-4 border-zinc-400",
-};
-// Compact month-view chips (no left edge — too chunky in a small cell).
-const STATUS_CHIP: Record<string, string> = {
-  pending:   "bg-amber-100 text-amber-800",
-  confirmed: "bg-emerald-100 text-emerald-800",
-  completed: "bg-sky-100 text-sky-800",
-  cancelled: "bg-rose-100 text-rose-700",
-  "no-show": "bg-zinc-100 text-zinc-600",
-};
+// Status colors remain on compact month dots/chips and the appointment detail sheet.
 // Saturated fill — used only by the DARK agenda side-sheet chip below.
 const STATUS_FILL: Record<string, string> = {
   pending:   "bg-amber-500/85 text-foreground",
@@ -197,14 +173,12 @@ const STATUS_FILL: Record<string, string> = {
 };
 const STATUS_DOT: Record<string, string> = {
   pending: "bg-amber-400", confirmed: "bg-emerald-400", completed: "bg-sky-400",
-  cancelled: "bg-red-400", "no-show": "bg-zinc-400",
+  cancelled: "bg-zinc-400", "no-show": "bg-rose-400",
 };
 const STATUS_LABEL: Record<string, string> = {
   pending: "Pending", confirmed: "Booked", completed: "Completed",
   cancelled: "Cancelled", "no-show": "No-show",
 };
-const statusBlock = (s: string) => STATUS_BLOCK[s] ?? "bg-sky-50 text-sky-900 border-l-4 border-sky-400";
-const statusChip = (s: string) => STATUS_CHIP[s] ?? "bg-sky-100 text-sky-800";
 const statusFill = (s: string) => STATUS_FILL[s] ?? "bg-sky-500/85 text-foreground";
 const statusDot = (s: string) => STATUS_DOT[s] ?? "bg-sky-400";
 const statusLabel = (s: string) => STATUS_LABEL[s] ?? s;
@@ -213,41 +187,15 @@ const statusLabel = (s: string) => STATUS_LABEL[s] ?? s;
 // from @/lib/availability (the ONE source of truth, shared with the server + DB).
 const isDimmed = (s: string) => s === "cancelled" || s === "no-show";
 
-// ── Dark palettes (ACTIVE theme) ──────────────────────────────────────────────
-// The calendar canvas is now DARK. Appointment blocks use a #1a1a1a fill + a
-// status-colored 3px left edge + light text. The LIGHT palettes above are kept
-// intact for the planned white-theme toggle — DO NOT delete them.
-const STATUS_BLOCK_DARK: Record<string, string> = {
-  pending:   "bg-surface-overlay text-foreground border-l-[3px] border-amber-400",
-  confirmed: "bg-surface-overlay text-foreground border-l-[3px] border-[#00e5a0]",
-  completed: "bg-surface-overlay text-foreground border-l-[3px] border-sky-400",
-  cancelled: "bg-card-raised text-grey border-l-[3px] border-rose-500/70",
-  "no-show": "bg-card-raised text-grey border-l-[3px] border-zinc-500",
-};
-const STATUS_CHIP_DARK: Record<string, string> = {
-  pending:   "bg-amber-500/15 text-amber-300",
-  confirmed: "bg-[#00e5a0]/15 text-[#00e5a0]",
-  completed: "bg-sky-500/15 text-sky-300",
-  cancelled: "bg-rose-500/15 text-rose-300",
-  "no-show": "bg-zinc-500/15 text-zinc-300",
-};
-const statusBlockDark = (s: string) => STATUS_BLOCK_DARK[s] ?? "bg-surface-overlay text-foreground border-l-[3px] border-[#00e5a0]";
-const statusChipDark = (s: string) => STATUS_CHIP_DARK[s] ?? "bg-[#00e5a0]/15 text-[#00e5a0]";
-
-// Appointment "box" style — surface + a 3px left accent, coloured by STATUS:
-// pending → yellow, no-show → red, cancelled/refunded → muted, completed → blue,
-// everything else active (booked/confirmed) → green. Blue means COMPLETED only —
-// a booking stays green even after it's paid or a card is held; payment shows in
-// the separate "Paid / Card held" tag, not the block colour.
-const apptBlock = (a: { status?: string | null; payment_status?: string | null }) => {
-  // Refunded (or cancelled) → muted grey + faded, regardless of prior status.
-  const inactive = a.payment_status === "refunded" || a.status === "cancelled";
-  const border = inactive ? "border-border-strong"
-    : a.status === "no-show" ? "border-[#ff6b6b]"
-    : a.status === "pending" ? "border-[#f5c542]"
-    : a.status === "completed" ? "border-[#4a9eff]"
-    : "border-[#00e5a0]";
-  return cn("cw-apptblock bg-card-raised border-l-[3px] text-foreground", border, inactive && "opacity-60");
+// Appointment identity is stable per barber, independent of query/order changes.
+// Status and payment remain separate labels; these muted tones identify the
+// barber column only. Four tones keep the calendar calm while distinguishing
+// the usual two-to-four barber shop.
+const barberTintStyle = (id: string | null | undefined, roster: readonly string[]) => ({ "--cw-barber-rgb": calendarBarberTint(id, roster) } as CSSProperties);
+const calendarApptClass = (a: { status?: string | null; payment_status?: string | null }) =>
+  cn("cw-cal-appointment", `cw-cal-appointment--${calendarStatusTone(a.status)}`);
+const calendarStatusClass = (status?: string | null) => {
+  return `cw-cal-status cw-cal-status--${calendarStatusTone(status)}`;
 };
 
 // Shared action handlers, wired up by CalendarPage. Mirrors the Appointments
@@ -1579,6 +1527,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   );
   const [appointments, setAppointments] = useState<AppointmentWithDetails[]>([]);
   const [barbers, setBarbers] = useState<Barber[]>([]);
+  const barberTintIds = useMemo(() => barbers.map(b => b.id).sort(), [barbers]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   // Monotonic load counter — only the newest fetch may commit its result, so a
@@ -2182,6 +2131,24 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     const end = dbTimeToDisplay(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00`);
     return `${start} – ${end}`;
   };
+  const compactRangeLabel = (start: string, mins: number) =>
+    rangeLabel(start, mins).replace(/\s(AM|PM) – (\d{1,2}:\d{2}) \1$/, "–$2 $1");
+  const calendarCardMetaText = (appt: AppointmentWithDetails) => {
+    const status = statusLabel(appt.status ?? "unknown");
+    const payment = paymentTag(appt).segments[0]?.text;
+    return payment && payment.toLowerCase() !== status.toLowerCase() ? `${status} · ${payment}` : status;
+  };
+  const renderCalendarCardMeta = (appt: AppointmentWithDetails, className = "") => {
+    const status = statusLabel(appt.status ?? "unknown");
+    const payment = paymentTag(appt).segments[0];
+    const showPayment = payment && payment.text.toLowerCase() !== status.toLowerCase();
+    return (
+      <div className={cn("cw-cal-card-meta min-w-0 truncate text-[9px] font-semibold leading-tight", className)} title={calendarCardMetaText(appt)}>
+        <span className={calendarStatusClass(appt.status)}>{status}</span>
+        {showPayment && <><span className="cw-cal-separator"> · </span><span className={payment.className}>{payment.text}</span></>}
+      </div>
+    );
+  };
 
   // Lay overlapping appointments side-by-side: each gets a lane index + the
   // number of lanes in its overlap cluster, so widths split evenly.
@@ -2214,11 +2181,11 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
   };
 
   // Barber profile pic with initials fallback.
-  const BarberAvatar = ({ b, i, sm }: { b: Barber; i: number; sm?: boolean }) => {
+  const BarberAvatar = ({ b, sm }: { b: Barber; sm?: boolean }) => {
     const dim = sm ? "w-7 h-7 text-[11px]" : "w-11 h-11 text-sm";
     if (b.photo) return <img src={b.photo} alt={b.name} className={cn(dim, "rounded-full object-cover")} />;
     return (
-      <span className={cn(dim, "rounded-full flex items-center justify-center font-bold text-foreground", BARBER_DOT_PALETTE[i % BARBER_DOT_PALETTE.length])}>
+      <span style={barberTintStyle(b.id, barberTintIds)} className={cn(dim, "cw-barber-avatar rounded-full flex items-center justify-center font-bold text-foreground")}>
         {initials(b.name)}
       </span>
     );
@@ -2775,9 +2742,10 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                   <div className="flex flex-col gap-0.5 overflow-hidden">
                     {visible.map(a => (
                       <span key={a.id}
+                        title={`${a.client_name} · ${statusLabel(a.status)}`}
                         className={cn(
-                          "truncate text-[10px] leading-4 px-1.5 rounded-sm font-medium",
-                          statusChipDark(a.status),
+                          "cw-cal-monthchip truncate text-[10px] leading-4 px-1.5 rounded-sm font-medium",
+                          `cw-cal-monthchip--${calendarStatusTone(a.status)}`,
                           isDimmed(a.status) && "line-through opacity-70",
                         )}
                       >
@@ -2862,10 +2830,11 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
             </button>
           ) : c.k === "freed" ? (
             <button key={`freed-${c.a.id}`} onClick={() => openAdd(barber.id, barber.name, c.a.time_slot, apptDuration(c.a))}
-              className="relative rounded-xl p-3 text-left min-h-[88px] flex flex-col justify-between border border-dashed border-[#ff6b6b]/50 bg-[#ff6b6b]/[0.06] hover:bg-[#ff6b6b]/10 transition-colors">
+              className={cn("cw-cal-freed-slot relative rounded-xl p-3 text-left min-h-[88px] flex flex-col justify-between border border-dashed transition-colors",
+                c.a.status === "no-show" ? "cw-cal-freed-slot--no-show" : "cw-cal-freed-slot--cancelled")}>
               <span className="text-xs font-medium text-grey">{rangeLabel(c.a.time_slot, apptDuration(c.a))}</span>
               <div className="min-w-0">
-                <p className={cn("text-sm font-semibold truncate text-[#ff8a8a]", c.a.status !== "no-show" && "line-through")}>{c.a.status === "no-show" ? "No-show" : "Cancelled"}</p>
+                <p className={cn("cw-cal-freed-status text-sm font-semibold truncate", c.a.status === "no-show" ? "cw-cal-freed-status--no-show" : "cw-cal-freed-status--cancelled", c.a.status !== "no-show" && "line-through")}>{c.a.status === "no-show" ? "No-show" : "Cancelled"}</p>
                 <p className="text-[11px] text-grey-muted truncate">{c.a.client_name}</p>
               </div>
               <span className="text-[10px] font-semibold text-grey-muted">Open — tap to book again</span>
@@ -2877,38 +2846,24 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
             </button>
           ) : (
             <button key={c.a.id} onClick={() => setSelectedAppt(c.a)}
+              data-appointment-status={c.a.status ?? "unknown"}
+              data-status={c.a.status ?? "unknown"}
+              aria-label={`${c.a.client_name}, ${compactRangeLabel(c.a.time_slot, apptDuration(c.a))}, ${calendarCardMetaText(c.a)}`}
+              title={`${c.a.client_name} · ${compactRangeLabel(c.a.time_slot, apptDuration(c.a))} · ${calendarCardMetaText(c.a)}`}
               className={cn(
                 "rounded-xl p-3 text-left min-h-[88px] flex flex-col justify-between transition-all hover:brightness-125",
-                apptBlock(c.a), isDimmed(c.a.status) && "opacity-60 line-through",
+                calendarApptClass(c.a),
                 flashIds.has(c.a.id) && "ring-2 ring-[#00e5a0] animate-pulse",
               )}>
-              <span className="text-xs font-medium text-grey">{rangeLabel(c.a.time_slot, apptDuration(c.a))}</span>
               <div className="min-w-0">
                 <p className="text-sm font-semibold truncate">{c.a.client_name}</p>
-                <p className="text-[11px] text-grey truncate">
-                  {(c.a.services as { name: string } | null)?.name ?? "—"}
-                  {(Number(c.a.total_amount ?? 0) + Number(c.a.tip_amount ?? 0)) > 0 ? ` · ${formatCurrency(Number(c.a.total_amount ?? 0) + Number(c.a.tip_amount ?? 0))}` : ""}
-                </p>
+                <p className="cw-cal-card-time mt-0.5 text-xs leading-tight">{compactRangeLabel(c.a.time_slot, apptDuration(c.a))}</p>
               </div>
-              {(c.a.payment_status === "paid" || c.a.payment_status === "captured") ? (
-                <span className="text-[10px] font-semibold">
-                  <span className="text-[#00e5a0]">Paid</span>
-                  <span className="text-grey-muted"> · </span>
-                  <span className={c.a.payment_method === "cash" ? "text-[#bbb]" : "text-[#00e5a0]"}>
-                    {c.a.payment_method === "cash" ? "Cash" : c.a.payment_method === "online" ? "Online" : c.a.payment_method === "gift_card" ? "Gift card" : "Card"}
-                  </span>
-                </span>
-              ) : c.a.status === "completed" ? (
-                <span className="text-[10px] font-semibold text-[#bbb]">Unpaid</span>
-              ) : c.a.stripe_payment_method_id ? (
-                <span className="text-[10px] font-semibold text-[#4a9eff]">
-                  {c.a.payment_status === "held" ? "Card held" : c.a.payment_status === "saved" ? "Card saved" : "Card on file"}
-                </span>
-              ) : c.a.payment_method === "cash" ? (
-                <span className="text-[10px] font-semibold text-[#bbb]">Pay at shop</span>
-              ) : (
-                <span className="text-[10px] font-semibold text-grey">{statusLabel(c.a.status)}</span>
-              )}
+              {renderCalendarCardMeta(c.a, "text-[10px]")}
+              <p className="text-[11px] text-grey truncate">
+                {(c.a.services as { name: string } | null)?.name ?? "—"}
+                {(Number(c.a.total_amount ?? 0) + Number(c.a.tip_amount ?? 0)) > 0 ? ` · ${formatCurrency(Number(c.a.total_amount ?? 0) + Number(c.a.tip_amount ?? 0))}` : ""}
+              </p>
             </button>
           ))}
           {cells.length === 0 && (
@@ -2995,13 +2950,12 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                 </span>
               </button>
               {cols.map((b) => {
-                const gi = barbers.indexOf(b);
                 const n = dayAppts.filter(a => barbers.length === 0 || a.barber_id === b.id).length;
                 return (
                   <button key={b.id} type="button" onClick={() => setBarberFilter(b.id)}
                     className="px-2 py-1.5 border-l border-border hover:bg-card-raised transition-colors min-w-0">
                     <div className="flex items-center justify-center gap-1.5 min-w-0">
-                      <BarberAvatar b={b} i={gi >= 0 ? gi : 0} sm />
+                      <BarberAvatar b={b} sm />
                       <span className="text-xs text-foreground font-medium truncate">{b.name}</span>
                       {!schedules.has(b.id) && <span className="text-[9px] text-grey-muted flex-shrink-0" title="No schedule set for today">off</span>}
                     </div>
@@ -3096,7 +3050,6 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                       const top = (parseTime(appt.time_slot) - winStart) * rowH;
                       const duration = apptDuration(appt);
                       const height = Math.max(28, (duration / 60) * rowH - 4);
-                      const dimmed = isDimmed(appt.status);
                       const widthPct = 100 / lanes;
                       return (
                         <button
@@ -3107,33 +3060,35 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                             width: `calc(${widthPct}% - 4px)`,
                             position: "absolute",
                           }}
+                          data-appointment-status={appt.status ?? "unknown"}
+                          aria-label={`${appt.client_name}, ${compactRangeLabel(appt.time_slot, duration)}, ${calendarCardMetaText(appt)}`}
+                          title={`${appt.client_name} · ${compactRangeLabel(appt.time_slot, duration)} · ${calendarCardMetaText(appt)}`}
+                          data-status={appt.status ?? "unknown"}
                           className={cn(
                             "rounded-[10px] px-1.5 py-0.5 text-left overflow-hidden pointer-events-auto transition-all hover:z-10 hover:brightness-125",
-                            apptBlock(appt),
-                            dimmed && "opacity-60 line-through",
+                            calendarApptClass(appt),
                             flashIds.has(appt.id) && "ring-2 ring-[#00e5a0] animate-pulse z-10",
                           )}
                           onClick={() => setSelectedAppt(appt)}
                         >
                           <p className="text-[11px] font-semibold truncate leading-tight">{appt.client_name}</p>
-                          {height > 24 && (
-                            <div className="flex items-baseline justify-between gap-1.5 leading-tight">
-                              <span className="text-[9px] text-[#bbb] truncate">{rangeLabel(appt.time_slot, duration)}</span>
-                              <span className="text-[8px] font-normal flex-shrink-0 whitespace-nowrap opacity-90">
-                                {paymentTag(appt).segments.map((s, i) => (
-                                  <Fragment key={i}>
-                                    {i > 0 && <span className="text-grey-muted">·</span>}
-                                    <span className={s.className}>{s.text}</span>
-                                  </Fragment>
-                                ))}
-                              </span>
-                            </div>
-                          )}
+                          {height > 24 && <p className="cw-cal-card-time text-[9px] truncate leading-tight">{compactRangeLabel(appt.time_slot, duration)}</p>}
+                          {height > 40 && renderCalendarCardMeta(appt)}
                           {height > 64 && (
-                            <p className="text-[9px] text-grey truncate leading-tight">
+                            <p className="mt-0.5 text-[9px] text-grey truncate leading-tight">
                               {(appt.services as { name: string } | null)?.name ?? "—"}
                               {(Number(appt.total_amount ?? 0) + Number(appt.tip_amount ?? 0)) > 0 ? ` · ${formatCurrency(Number(appt.total_amount ?? 0) + Number(appt.tip_amount ?? 0))}` : ""}
                             </p>
+                          )}
+                          {height > 96 && (
+                            <div className="cw-cal-payment mt-0.5 text-[8px] font-normal leading-tight truncate">
+                              {paymentTag(appt).segments.map((s, i) => (
+                                <Fragment key={i}>
+                                  {i > 0 && <span className="text-grey-muted"> · </span>}
+                                  <span className={s.className}>{s.text}</span>
+                                </Fragment>
+                              ))}
+                            </div>
                           )}
                         </button>
                       );
@@ -3162,8 +3117,9 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                             title={`${noShow ? "No-show" : "Cancelled"} — tap to book this slot again`}
                             style={{ top: `${top + 2}px`, height: `${height}px`, left: "4px", right: "4px", position: "absolute" }}
                             onClick={() => openAdd(b.id, b.name, fa.time_slot, apptDuration(fa))}
-                            className="rounded-lg border border-dashed border-[#ff6b6b]/50 bg-[#ff6b6b]/[0.06] hover:bg-[#ff6b6b]/10 px-1.5 py-0.5 text-left overflow-hidden pointer-events-auto transition-colors">
-                            <p className={cn("text-[10px] font-semibold leading-tight truncate text-[#ff8a8a]", !noShow && "line-through")}>
+                            className={cn("cw-cal-freed-slot rounded-lg border border-dashed px-1.5 py-0.5 text-left overflow-hidden pointer-events-auto transition-colors",
+                              noShow ? "cw-cal-freed-slot--no-show" : "cw-cal-freed-slot--cancelled")}>
+                            <p className={cn("cw-cal-freed-status text-[10px] font-semibold leading-tight truncate", noShow ? "cw-cal-freed-status--no-show" : "cw-cal-freed-status--cancelled", !noShow && "line-through")}>
                               {noShow ? "No-show" : "Cancelled"}<span className="text-grey-muted font-normal no-underline"> · {fa.client_name}</span>
                             </p>
                             {height > 30 && <p className="text-[8px] text-grey-muted leading-tight no-underline">Open — tap to book again</p>}
@@ -3322,16 +3278,20 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                       const top = (parseTime(appt.time_slot) - winStart) * ROW_PX;
                       const duration = apptDuration(appt);
                       const height = Math.max(22, (duration / 60) * ROW_PX - 3);
-                      const dimmed = isDimmed(appt.status);
                       const widthPct = 100 / lanes;
                       return (
                         <button key={appt.id}
                           style={{ top: `${top + 2}px`, height: `${height}px`, left: `calc(${lane * widthPct}% + 2px)`, width: `calc(${widthPct}% - 4px)`, position: "absolute" }}
+                          data-appointment-status={appt.status ?? "unknown"}
+                          aria-label={`${appt.client_name}, ${compactRangeLabel(appt.time_slot, duration)}, ${calendarCardMetaText(appt)}`}
+                          title={`${appt.client_name} · ${compactRangeLabel(appt.time_slot, duration)} · ${calendarCardMetaText(appt)}`}
+                          data-status={appt.status ?? "unknown"}
                           className={cn("rounded-[10px] px-1.5 py-0.5 text-left overflow-hidden pointer-events-auto transition-all hover:z-10 hover:brightness-125",
-                            apptBlock(appt), dimmed && "opacity-60 line-through", flashIds.has(appt.id) && "ring-2 ring-[#00e5a0] animate-pulse z-10")}
+                            calendarApptClass(appt), flashIds.has(appt.id) && "ring-2 ring-[#00e5a0] animate-pulse z-10")}
                           onClick={() => setSelectedAppt(appt)}>
                           <p className="text-[11px] font-semibold truncate leading-tight">{appt.client_name}</p>
-                          {height > 34 && <p className="text-[9px] text-[#bbb] truncate leading-tight">{appt.time_slot}</p>}
+                          {height > 24 && <p className="cw-cal-card-time text-[9px] truncate leading-tight">{compactRangeLabel(appt.time_slot, duration)}</p>}
+                          {height > 40 && renderCalendarCardMeta(appt)}
                         </button>
                       );
                     })}
@@ -3427,21 +3387,25 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                     const top = (startH - winStart) * ROW_PX;
                     const height = Math.max(36, (duration / 60) * ROW_PX - 4);
                     const barber = barbers.find(b => b.id === appt.barber_id);
-                    const dimmed = isDimmed(appt.status);
                     return (
                       <button
                         key={appt.id}
                         style={{ top: `${top + 2}px`, height: `${height}px`, left: "6px", right: "6px", position: "absolute" }}
+                        data-appointment-status={appt.status ?? "unknown"}
+                        aria-label={`${appt.client_name}, ${compactRangeLabel(appt.time_slot, duration)}, ${calendarCardMetaText(appt)}`}
+                        title={`${appt.client_name} · ${compactRangeLabel(appt.time_slot, duration)} · ${calendarCardMetaText(appt)}`}
+                        data-status={appt.status ?? "unknown"}
                         className={cn(
-                          "rounded-r-lg rounded-l-sm px-2.5 py-1.5 text-left overflow-hidden pointer-events-auto",
-                          statusBlockDark(appt.status),
-                          dimmed && "opacity-60 line-through",
+                          "rounded-r-lg rounded-l-sm px-2.5 py-1 text-left overflow-hidden pointer-events-auto",
+                          calendarApptClass(appt),
                         )}
                         onClick={() => setSelectedAppt(appt)}
                       >
-                        <p className="text-xs font-semibold truncate leading-tight">{appt.time_slot} · {appt.client_name}</p>
+                        <p className="text-xs font-semibold truncate leading-tight">{appt.client_name}</p>
+                        <p className="cw-cal-card-time mt-0.5 text-[10px] truncate leading-tight">{compactRangeLabel(appt.time_slot, duration)}</p>
+                        {height > 40 && renderCalendarCardMeta(appt)}
                         {height > 44 && (
-                          <p className="text-[11px] text-grey truncate">
+                          <p className="mt-0.5 text-[11px] text-grey truncate">
                             {(appt.services as { name: string } | null)?.name} · {barber?.name ?? "Any"}
                           </p>
                         )}
@@ -3553,22 +3517,23 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                       const duration = apptDuration(appt);
                       const top = (startH - winStart) * ROW_PX;
                       const height = Math.max(22, (duration / 60) * ROW_PX - 3);
-                      const dimmed = appt.status === "cancelled" || appt.status === "no-show";
                       return (
                         <button
                           key={appt.id}
                           style={{ top: `${top + 2}px`, height: `${height}px`, left: "2px", right: "2px", position: "absolute" }}
+                          data-appointment-status={appt.status ?? "unknown"}
+                          aria-label={`${appt.client_name}, ${compactRangeLabel(appt.time_slot, duration)}, ${calendarCardMetaText(appt)}`}
+                          title={`${appt.client_name} · ${compactRangeLabel(appt.time_slot, duration)} · ${calendarCardMetaText(appt)}`}
+                          data-status={appt.status ?? "unknown"}
                           className={cn(
                             "rounded-r rounded-l-sm px-1.5 py-0.5 text-left overflow-hidden pointer-events-auto transition-all hover:z-10 hover:brightness-125",
-                            statusBlockDark(appt.status),
-                            dimmed && "opacity-60 line-through",
+                            calendarApptClass(appt),
                           )}
                           onClick={() => setSelectedAppt(appt)}
                         >
-                          <p className="text-[11px] font-semibold leading-tight truncate">{appt.client_name}</p>
-                          {height > 36 && (
-                            <p className="text-[10px] text-grey truncate">{appt.time_slot}</p>
-                          )}
+                          <p className="text-[11px] font-semibold truncate leading-tight">{appt.client_name}</p>
+                          {height > 24 && <p className="cw-cal-card-time text-[9px] truncate leading-tight">{compactRangeLabel(appt.time_slot, duration)}</p>}
+                          {height > 40 && renderCalendarCardMeta(appt)}
                         </button>
                       );
                     })}
@@ -3806,7 +3771,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
               <button onClick={() => setViewMenu(o => !o)} aria-label="Choose barber"
                 className="flex items-center gap-0.5 rounded-full border border-border bg-card-raised p-0.5 pr-1 hover:border-border transition-colors">
                 {(() => { const db = barbers.find(b => b.id === dayBarberId); return db
-                  ? <BarberAvatar b={db} i={barbers.indexOf(db)} sm />
+                  ? <BarberAvatar b={db} sm />
                   : <span className="w-7 h-7 rounded-full bg-surface-overlay flex items-center justify-center text-grey"><Users size={14} /></span>; })()}
                 <ChevronDown size={13} className="text-grey" />
               </button>
@@ -3817,7 +3782,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                     {orderedBarbers.map(b => (
                       <button key={b.id} onClick={() => { setBarberFilter(b.id); setViewMenu(false); }}
                         className={cn("w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-card-raised", dayBarberId === b.id ? "text-foreground font-semibold" : "text-grey")}>
-                        <BarberAvatar b={b} i={barbers.indexOf(b)} sm />
+                        <BarberAvatar b={b} sm />
                         <span className="truncate">{b.name}</span>
                       </button>
                     ))}
@@ -3927,7 +3892,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
             <button key={b.id} onClick={() => setBarberFilter(b.id)}
               className={cn("flex flex-col items-center gap-1 flex-shrink-0 w-16 py-1.5 transition-opacity", barberFilter === b.id ? "opacity-100" : "opacity-60 hover:opacity-100")}>
               <span className={cn("rounded-full", barberFilter === b.id && "ring-2 ring-[#00e5a0] ring-offset-2 ring-offset-[#0a0a0a]")}>
-                <BarberAvatar b={b} i={barbers.indexOf(b)} />
+                <BarberAvatar b={b} />
               </span>
               <span className={cn("text-[10px] truncate w-full text-center", barberFilter === b.id ? "text-[#00e5a0] font-semibold" : "text-grey")}>{b.name}</span>
             </button>

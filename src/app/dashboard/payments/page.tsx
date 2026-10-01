@@ -1147,12 +1147,6 @@ export default function PaymentsPage() {
         </button>
       )}
 
-      {/* Footer hint */}
-      <div className="mt-6 flex items-start gap-2 text-xs text-grey-muted">
-        <Clock size={14} className="mt-0.5 flex-shrink-0" />
-        <p>Cards held or on file are charged automatically when you mark the appointment Complete, or as a no-show fee.</p>
-      </div>
-
       {/* ── Transaction detail modal (method, time, fee + refund) ────────────── */}
       {detailItem && (() => {
         const i = detailItem;
