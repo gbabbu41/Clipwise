@@ -49,7 +49,7 @@ export default function MarketingPreviewPage() {
         <div className={styles.heroVisual}>
           <div className={styles.laptop}>
             <div className={styles.laptopScreen}>
-              <Image src="/marketing-preview/calendar-demo.svg" alt="ClipWise calendar with ten illustrative demo appointments for two barbers at Fade Mechanic" width={1440} height={896} priority sizes="(max-width: 900px) 100vw, 64vw" />
+              <Image src="/marketing-preview/calendar-demo-approved.png" alt="ClipWise calendar for Fade Mechanic with twelve fictional demo appointments across three days" width={1586} height={992} priority sizes="(max-width: 900px) 100vw, 64vw" />
             </div>
             <div className={styles.laptopBase} aria-hidden="true" />
           </div>
