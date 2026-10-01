@@ -163,10 +163,11 @@ length under shop lighting.
 `[data-calendar-time-grid]`: light grid `#fff`, gutter `#f6f7f9`, hour labels
 `#60646b`, separators `#d9dde3`; dark grid `#101113`, gutter `#1a1b1e`, hour
 labels `#8b9096`, separators `#303238`. Hour labels are 11px/500. Appointment
-cards use a stable muted barber identity tint on the left edge and surface, with the
-appointment status shown separately as text; payment labels remain independent. This
-calendar-specific identity tint is an approved exception to the general rule that status
-colors encode state only. Keep unavailability hatching, selected-day blue and red
+cards use muted status-specific fills and edges in both themes: green for booked,
+blue for completed, amber for pending, gray for cancelled, and rose for no-show.
+Show appointment status separately as text, and keep payment labels neutral. Barber
+identity colors remain on initials avatars only. Keep unavailability hatching,
+selected-day blue and red
 current-time indicator distinct; these local tokens do not restyle other pages.
 
 **Glass bars.** The canonical implementation is `.cw-bnav` in `globals.css` — copy it,

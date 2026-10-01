@@ -1,5 +1,18 @@
 const BARBER_TINTS = ["93, 143, 194", "74, 151, 143", "190, 145, 77", "151, 126, 184"] as const;
 
+export type CalendarStatusTone = "confirmed" | "completed" | "pending" | "cancelled" | "no-show" | "neutral";
+
+export function calendarStatusTone(status?: string | null): CalendarStatusTone {
+  switch (status) {
+    case "confirmed": return "confirmed";
+    case "completed": return "completed";
+    case "pending": return "pending";
+    case "cancelled": return "cancelled";
+    case "no-show": return "no-show";
+    default: return "neutral";
+  }
+}
+
 /** Stable roster assignment keeps the first four barbers distinct regardless of query order. */
 export function calendarBarberTint(id?: string | null, roster: readonly string[] = []): string {
   if (!id) return "126, 132, 140";
