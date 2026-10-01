@@ -112,6 +112,50 @@ html[data-theme="light"] .portal [data-calendar-time-grid] {
   font-weight: 500;
 }
 
+/* Calendar card tint identifies the barber; status remains an explicit, separate label. */
+.portal .cw-cal-appointment {
+  container-type: inline-size;
+  color: var(--foreground);
+  background-color: var(--card-raised);
+  border-left: 3px solid rgb(var(--cw-barber-rgb, 126, 132, 140));
+}
+@supports (background-color: color-mix(in srgb, #000 10%, #fff)) {
+  .portal .cw-cal-appointment {
+    background-color: color-mix(in srgb, rgb(var(--cw-barber-rgb, 126, 132, 140)) 25%, var(--card-raised));
+  }
+  .portal .cw-cal-appointment--completed {
+    background-color: color-mix(in srgb, rgb(var(--cw-barber-rgb, 126, 132, 140)) 14%, var(--card-raised));
+  }
+  .portal .cw-cal-appointment--inactive {
+    background-color: color-mix(in srgb, #7e848c 8%, var(--card-raised));
+  }
+}
+.portal .cw-cal-status { color: #bcc5d0; }
+.portal .cw-cal-status--pending,
+.portal .cw-cal-status--no-show { color: var(--amber); }
+.portal .cw-cal-status--cancelled { color: var(--red); }
+.portal .cw-cal-secondary { color: #bcc5d0; }
+.portal .cw-cal-payment-neutral { color: #bcc5d0; }
+.portal .cw-cal-paid { color: #5fe2a0; }
+.portal .cw-cal-awaiting { color: #93c5fd; }
+.portal .cw-cal-separator { color: #bcc5d0; }
+.portal .cw-barber-avatar { background-color: rgb(var(--cw-barber-rgb, 126, 132, 140)); }
+html[data-theme="light"] .portal .cw-cal-secondary,
+html[data-theme="light"] .portal .cw-cal-payment-neutral,
+html[data-theme="light"] .portal .cw-cal-status { color: #4b5563; }
+html[data-theme="light"] .portal .cw-cal-paid { color: #157a4a; }
+html[data-theme="light"] .portal .cw-cal-awaiting { color: #1d4ed8; }
+html[data-theme="light"] .portal .cw-cal-separator { color: #4b5563; }
+html[data-theme="light"] .portal .cw-cal-status--pending,
+html[data-theme="light"] .portal .cw-cal-status--no-show { color: #8a5200; }
+html[data-theme="light"] .portal .cw-cal-status--cancelled { color: #b42318; }
+html[data-theme="light"] .portal .cw-cal-appointment [class~="text-[#00e5a0]"] { color: #157a4a !important; }
+html[data-theme="light"] .portal .cw-cal-appointment [class~="text-sky-400"] { color: #1d4ed8 !important; }
+html[data-theme="light"] .portal .cw-cal-appointment [class~="text-[#bbb]"] { color: #4b5563 !important; }
+@container (max-width: 124px) {
+  .portal .cw-cal-appointment .cw-cal-status { display: none; }
+}
+
 :root {
   /* ── ClipWise v2 design system ─────────────────────────────────────────
      Pure-black base, white accents, hairline borders. Manrope for body,
