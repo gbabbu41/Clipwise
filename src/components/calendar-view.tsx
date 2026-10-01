@@ -2131,6 +2131,24 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
     const end = dbTimeToDisplay(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00`);
     return `${start} – ${end}`;
   };
+  const compactRangeLabel = (start: string, mins: number) =>
+    rangeLabel(start, mins).replace(/\s(AM|PM) – (\d{1,2}:\d{2}) \1$/, "–$2 $1");
+  const calendarCardMetaText = (appt: AppointmentWithDetails) => {
+    const status = statusLabel(appt.status ?? "unknown");
+    const payment = paymentTag(appt).segments[0]?.text;
+    return payment && payment.toLowerCase() !== status.toLowerCase() ? `${status} · ${payment}` : status;
+  };
+  const renderCalendarCardMeta = (appt: AppointmentWithDetails, className = "") => {
+    const status = statusLabel(appt.status ?? "unknown");
+    const payment = paymentTag(appt).segments[0];
+    const showPayment = payment && payment.text.toLowerCase() !== status.toLowerCase();
+    return (
+      <div className={cn("cw-cal-card-meta min-w-0 truncate text-[9px] font-semibold leading-tight", className)} title={calendarCardMetaText(appt)}>
+        <span className={calendarStatusClass(appt.status)}>{status}</span>
+        {showPayment && <><span className="cw-cal-separator"> · </span><span className={payment.className}>{payment.text}</span></>}
+      </div>
+    );
+  };
 
   // Lay overlapping appointments side-by-side: each gets a lane index + the
   // number of lanes in its overlap cluster, so widths split evenly.
@@ -2830,42 +2848,22 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
             <button key={c.a.id} onClick={() => setSelectedAppt(c.a)}
               data-appointment-status={c.a.status ?? "unknown"}
               data-status={c.a.status ?? "unknown"}
-              aria-label={`${c.a.client_name}, ${statusLabel(c.a.status ?? "unknown")}, ${rangeLabel(c.a.time_slot, apptDuration(c.a))}`}
+              aria-label={`${c.a.client_name}, ${compactRangeLabel(c.a.time_slot, apptDuration(c.a))}, ${calendarCardMetaText(c.a)}`}
+              title={`${c.a.client_name} · ${compactRangeLabel(c.a.time_slot, apptDuration(c.a))} · ${calendarCardMetaText(c.a)}`}
               className={cn(
                 "rounded-xl p-3 text-left min-h-[88px] flex flex-col justify-between transition-all hover:brightness-125",
                 calendarApptClass(c.a),
                 flashIds.has(c.a.id) && "ring-2 ring-[#00e5a0] animate-pulse",
               )}>
               <div className="min-w-0">
-                <div className="flex items-center justify-between gap-1 min-w-0">
-                  <p className="cw-cal-card-name text-sm font-semibold truncate">{c.a.client_name}</p>
-                  <span className={cn("text-[10px] font-semibold flex-shrink-0", calendarStatusClass(c.a.status))}>{statusLabel(c.a.status)}</span>
-                </div>
-                <p className="cw-cal-card-time mt-0.5 text-xs leading-tight">{c.a.time_slot}</p>
-                <p className="text-[11px] text-grey truncate">
-                  {(c.a.services as { name: string } | null)?.name ?? "—"}
-                  {(Number(c.a.total_amount ?? 0) + Number(c.a.tip_amount ?? 0)) > 0 ? ` · ${formatCurrency(Number(c.a.total_amount ?? 0) + Number(c.a.tip_amount ?? 0))}` : ""}
-                </p>
+                <p className="text-sm font-semibold truncate">{c.a.client_name}</p>
+                <p className="cw-cal-card-time mt-0.5 text-xs leading-tight">{compactRangeLabel(c.a.time_slot, apptDuration(c.a))}</p>
               </div>
-              {(c.a.payment_status === "paid" || c.a.payment_status === "captured") ? (
-                <span className="text-[10px] font-semibold">
-                  <span className="cw-cal-paid">Paid</span>
-                  <span className="cw-cal-separator"> · </span>
-                  <span className={c.a.payment_method === "cash" ? "cw-cal-payment-neutral" : "cw-cal-paid"}>
-                    {c.a.payment_method === "cash" ? "Cash" : c.a.payment_method === "online" ? "Online" : c.a.payment_method === "gift_card" ? "Gift card" : "Card"}
-                  </span>
-                </span>
-              ) : c.a.status === "completed" ? (
-                <span className="text-[10px] font-semibold cw-cal-payment-neutral">Unpaid</span>
-              ) : c.a.stripe_payment_method_id ? (
-                <span className="text-[10px] font-semibold cw-cal-awaiting">
-                  {c.a.payment_status === "held" ? "Card held" : c.a.payment_status === "saved" ? "Card saved" : "Card on file"}
-                </span>
-              ) : c.a.payment_method === "cash" ? (
-                <span className="text-[10px] font-semibold cw-cal-payment-neutral">Pay at shop</span>
-              ) : (
-                null
-              )}
+              {renderCalendarCardMeta(c.a, "text-[10px]")}
+              <p className="text-[11px] text-grey truncate">
+                {(c.a.services as { name: string } | null)?.name ?? "—"}
+                {(Number(c.a.total_amount ?? 0) + Number(c.a.tip_amount ?? 0)) > 0 ? ` · ${formatCurrency(Number(c.a.total_amount ?? 0) + Number(c.a.tip_amount ?? 0))}` : ""}
+              </p>
             </button>
           ))}
           {cells.length === 0 && (
@@ -3063,8 +3061,8 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                             position: "absolute",
                           }}
                           data-appointment-status={appt.status ?? "unknown"}
-                          aria-label={`${appt.client_name}, ${statusLabel(appt.status ?? "unknown")}, ${rangeLabel(appt.time_slot, duration)}`}
-                          title={`${appt.client_name} · ${statusLabel(appt.status ?? "unknown")} · ${rangeLabel(appt.time_slot, duration)}`}
+                          aria-label={`${appt.client_name}, ${compactRangeLabel(appt.time_slot, duration)}, ${calendarCardMetaText(appt)}`}
+                          title={`${appt.client_name} · ${compactRangeLabel(appt.time_slot, duration)} · ${calendarCardMetaText(appt)}`}
                           data-status={appt.status ?? "unknown"}
                           className={cn(
                             "rounded-[10px] px-1.5 py-0.5 text-left overflow-hidden pointer-events-auto transition-all hover:z-10 hover:brightness-125",
@@ -3073,13 +3071,9 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                           )}
                           onClick={() => setSelectedAppt(appt)}
                         >
-                          <div className="flex items-center justify-between gap-1 leading-tight">
-                            <p className="cw-cal-card-name text-[11px] font-semibold truncate">{appt.client_name}</p>
-                            <span className={cn("text-[10px] font-semibold flex-shrink-0", calendarStatusClass(appt.status))}>{statusLabel(appt.status)}</span>
-                          </div>
-                          {height > 34 && (
-                            <p className="cw-cal-card-time mt-0.5 text-[9px] leading-tight truncate">{appt.time_slot}</p>
-                          )}
+                          <p className="text-[11px] font-semibold truncate leading-tight">{appt.client_name}</p>
+                          {height > 24 && <p className="cw-cal-card-time text-[9px] truncate leading-tight">{compactRangeLabel(appt.time_slot, duration)}</p>}
+                          {height > 40 && renderCalendarCardMeta(appt)}
                           {height > 64 && (
                             <p className="mt-0.5 text-[9px] text-grey truncate leading-tight">
                               {(appt.services as { name: string } | null)?.name ?? "—"}
@@ -3289,17 +3283,15 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                         <button key={appt.id}
                           style={{ top: `${top + 2}px`, height: `${height}px`, left: `calc(${lane * widthPct}% + 2px)`, width: `calc(${widthPct}% - 4px)`, position: "absolute" }}
                           data-appointment-status={appt.status ?? "unknown"}
-                          aria-label={`${appt.client_name}, ${statusLabel(appt.status ?? "unknown")}, ${rangeLabel(appt.time_slot, duration)}`}
-                          title={`${appt.client_name} · ${statusLabel(appt.status ?? "unknown")} · ${rangeLabel(appt.time_slot, duration)}`}
+                          aria-label={`${appt.client_name}, ${compactRangeLabel(appt.time_slot, duration)}, ${calendarCardMetaText(appt)}`}
+                          title={`${appt.client_name} · ${compactRangeLabel(appt.time_slot, duration)} · ${calendarCardMetaText(appt)}`}
                           data-status={appt.status ?? "unknown"}
                           className={cn("rounded-[10px] px-1.5 py-0.5 text-left overflow-hidden pointer-events-auto transition-all hover:z-10 hover:brightness-125",
                             calendarApptClass(appt), flashIds.has(appt.id) && "ring-2 ring-[#00e5a0] animate-pulse z-10")}
                           onClick={() => setSelectedAppt(appt)}>
-                          <div className="flex items-center justify-between gap-1 leading-tight">
-                            <p className="cw-cal-card-name text-[11px] font-semibold truncate">{appt.client_name}</p>
-                            <span className={cn("text-[9px] font-semibold flex-shrink-0", calendarStatusClass(appt.status))}>{statusLabel(appt.status)}</span>
-                          </div>
-                          {height > 34 && <p className="cw-cal-card-time mt-0.5 text-[9px] truncate leading-tight">{appt.time_slot}</p>}
+                          <p className="text-[11px] font-semibold truncate leading-tight">{appt.client_name}</p>
+                          {height > 24 && <p className="cw-cal-card-time text-[9px] truncate leading-tight">{compactRangeLabel(appt.time_slot, duration)}</p>}
+                          {height > 40 && renderCalendarCardMeta(appt)}
                         </button>
                       );
                     })}
@@ -3400,8 +3392,8 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                         key={appt.id}
                         style={{ top: `${top + 2}px`, height: `${height}px`, left: "6px", right: "6px", position: "absolute" }}
                         data-appointment-status={appt.status ?? "unknown"}
-                        aria-label={`${appt.client_name}, ${statusLabel(appt.status ?? "unknown")}, ${rangeLabel(appt.time_slot, duration)}`}
-                        title={`${appt.client_name} · ${statusLabel(appt.status ?? "unknown")} · ${rangeLabel(appt.time_slot, duration)}`}
+                        aria-label={`${appt.client_name}, ${compactRangeLabel(appt.time_slot, duration)}, ${calendarCardMetaText(appt)}`}
+                        title={`${appt.client_name} · ${compactRangeLabel(appt.time_slot, duration)} · ${calendarCardMetaText(appt)}`}
                         data-status={appt.status ?? "unknown"}
                         className={cn(
                           "rounded-r-lg rounded-l-sm px-2.5 py-1 text-left overflow-hidden pointer-events-auto",
@@ -3409,11 +3401,9 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                         )}
                         onClick={() => setSelectedAppt(appt)}
                       >
-                        <div className="flex items-center justify-between gap-1 leading-tight">
-                          <p className="cw-cal-card-name text-[11px] font-semibold truncate">{appt.client_name}</p>
-                          <span className={cn("text-[10px] font-semibold flex-shrink-0", calendarStatusClass(appt.status))}>{statusLabel(appt.status)}</span>
-                        </div>
-                        {height > 34 && <p className="cw-cal-card-time mt-0.5 text-[10px] leading-tight truncate">{appt.time_slot}</p>}
+                        <p className="text-xs font-semibold truncate leading-tight">{appt.client_name}</p>
+                        <p className="cw-cal-card-time mt-0.5 text-[10px] truncate leading-tight">{compactRangeLabel(appt.time_slot, duration)}</p>
+                        {height > 40 && renderCalendarCardMeta(appt)}
                         {height > 44 && (
                           <p className="mt-0.5 text-[11px] text-grey truncate">
                             {(appt.services as { name: string } | null)?.name} · {barber?.name ?? "Any"}
@@ -3532,8 +3522,8 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                           key={appt.id}
                           style={{ top: `${top + 2}px`, height: `${height}px`, left: "2px", right: "2px", position: "absolute" }}
                           data-appointment-status={appt.status ?? "unknown"}
-                          aria-label={`${appt.client_name}, ${statusLabel(appt.status ?? "unknown")}, ${rangeLabel(appt.time_slot, duration)}`}
-                          title={`${appt.client_name} · ${statusLabel(appt.status ?? "unknown")} · ${rangeLabel(appt.time_slot, duration)}`}
+                          aria-label={`${appt.client_name}, ${compactRangeLabel(appt.time_slot, duration)}, ${calendarCardMetaText(appt)}`}
+                          title={`${appt.client_name} · ${compactRangeLabel(appt.time_slot, duration)} · ${calendarCardMetaText(appt)}`}
                           data-status={appt.status ?? "unknown"}
                           className={cn(
                             "rounded-r rounded-l-sm px-1.5 py-0.5 text-left overflow-hidden pointer-events-auto transition-all hover:z-10 hover:brightness-125",
@@ -3541,13 +3531,9 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                           )}
                           onClick={() => setSelectedAppt(appt)}
                         >
-                          <div className="flex items-center justify-between gap-1 leading-tight">
-                            <p className="cw-cal-card-name text-[11px] font-semibold truncate">{appt.client_name}</p>
-                            <span className={cn("text-[9px] font-semibold flex-shrink-0", calendarStatusClass(appt.status))}>{statusLabel(appt.status)}</span>
-                          </div>
-                          {height > 36 && (
-                            <p className="cw-cal-card-time mt-0.5 text-[10px] leading-tight truncate">{appt.time_slot}</p>
-                          )}
+                          <p className="text-[11px] font-semibold truncate leading-tight">{appt.client_name}</p>
+                          {height > 24 && <p className="cw-cal-card-time text-[9px] truncate leading-tight">{compactRangeLabel(appt.time_slot, duration)}</p>}
+                          {height > 40 && renderCalendarCardMeta(appt)}
                         </button>
                       );
                     })}

@@ -186,10 +186,6 @@ html[data-theme="light"] .portal .cw-cal-appointment [class~="text-[#00e5a0]"],
 html[data-theme="light"] .portal .cw-cal-appointment [class~="text-sky-400"],
 html[data-theme="light"] .portal .cw-cal-appointment [class~="text-[#bbb]"],
 html[data-theme="light"] .portal .cw-cal-appointment [class~="text-[#888]"] { color: #4b5563 !important; }
-@container (max-width: 124px) {
-  .portal .cw-cal-appointment .cw-cal-status { display: none; }
-}
-
 :root {
   /* ── ClipWise v2 design system ─────────────────────────────────────────
      Pure-black base, white accents, hairline borders. Manrope for body,
