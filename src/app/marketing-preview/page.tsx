@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import Image from "next/image";
-import Link from "next/link";
-import { ArrowRight, CalendarDays, CreditCard, Gift, UsersRound, Scissors } from "lucide-react";
+import { CalendarDays, CreditCard, UsersRound, Scissors } from "lucide-react";
 import { PLAN_MARKETING } from "@/lib/plan-marketing";
+import { ProductShowcase } from "./ProductShowcase";
 import styles from "./page.module.css";
 
 export const metadata: Metadata = {
@@ -25,26 +25,15 @@ const ASSETS = {
   shopMobile: { src: "/marketing-preview/shop-mobile.png", width: 384, height: 832, alt: "Fade Mechanic’s shop page in the ClipWise booking experience" },
 };
 
-const features = [
-  { index: "01", title: "Fill your calendar", copy: "A smooth booking experience that works for you, around the clock.", image: ASSETS.timesMobile, imageClass: "timesCrop" },
-  { index: "02", title: "Make checkout simple", copy: "Take payments, add tips and see tax alongside the sale.", image: ASSETS.checkout, imageClass: "checkoutCrop" },
-  { index: "03", title: "Keep clients coming back", copy: "Client history, notes and loyalty tools help you remember the details.", image: null, imageClass: "" },
-];
-
-function planFeatures(planId: string) {
-  const plan = PLAN_MARKETING.find(item => item.plan === planId)!;
-  return plan.plan === "starter" ? plan.yes.slice(0, 3) : plan.yes.slice(1, 4);
-}
-
 export default function MarketingPreviewPage() {
   return (
-    <main className={styles.page}>
+    <main id="top" className={styles.page}>
       <header className={styles.nav}>
-        <Link href="/" className={styles.wordmark} aria-label="ClipWise home">CLIPWISE</Link>
+        <a href="#top" className={styles.wordmark} aria-label="Back to top of this preview">CLIPWISE</a>
         <nav aria-label="Main navigation" className={styles.links}>
-          <a href="#product">Product</a><a href="#plans">Pricing</a><Link href="/login">Log in</Link>
+          <a href="#product">Product</a><a href="#plans">Pricing</a><a href="https://clipwise.ca/login">Log in</a>
         </nav>
-        <Link href="/signup" className={styles.navCta}>Get started</Link>
+        <a href="https://clipwise.ca/signup" className={styles.navCta}>Get started</a>
       </header>
 
       <section className={styles.hero} aria-labelledby="hero-title">
@@ -53,7 +42,7 @@ export default function MarketingPreviewPage() {
           <h1 id="hero-title">Your shop.<br />Running smoothly.</h1>
           <p className={styles.heroLead}>Bookings, payments and your team.<br />All in one place.</p>
           <div className={styles.heroActions}>
-            <Link href="/signup" className={styles.primaryButton}>Start free <span aria-hidden="true">→</span></Link>
+            <a href="https://clipwise.ca/signup" className={styles.primaryButton}>Start free <span aria-hidden="true">→</span></a>
             <p>Set up at your pace.<br />No card required.</p>
           </div>
           <p className={styles.heroNote}>Less admin.<br />More good cuts.</p>
@@ -90,45 +79,14 @@ export default function MarketingPreviewPage() {
         ))}
       </section>
 
-      <section id="product" className={styles.product} aria-labelledby="product-title">
-        <div className={styles.sectionHead}>
-          <p className={styles.eyebrow}>Built for modern barbershops</p>
-          <h2 id="product-title">From the first booking<br className={styles.desktopBreak} /> to the next visit.</h2>
-          <p className={styles.sectionIntro}>The tools to run a more organized shop, in one simple platform.</p>
-        </div>
-        <div className={styles.featureGrid}>
-          {features.map(feature => (
-            <article className={styles.feature} key={feature.index}>
-              <p className={styles.featureIndex}>{feature.index}</p>
-              <h3>{feature.title}</h3>
-              <p className={styles.featureCopy}>{feature.copy}</p>
-              {feature.image ? (
-                <div className={`${styles.featureImage} ${styles[feature.imageClass as keyof typeof styles]}`}>
-                  <Image src={feature.image.src} alt={feature.image.alt} width={feature.image.width} height={feature.image.height} sizes="(max-width: 760px) 100vw, 31vw" />
-                </div>
-              ) : (
-                <div className={styles.featureCallout} aria-label="Loyalty program: visits earn points, which clients redeem for rewards">
-                  <div className={styles.loyaltySteps}>
-                    <span><UsersRound size={21} strokeWidth={1.7} aria-hidden="true" /><b>Visit</b></span>
-                    <ArrowRight size={17} strokeWidth={1.7} aria-hidden="true" />
-                    <span><Scissors size={21} strokeWidth={1.7} aria-hidden="true" /><b>Earn points</b></span>
-                    <ArrowRight size={17} strokeWidth={1.7} aria-hidden="true" />
-                    <span><Gift size={21} strokeWidth={1.7} aria-hidden="true" /><b>Redeem</b></span>
-                  </div>
-                  <p>Set your own earning rules and rewards.</p>
-                </div>
-              )}
-            </article>
-          ))}
-        </div>
-      </section>
+      <ProductShowcase />
 
       <section className={styles.booking} aria-labelledby="booking-title">
         <div className={styles.bookingCopy}>
           <p className={styles.eyebrow}>Online booking</p>
           <h2 id="booking-title">A booking page that feels like your shop.</h2>
           <p>Show your services, share your story and let clients choose a time in their browser.</p>
-          <Link href="/online-booking" className={styles.outlineButton}>See how it works <span aria-hidden="true">→</span></Link>
+          <a href="https://clipwise.ca/online-booking" className={styles.outlineButton}>See how it works <span aria-hidden="true">→</span></a>
         </div>
         <figure className={styles.bookingFigure}>
           <div className={styles.shopPhone}>
@@ -148,7 +106,7 @@ export default function MarketingPreviewPage() {
       <section id="plans" className={styles.plans} aria-labelledby="plans-title">
         <div className={styles.plansIntro}>
           <div><p className={styles.eyebrow}>Simple pricing</p><h2 id="plans-title">A plan for every stage.</h2><p>Powerful tools, without unnecessary complexity.</p></div>
-          <Link href="/pricing" className={styles.compareLink}>Compare all plans <span aria-hidden="true">→</span></Link>
+          <a href="https://clipwise.ca/pricing" className={styles.compareLink}>Compare all plans <span aria-hidden="true">→</span></a>
         </div>
         <div className={styles.planGrid}>
           {PLAN_MARKETING.map(plan => (
@@ -156,9 +114,11 @@ export default function MarketingPreviewPage() {
               <h3>{plan.n}</h3>
               <p className={styles.planAudience}>{plan.forWho}</p>
               <p className={styles.price}>{plan.p}<span>{plan.per === "/mo" ? "/ month" : ""}</span></p>
-              <ul>{planFeatures(plan.plan).map(item => <li key={item}>{item}</li>)}</ul>
+              <p className={styles.planSectionLabel}>Included</p>
+              <ul className={styles.planIncluded}>{plan.yes.filter(item => !item.startsWith("21-day free trial")).map(item => <li key={item}>{item}</li>)}</ul>
+              {plan.no.length > 0 && <><p className={styles.planSectionLabel}>Not included</p><ul className={styles.planExcluded}>{plan.no.map(item => <li key={item}>{item}</li>)}</ul></>}
               {plan.plan !== "starter" && <p className={styles.trial}>21-day trial · no card required</p>}
-              <Link href={`/signup?plan=${plan.plan}`} className={styles.planButton}>{plan.cta} <span aria-hidden="true">→</span></Link>
+              <a href={`https://clipwise.ca/signup?plan=${plan.plan}`} className={styles.planButton}>{plan.cta} <span aria-hidden="true">→</span></a>
             </article>
           ))}
         </div>
@@ -166,9 +126,9 @@ export default function MarketingPreviewPage() {
       </section>
 
       <footer className={styles.footer}>
-        <Link href="/" className={styles.wordmark} aria-label="ClipWise home">CLIPWISE</Link>
+        <a href="#top" className={styles.wordmark} aria-label="Back to top of this preview">CLIPWISE</a>
         <span>Barbershop software, built for Canadian shops.</span>
-        <div className={styles.footerLinks}><Link href="/pricing">Pricing</Link><Link href="/privacy">Privacy</Link><Link href="/terms">Terms</Link></div>
+        <div className={styles.footerLinks}><a href="https://clipwise.ca/pricing">Pricing</a><a href="https://clipwise.ca/privacy">Privacy</a><a href="https://clipwise.ca/terms">Terms</a></div>
       </footer>
     </main>
   );
