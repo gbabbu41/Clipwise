@@ -55,7 +55,7 @@ export function NotificationContent({
             {summary.previous && <p className="flex gap-2"><span className="w-7 flex-shrink-0 text-grey">Was</span><span className="min-w-0 break-words tabular-nums text-grey">{summary.previous.date} · {summary.previous.time}</span></p>}
           </div>
         )}
-        {(summary.service || summary.payment) && <p className="mt-1 break-words text-xs text-grey">{[summary.service, summary.payment].filter(Boolean).join(" · ")}</p>}
+        {(summary.service || summary.payment || summary.discount) && <p className="mt-1 break-words text-xs text-grey">{[summary.service, summary.payment, summary.discount].filter(Boolean).join(" · ")}</p>}
         {children}
       </div>
       {!isRead && <span className="mt-1.5 h-2 w-2 flex-shrink-0 rounded-full bg-foreground" aria-label="Unread" />}
