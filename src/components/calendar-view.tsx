@@ -20,7 +20,7 @@ import { calendarFocusTop, calendarHourOffset, calendarLandingHour, fullDayCalen
 import { cacheGet, cacheSet } from "@/lib/view-cache";
 import { calendarEditTotals, type CalendarAddContext } from "@/lib/calendar-workflow";
 import { clampNoShowPct, NO_SHOW_LEAD_MINUTES, formatPhone } from "@/lib/validation";
-import { calendarBarberTint } from "@/lib/calendar-appearance";
+import { calendarBarberTint, calendarStatusTone } from "@/lib/calendar-appearance";
 
 // 15-minute slot grid (display strings) for the appointment-edit time picker —
 // keeps edited times on the slot windows instead of a free-form "5:03 PM".
@@ -173,7 +173,7 @@ const STATUS_FILL: Record<string, string> = {
 };
 const STATUS_DOT: Record<string, string> = {
   pending: "bg-amber-400", confirmed: "bg-emerald-400", completed: "bg-sky-400",
-  cancelled: "bg-red-400", "no-show": "bg-zinc-400",
+  cancelled: "bg-zinc-400", "no-show": "bg-rose-400",
 };
 const STATUS_LABEL: Record<string, string> = {
   pending: "Pending", confirmed: "Booked", completed: "Completed",
@@ -187,29 +187,15 @@ const statusLabel = (s: string) => STATUS_LABEL[s] ?? s;
 // from @/lib/availability (the ONE source of truth, shared with the server + DB).
 const isDimmed = (s: string) => s === "cancelled" || s === "no-show";
 
-// Compact month-view chips preserve their status color cue.
-const STATUS_CHIP_DARK: Record<string, string> = {
-  pending:   "bg-amber-500/15 text-amber-300",
-  confirmed: "bg-[#00e5a0]/15 text-[#00e5a0]",
-  completed: "bg-sky-500/15 text-sky-300",
-  cancelled: "bg-rose-500/15 text-rose-300",
-  "no-show": "bg-zinc-500/15 text-zinc-300",
-};
-const statusChipDark = (s: string) => STATUS_CHIP_DARK[s] ?? "bg-[#00e5a0]/15 text-[#00e5a0]";
-
 // Appointment identity is stable per barber, independent of query/order changes.
 // Status and payment remain separate labels; these muted tones identify the
 // barber column only. Four tones keep the calendar calm while distinguishing
 // the usual two-to-four barber shop.
 const barberTintStyle = (id: string | null | undefined, roster: readonly string[]) => ({ "--cw-barber-rgb": calendarBarberTint(id, roster) } as CSSProperties);
 const calendarApptClass = (a: { status?: string | null; payment_status?: string | null }) =>
-  cn("cw-cal-appointment", a.status === "completed" && "cw-cal-appointment--completed",
-    (a.status === "cancelled" || a.status === "no-show" || a.payment_status === "refunded") && "cw-cal-appointment--inactive");
+  cn("cw-cal-appointment", `cw-cal-appointment--${calendarStatusTone(a.status)}`);
 const calendarStatusClass = (status?: string | null) => {
-  if (status === "pending") return "cw-cal-status cw-cal-status--pending";
-  if (status === "cancelled") return "cw-cal-status cw-cal-status--cancelled";
-  if (status === "no-show") return "cw-cal-status cw-cal-status--no-show";
-  return "cw-cal-status";
+  return `cw-cal-status cw-cal-status--${calendarStatusTone(status)}`;
 };
 
 // Shared action handlers, wired up by CalendarPage. Mirrors the Appointments
@@ -2738,9 +2724,10 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                   <div className="flex flex-col gap-0.5 overflow-hidden">
                     {visible.map(a => (
                       <span key={a.id}
+                        title={`${a.client_name} · ${statusLabel(a.status)}`}
                         className={cn(
-                          "truncate text-[10px] leading-4 px-1.5 rounded-sm font-medium",
-                          statusChipDark(a.status),
+                          "cw-cal-monthchip truncate text-[10px] leading-4 px-1.5 rounded-sm font-medium",
+                          `cw-cal-monthchip--${calendarStatusTone(a.status)}`,
                           isDimmed(a.status) && "line-through opacity-70",
                         )}
                       >
@@ -2825,10 +2812,11 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
             </button>
           ) : c.k === "freed" ? (
             <button key={`freed-${c.a.id}`} onClick={() => openAdd(barber.id, barber.name, c.a.time_slot, apptDuration(c.a))}
-              className="relative rounded-xl p-3 text-left min-h-[88px] flex flex-col justify-between border border-dashed border-[#ff6b6b]/50 bg-[#ff6b6b]/[0.06] hover:bg-[#ff6b6b]/10 transition-colors">
+              className={cn("cw-cal-freed-slot relative rounded-xl p-3 text-left min-h-[88px] flex flex-col justify-between border border-dashed transition-colors",
+                c.a.status === "no-show" ? "cw-cal-freed-slot--no-show" : "cw-cal-freed-slot--cancelled")}>
               <span className="text-xs font-medium text-grey">{rangeLabel(c.a.time_slot, apptDuration(c.a))}</span>
               <div className="min-w-0">
-                <p className={cn("text-sm font-semibold truncate text-[#ff8a8a]", c.a.status !== "no-show" && "line-through")}>{c.a.status === "no-show" ? "No-show" : "Cancelled"}</p>
+                <p className={cn("cw-cal-freed-status text-sm font-semibold truncate", c.a.status === "no-show" ? "cw-cal-freed-status--no-show" : "cw-cal-freed-status--cancelled", c.a.status !== "no-show" && "line-through")}>{c.a.status === "no-show" ? "No-show" : "Cancelled"}</p>
                 <p className="text-[11px] text-grey-muted truncate">{c.a.client_name}</p>
               </div>
               <span className="text-[10px] font-semibold text-grey-muted">Open — tap to book again</span>
@@ -2840,7 +2828,6 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
             </button>
           ) : (
             <button key={c.a.id} onClick={() => setSelectedAppt(c.a)}
-              style={barberTintStyle(c.a.barber_id, barberTintIds)}
               data-appointment-status={c.a.status ?? "unknown"}
               data-status={c.a.status ?? "unknown"}
               aria-label={`${c.a.client_name}, ${statusLabel(c.a.status ?? "unknown")}, ${rangeLabel(c.a.time_slot, apptDuration(c.a))}`}
@@ -3070,7 +3057,6 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                         <button
                           key={appt.id}
                           style={{
-                            ...barberTintStyle(appt.barber_id, barberTintIds),
                             top: `${top + 2}px`, height: `${height}px`,
                             left: `calc(${lane * widthPct}% + 2px)`,
                             width: `calc(${widthPct}% - 4px)`,
@@ -3137,8 +3123,9 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                             title={`${noShow ? "No-show" : "Cancelled"} — tap to book this slot again`}
                             style={{ top: `${top + 2}px`, height: `${height}px`, left: "4px", right: "4px", position: "absolute" }}
                             onClick={() => openAdd(b.id, b.name, fa.time_slot, apptDuration(fa))}
-                            className="rounded-lg border border-dashed border-[#ff6b6b]/50 bg-[#ff6b6b]/[0.06] hover:bg-[#ff6b6b]/10 px-1.5 py-0.5 text-left overflow-hidden pointer-events-auto transition-colors">
-                            <p className={cn("text-[10px] font-semibold leading-tight truncate text-[#ff8a8a]", !noShow && "line-through")}>
+                            className={cn("cw-cal-freed-slot rounded-lg border border-dashed px-1.5 py-0.5 text-left overflow-hidden pointer-events-auto transition-colors",
+                              noShow ? "cw-cal-freed-slot--no-show" : "cw-cal-freed-slot--cancelled")}>
+                            <p className={cn("cw-cal-freed-status text-[10px] font-semibold leading-tight truncate", noShow ? "cw-cal-freed-status--no-show" : "cw-cal-freed-status--cancelled", !noShow && "line-through")}>
                               {noShow ? "No-show" : "Cancelled"}<span className="text-grey-muted font-normal no-underline"> · {fa.client_name}</span>
                             </p>
                             {height > 30 && <p className="text-[8px] text-grey-muted leading-tight no-underline">Open — tap to book again</p>}
@@ -3300,7 +3287,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                       const widthPct = 100 / lanes;
                       return (
                         <button key={appt.id}
-                          style={{ ...barberTintStyle(appt.barber_id, barberTintIds), top: `${top + 2}px`, height: `${height}px`, left: `calc(${lane * widthPct}% + 2px)`, width: `calc(${widthPct}% - 4px)`, position: "absolute" }}
+                          style={{ top: `${top + 2}px`, height: `${height}px`, left: `calc(${lane * widthPct}% + 2px)`, width: `calc(${widthPct}% - 4px)`, position: "absolute" }}
                           data-appointment-status={appt.status ?? "unknown"}
                           aria-label={`${appt.client_name}, ${statusLabel(appt.status ?? "unknown")}, ${rangeLabel(appt.time_slot, duration)}`}
                           title={`${appt.client_name} · ${statusLabel(appt.status ?? "unknown")} · ${rangeLabel(appt.time_slot, duration)}`}
@@ -3411,7 +3398,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                     return (
                       <button
                         key={appt.id}
-                        style={{ ...barberTintStyle(appt.barber_id, barberTintIds), top: `${top + 2}px`, height: `${height}px`, left: "6px", right: "6px", position: "absolute" }}
+                        style={{ top: `${top + 2}px`, height: `${height}px`, left: "6px", right: "6px", position: "absolute" }}
                         data-appointment-status={appt.status ?? "unknown"}
                         aria-label={`${appt.client_name}, ${statusLabel(appt.status ?? "unknown")}, ${rangeLabel(appt.time_slot, duration)}`}
                         title={`${appt.client_name} · ${statusLabel(appt.status ?? "unknown")} · ${rangeLabel(appt.time_slot, duration)}`}
@@ -3542,7 +3529,7 @@ export function CalendarView({ embedded = false, canManage = true, forceBarberId
                       return (
                         <button
                           key={appt.id}
-                          style={{ ...barberTintStyle(appt.barber_id, barberTintIds), top: `${top + 2}px`, height: `${height}px`, left: "2px", right: "2px", position: "absolute" }}
+                          style={{ top: `${top + 2}px`, height: `${height}px`, left: "2px", right: "2px", position: "absolute" }}
                           data-appointment-status={appt.status ?? "unknown"}
                           aria-label={`${appt.client_name}, ${statusLabel(appt.status ?? "unknown")}, ${rangeLabel(appt.time_slot, duration)}`}
                           title={`${appt.client_name} · ${statusLabel(appt.status ?? "unknown")} · ${rangeLabel(appt.time_slot, duration)}`}
