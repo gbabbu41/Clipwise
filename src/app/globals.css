@@ -142,6 +142,7 @@ html[data-theme="light"] .portal [data-calendar-time-grid] {
 .portal .cw-cal-status--cancelled { color: #d2d4d7; }
 .portal .cw-cal-status--no-show { color: #d8a1ad; }
 .portal .cw-cal-secondary { color: #bcc5d0; }
+.portal .cw-cal-card-time { color: #bcc5d0; }
 .portal .cw-cal-payment-neutral { color: #bcc5d0; }
 .portal .cw-cal-paid,
 .portal .cw-cal-awaiting,
@@ -153,6 +154,7 @@ html[data-theme="light"] .portal [data-calendar-time-grid] {
 .portal .cw-cal-appointment [class~="text-[#bbb]"],
 .portal .cw-cal-appointment [class~="text-[#888]"] { color: #bcc5d0 !important; }
 html[data-theme="light"] .portal .cw-cal-secondary,
+html[data-theme="light"] .portal .cw-cal-card-time,
 html[data-theme="light"] .portal .cw-cal-payment-neutral,
 html[data-theme="light"] .portal .cw-cal-status { color: #4b5563; }
 html[data-theme="light"] .portal .cw-cal-paid,
