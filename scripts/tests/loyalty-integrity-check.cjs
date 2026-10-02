@@ -31,7 +31,7 @@ const { psql, stop } = startPg();
     const schema = await psql(['-c', `
       create table public.shops (id uuid primary key, owner_id text, subscription_plan text, subscription_status text, booking_settings jsonb);
       create table public.clients (id uuid primary key default gen_random_uuid(), shop_id uuid references public.shops(id), name text, email text, phone text, loyalty_points integer default 0);
-      create table public.appointments (id uuid primary key default gen_random_uuid(), shop_id uuid references public.shops(id), client_email text, client_phone text,
+      create table public.appointments (id uuid primary key default gen_random_uuid(), shop_id uuid references public.shops(id), client_id uuid references public.clients(id), client_email text, client_phone text,
         total_amount numeric, loyalty_awarded boolean default false,
         status text check (status = any (array['pending','confirmed','completed','cancelled','no-show'])));
       create table public.loyalty_rewards (id uuid primary key default gen_random_uuid(), shop_id uuid references public.shops(id) on delete cascade,
@@ -140,6 +140,23 @@ const { psql, stop } = startPg();
     const awards = await Promise.all([awardLoyaltyForAppointment(apptG), awardLoyaltyForAppointment(apptG)]);
     assert.equal(await bal(earner), 55, '15/visit + 1/$ once');
     assert.equal(awards.filter(a => a.points === 55).length, 1);
+    // d2) a walk-in saved by name only (no email / phone) is found by the saved
+    //     client link and earns once; a link to ANOTHER shop's client earns nothing
+    //     and a booking with no client at all stays unclaimed (retryable later).
+    const walkIn = uuid(60), apptW = uuid(160);
+    await client(walkIn, null);
+    await one(`insert into public.appointments (id, shop_id, client_id, total_amount, status) values ('${apptW}', '${SHOP}', '${walkIn}', 40.25, 'completed')`);
+    await Promise.all([awardLoyaltyForAppointment(apptW), awardLoyaltyForAppointment(apptW)]);
+    assert.equal(await bal(walkIn), 55, 'walk-in linked by client_id earns once');
+    const foreign = uuid(61), apptX = uuid(161);
+    await client(foreign, null, 0, OTHER);
+    await one(`insert into public.appointments (id, shop_id, client_id, total_amount, status) values ('${apptX}', '${SHOP}', '${foreign}', 40.25, 'completed')`);
+    assert.equal((await awardLoyaltyForAppointment(apptX)).skipped, 'no_client');
+    assert.equal(await bal(foreign), 0, 'another shop\'s client never earns');
+    const apptY = uuid(162);
+    await one(`insert into public.appointments (id, shop_id, total_amount, status) values ('${apptY}', '${SHOP}', 40.25, 'completed')`);
+    assert.equal((await awardLoyaltyForAppointment(apptY)).skipped, 'no_client');
+    assert.equal(await one(`select loyalty_awarded from public.appointments where id = '${apptY}'`), 'f', 'no client → left unclaimed');
     // e) two staff redeem 300 each from 423 at the same moment → one succeeds, never overdrawn.
     const shared = uuid(5);
     await client(shared, 'shared@x.com', 423);
