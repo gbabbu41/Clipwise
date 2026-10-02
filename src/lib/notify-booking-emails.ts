@@ -34,7 +34,7 @@ export async function sendNewBookingStaffEmails(appointmentId: string): Promise<
   try {
     const { data: appt } = await supabaseAdmin
       .from("appointments")
-      .select("id, shop_id, barber_id, client_name, client_email, client_phone, date, time_slot, total_amount, tip_amount, services(name)")
+      .select("id, shop_id, barber_id, client_name, client_email, client_phone, date, time_slot, total_amount, tip_amount, price_breakdown, services(name)")
       .eq("id", appointmentId).maybeSingle();
     if (!appt) return;
 
@@ -81,6 +81,8 @@ export async function sendNewBookingStaffEmails(appointmentId: string): Promise<
       total: `$${(Number(appt.total_amount ?? 0) + Number(appt.tip_amount ?? 0)).toFixed(2)}`,
       bookingId: appt.id.slice(0, 8).toUpperCase(),
       appointmentId: appt.id,
+      // Points / promo behind the total — same rows the customer's email shows.
+      discounts: discountEmailField((appt as { price_breakdown?: unknown }).price_breakdown),
     };
 
     const jobs: Promise<void>[] = [];
