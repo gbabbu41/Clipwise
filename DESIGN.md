@@ -233,6 +233,13 @@ under `public/brand/`. Until then, don't recreate the mark by hand.
 
 ## 7. Marketing page specifics
 
+- The owner-approved light public presentation is scoped to the homepage and marketing
+  routes through `src/components/marketing/light/`, with legal pages themed through
+  `LegalShell`. Website auth uses the light `AuthShell` variant; native login opts out.
+  Paper/ink colors live in the marketing CSS module; keep them separate from customer
+  and portal tokens. Public plan prices and chair limits come from `/api/plans`;
+  `plan-marketing.ts` supplies presentation copy only. Only standard Starter, Pro and
+  Premium IDs are supported by the public signup query flow.
 - The hero film (`public/marketing/hero-film.mp4`, 1920×1080) has **headline text and a
   flag mark burnt into the video**. Changing `object-fit`, stage size or crop moves that
   baked text against the DOM buttons below it. Read the hero component's comments before
