@@ -371,6 +371,10 @@ export default function PaymentsPage() {
     // ledger), used so Net is computable even when the live Stripe fee fetch is
     // incomplete or a line has no payment-intent id. null = no ledger fee on file.
     ledgerFee?: number | null;
+    // Money RETURNED to the customer (a source "refund" ledger row): shown on the
+    // day the refund happened as "−$X", never counted in totals (the refunded
+    // charge already drops out of them).
+    refundOut?: boolean;
   };
 
   // Recorded Stripe fee per appointment — from its completion/capture transaction
@@ -428,7 +432,9 @@ export default function PaymentsPage() {
         const info = statusInfo(a.payment_status);
         const paid = isPaid(a.payment_status);
         const noCharge = !paid && (a.total_amount ?? 0) <= 0;
-        const tsIso = paid ? (a.paid_at ?? a.created_at) : a.created_at;
+        // A refunded charge stays on the day it was PAID (greyed) — its refund gets
+        // its own row on the day the money went back (below).
+        const tsIso = (paid || a.payment_status === "refunded") ? (a.paid_at ?? a.created_at) : a.created_at;
         return {
           key: `a${a.id}`, name: a.client_name,
           sub: `${a.services?.name ?? "Service"}${a.barbers?.name ? ` · ${a.barbers.name}` : ""}${discountSummary((a as { price_breakdown?: unknown }).price_breakdown) ? ` · ${discountSummary((a as { price_breakdown?: unknown }).price_breakdown)}` : ""}`,
@@ -504,6 +510,26 @@ export default function PaymentsPage() {
           ledgerFee: t.stripe_fee ?? null,
         };
       }),
+    // Refunds (source "refund" — the audit row saved when a charge is refunded,
+    // src/lib/refund-ledger.ts). Shown on the day the money went BACK, as money
+    // out. Display only: refunded=true / settled=false keeps it out of every total.
+    ...txs
+      .filter(t => t.source === "refund")
+      .map((t): FeedItem => {
+        const back = Math.abs((t.amount ?? 0) + (t.tax ?? 0) + (t.tip ?? 0));
+        const rName = barbers.find(b => b.id === t.barber_id)?.name ?? null;
+        return {
+          key: `r${t.id}`, name: t.client_name || "Client",
+          sub: `Refund · ${t.service_name || "Payment"}${rName ? ` · ${rName}` : ""}`,
+          amount: back, tax: Math.abs(t.tax ?? 0),
+          statusLabel: "Refund issued", tone: "muted",
+          settled: false, tsIso: t.created_at,
+          ts: new Date(t.created_at).getTime(),
+          pi: t.payment_intent_id ?? null, method: t.payment_method, refunded: true, refundOut: true,
+          client_email: t.client_email, barberName: rName,
+          ledgerFee: null,
+        };
+      }),
   ];
 
   // Net + fee per charge — the SAME shared helper the Dashboard's revenue math
@@ -557,7 +583,7 @@ export default function PaymentsPage() {
   const netOf = (i: FeedItem) => liveFee(i)
     ? lineNetFee(i.pi, counted(i), stripeNet!.byPi).net
     : Math.max(0, lineGross(i) - feeOf(i));
-  const statementAmount = (i: FeedItem) => i.earn ? i.amount : netOf(i);
+  const statementAmount = (i: FeedItem) => (i.earn || i.refundOut) ? i.amount : netOf(i);
   // A booking paid entirely by gift card: its money came in when the card was
   // SOLD, so it adds $0 to totals — but the row shows the value redeemed.
   const isGiftPaid = (i: FeedItem) => i.method === "gift_card";
@@ -1122,9 +1148,9 @@ export default function PaymentsPage() {
                     <div className="cwp-rright">
                       <div className={cn("cwp-a", unpaid ? "cwp-adue" : "cwp-apos")}>{giftPaid
                         ? formatCurrency(i.giftApplied ?? 0)
-                        : <>{i.settled && !feeExact(i) ? "≈" : ""}{formatCurrency(statementAmount(i))}</>}</div>
+                        : <>{i.refundOut ? "−" : i.settled && !feeExact(i) ? "≈" : ""}{formatCurrency(statementAmount(i))}</>}</div>
                       <div className="cwp-m">
-                        {refunded ? <span className="cwp-tag cwp-tref">Refunded</span>
+                        {refunded ? <span className="cwp-tag cwp-tref">{i.refundOut ? "Refund" : "Refunded"}</span>
                           : unpaid ? <span className="cwp-tag cwp-tdue">Unpaid</span>
                           : <>
                               <span className="cwp-method">{methodLabel(i)}</span>
@@ -1190,7 +1216,9 @@ export default function PaymentsPage() {
                   {/* Money breakdown. For a card payment with a known fee, spell out
                       gross → fee → net so "after fee" is never ambiguous (the old
                       single "Amount" row actually showed the net, which read unclear). */}
-                  {i.earn ? (
+                  {i.refundOut ? (
+                    <div className="flex justify-between"><span className="text-grey">Returned to customer</span><span className="text-foreground font-semibold">−{formatCurrency(i.amount)}</span></div>
+                  ) : i.earn ? (
                     <div className="flex justify-between"><span className="text-grey">Earned</span><span className="text-foreground font-semibold">{formatCurrency(i.amount)}</span></div>
                   ) : isGiftPaid(i) && i.settled && !i.refunded ? (
                     <>
