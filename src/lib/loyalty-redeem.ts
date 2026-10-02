@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { planHasFeature } from "@/lib/validation";
+import { exactIlike } from "@/lib/appointment-client";
 
 // Shared, SERVER-AUTHORITATIVE loyalty redemption used by both customer booking
 // paths (online checkout + in-person/free). The browser only ever sends a
@@ -12,8 +13,7 @@ export const MIN_REDEEM_DOLLARS = 5;
 
 type LoyaltyCfg = { enabled?: boolean; redemption_rate?: number } | null | undefined;
 
-/** `%` and `_` are LIKE wildcards — escape them so an email only ever matches itself. */
-export const exactIlike = (v: string): string => v.replace(/[\\%_]/g, c => `\\${c}`);
+export { exactIlike };
 
 /**
  * A points change that could not be saved. Logged to error_logs (ids only) so a

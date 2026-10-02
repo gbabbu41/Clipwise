@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AppointmentWithDetails, Shop } from "@/lib/database.types";
 import { prettyDate } from "@/lib/utils";
+import { findAppointmentClient } from "@/lib/appointment-client";
 
 /**
  * Shared appointment-action side effects (emails / SMS / loyalty / waitlist).
@@ -50,22 +51,17 @@ export async function runCompletionEffects(
   shop: Shop,
   accessToken: string | null,
 ) {
-  if (appt.client_email || appt.client_phone) {
-    const matchField = appt.client_email ? "email" : "phone";
-    const matchVal = (appt.client_email || appt.client_phone) as string;
-    const { data: clientRow } = await supabase
-      .from("clients")
-      .select("id, total_visits, total_spent")
-      .eq("shop_id", shop.id)
-      .eq(matchField, matchVal)
-      .maybeSingle();
-    if (clientRow) {
-      await supabase.from("clients").update({
-        total_visits: (clientRow.total_visits ?? 0) + 1,
-        total_spent: (clientRow.total_spent ?? 0) + (appt.total_amount ?? 0),
-        last_visit: appt.date,
-      }).eq("id", clientRow.id);
-    }
+  // Same client rule as the server (saved link → email → phone): a walk-in saved
+  // by name only still gets the visit counted.
+  const clientRow = await findAppointmentClient<{ id: string; total_visits: number | null; total_spent: number | null }>(
+    supabase, shop.id, appt as { client_id?: string | null; client_email?: string | null; client_phone?: string | null },
+    "id, total_visits, total_spent");
+  if (clientRow) {
+    await supabase.from("clients").update({
+      total_visits: (clientRow.total_visits ?? 0) + 1,
+      total_spent: (clientRow.total_spent ?? 0) + (appt.total_amount ?? 0),
+      last_visit: appt.date,
+    }).eq("id", clientRow.id);
   }
   if (accessToken) {
     fetch("/api/loyalty/award", {

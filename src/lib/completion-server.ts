@@ -2,7 +2,8 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { effectivePlan, planHasFeature } from "@/lib/validation";
 import { ensurePlansHydrated } from "@/lib/plans-server";
 import { sendAppEmail } from "@/lib/emailer";
-import { exactIlike, logLoyaltyFailure } from "@/lib/loyalty-redeem";
+import { logLoyaltyFailure } from "@/lib/loyalty-redeem";
+import { findAppointmentClient } from "@/lib/appointment-client";
 
 // Server-side completion effects — the same side-effects a manual "Complete"
 // runs client-side (loyalty award, client-stat bump, review-request email), but
@@ -22,7 +23,7 @@ type AwardResult = { ok: boolean; points?: number; loyalty_points?: number; skip
 export async function awardLoyaltyForAppointment(appointmentId: string): Promise<AwardResult> {
   const { data: appt } = await supabaseAdmin
     .from("appointments")
-    .select("id, shop_id, client_email, client_phone, total_amount, loyalty_awarded, status")
+    .select("id, shop_id, client_id, client_email, client_phone, total_amount, loyalty_awarded, status")
     .eq("id", appointmentId).maybeSingle();
   if (!appt) return { ok: false, skipped: "not_found" };
   if (appt.loyalty_awarded) return { ok: true, skipped: "already" };
@@ -44,27 +45,18 @@ export async function awardLoyaltyForAppointment(appointmentId: string): Promise
   const perDollar = ls?.points_per_dollar ?? DEFAULT_PER_DOLLAR;
   const points = Math.round(perVisit + perDollar * (appt.total_amount ?? 0));
 
+  // Find the client first (saved link → email → phone) so a booking with no
+  // matching client is left unclaimed rather than marked "awarded" with nothing given.
+  if (points <= 0) return { ok: true, points: 0 };
+  const client = await findAppointmentClient<{ id: string }>(supabaseAdmin, shop.id, appt, "id");
+  if (!client) return { ok: true, points: 0, skipped: "no_client" };
+
   // Atomically claim the award so a double-fire can't double-credit.
   const { data: claimed } = await supabaseAdmin.from("appointments")
     .update({ loyalty_awarded: true })
     .eq("id", appt.id).eq("loyalty_awarded", false)
     .select("id");
   if (!claimed || claimed.length === 0) return { ok: true, skipped: "already" };
-  if (points <= 0) return { ok: true, points: 0 };
-
-  // Find the matching client in this shop (email → phone).
-  const email = (appt.client_email ?? "").trim();
-  const phone = (appt.client_phone ?? "").trim();
-  let client: { id: string; loyalty_points: number } | null = null;
-  if (email) {
-    const { data } = await supabaseAdmin.from("clients").select("id, loyalty_points").eq("shop_id", shop.id).ilike("email", exactIlike(email)).maybeSingle();
-    client = data;
-  }
-  if (!client && phone) {
-    const { data } = await supabaseAdmin.from("clients").select("id, loyalty_points").eq("shop_id", shop.id).eq("phone", phone).maybeSingle();
-    client = data;
-  }
-  if (!client) return { ok: true, points: 0, skipped: "no_client" };
 
   // Balance + ledger row in one locked step (phase68), tagged with the booking so
   // it can only ever be earned once. On failure, release the claim so a retry can
@@ -93,41 +85,23 @@ export async function runServerCompletionEffects(opts: { appointmentId: string; 
 
   const { data: appt, error: apptError } = await supabaseAdmin
     .from("appointments")
-    .select("id, shop_id, client_name, client_email, client_phone, date, total_amount, review_request_sent_at, services(name), barbers(name)")
+    .select("id, shop_id, client_id, client_name, client_email, client_phone, date, total_amount, review_request_sent_at, services(name), barbers(name)")
     .eq("id", appointmentId).maybeSingle();
   if (apptError || !appt) return;
   const { data: shop } = await supabaseAdmin
     .from("shops").select("id, name, email, slug, google_place_id").eq("id", appt.shop_id).maybeSingle();
   if (!shop) return;
 
-  // Bump client visit/spend stats (email → phone), mirroring the client path.
-  if (appt.client_email || appt.client_phone) {
-    const emailMatch = (appt.client_email ?? "").trim();
-    const phoneMatch = (appt.client_phone ?? "").trim();
-    // Match email case-INSENSITIVELY (ilike) — the SAME way awardLoyaltyForAppointment
-    // finds the client. A case-sensitive .eq here meant a client whose stored email
-    // differed only in case earned points but never got their visit/spend bumped,
-    // skewing VIP/At-Risk tagging. Fall back to phone (exact) when there's no email.
-    const { data: clientRow } = emailMatch
-      ? await supabaseAdmin
-          .from("clients")
-          .select("id, total_visits, total_spent")
-          .eq("shop_id", shop.id)
-          .ilike("email", emailMatch)
-          .maybeSingle()
-      : await supabaseAdmin
-          .from("clients")
-          .select("id, total_visits, total_spent")
-          .eq("shop_id", shop.id)
-          .eq("phone", phoneMatch)
-          .maybeSingle();
-    if (clientRow) {
-      await supabaseAdmin.from("clients").update({
-        total_visits: (clientRow.total_visits ?? 0) + 1,
-        total_spent: (clientRow.total_spent ?? 0) + (appt.total_amount ?? 0),
-        last_visit: appt.date,
-      }).eq("id", clientRow.id).then(null, () => null);
-    }
+  // Bump client visit/spend stats — same client rule as the points (saved link →
+  // email → phone), mirroring the browser path.
+  const clientRow = await findAppointmentClient<{ id: string; total_visits: number | null; total_spent: number | null }>(
+    supabaseAdmin, shop.id, appt, "id, total_visits, total_spent");
+  if (clientRow) {
+    await supabaseAdmin.from("clients").update({
+      total_visits: (clientRow.total_visits ?? 0) + 1,
+      total_spent: (clientRow.total_spent ?? 0) + (appt.total_amount ?? 0),
+      last_visit: appt.date,
+    }).eq("id", clientRow.id).then(null, () => null);
   }
 
   // Review-request email. Skip if one was already sent (the daily cron's
