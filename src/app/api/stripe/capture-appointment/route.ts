@@ -138,12 +138,10 @@ export async function POST(request: NextRequest) {
         ? feeCents
         : Math.round(((appt.total_amount ?? 0) + Number(appt.tip_amount ?? 0)) * 100);
       if (chargeCents <= 0) {
-        // Nothing to charge (e.g. $0 service) — just mark it settled. paid_at
-        // is best-effort so a lagging migration can't fail the request.
+        // Nothing to charge (e.g. $0 service) — just mark it settled, stamped now
+        // (paid_at is on prod since phase13), so reports date it the day it happened.
         await supabaseAdmin.from("appointments")
-          .update({ payment_status: "captured", payment_method: "card" }).eq("id", appointment_id);
-        await supabaseAdmin.from("appointments")
-          .update({ paid_at: new Date().toISOString() }).eq("id", appointment_id).then(null, () => null);
+          .update({ payment_status: "captured", payment_method: "card", paid_at: new Date().toISOString() }).eq("id", appointment_id);
         return NextResponse.json({ ok: true, amount: 0 });
       }
       pi = await stripe.paymentIntents.create({
@@ -202,19 +200,16 @@ export async function POST(request: NextRequest) {
       const captureParams = captureCents < capturable ? { amount_to_capture: captureCents } : {};
       pi = await stripe.paymentIntents.capture(appt.payment_intent_id!, captureParams, opts);
     }
-    // Mark settled with the columns that always exist. `paid_at` is written
-    // separately + best-effort so a lagging migration can never make this throw
-    // and roll a SUCCESSFUL Stripe charge back to "failed" via the catch below.
+    // Mark settled AND stamp when the money moved in the same write (paid_at is
+    // on prod since phase13), so every report dates this charge the day it was
+    // captured — never the day the booking was made.
     await supabaseAdmin.from("appointments")
       // Set status:"no-show" HERE (server-side, atomic with the capture) rather
       // than relying on a follow-up client write — revenue de-dups a no-show by
       // `status==="no-show"`, so if that client write failed the full appointment
       // AND the no-show fee both counted. Now the fee capture itself marks it.
-      .update({ payment_status: "captured", payment_method: "card", payment_intent_id: pi.id ?? appt.payment_intent_id, ...(reason === "no_show" ? { status: "no-show" } : {}) })
+      .update({ payment_status: "captured", payment_method: "card", paid_at: new Date().toISOString(), payment_intent_id: pi.id ?? appt.payment_intent_id, ...(reason === "no_show" ? { status: "no-show" } : {}) })
       .eq("id", appointment_id);
-    await supabaseAdmin.from("appointments")
-      .update({ paid_at: new Date().toISOString() })
-      .eq("id", appointment_id).then(null, () => null);
     // Best-effort — column may not exist until the Phase 1 migration is run.
     if (reason === "no_show") {
       await supabaseAdmin.from("appointments")

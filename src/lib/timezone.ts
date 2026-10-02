@@ -63,6 +63,14 @@ export function todayInTz(tz: string = DEFAULT_TZ): string {
   }).format(new Date());
 }
 
+/** Calendar date (YYYY-MM-DD) of a timestamp in the given timezone — e.g. the
+ *  shop-local day a payment happened. */
+export function ymdInTz(iso: string, tz: string = DEFAULT_TZ): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(new Date(iso));
+}
+
 /** Minutes-since-midnight of "now" in the given timezone (0–1439). */
 export function nowMinutesInTz(tz: string = DEFAULT_TZ): number {
   const parts = new Intl.DateTimeFormat("en-CA", {

@@ -508,8 +508,6 @@ export default function DashboardPage() {
   // The completion COUNT (`completed`) still keeps them all (the service was
   // rendered). Revenue is PRE-TAX (total_amount includes GST/HST) so it matches
   // Analytics/Payroll/Earnings — tax is shown separately as "collected".
-  const paidCompleted = completed.filter((a) => isPaid(a.payment_status));
-  const revenue = paidCompleted.reduce((s, a) => s + Math.max(0, (a.total_amount ?? 0) - (a.tax_amount ?? 0)), 0);
   // Headline revenue = everything COLLECTED in the window — appointments PLUS
   // POS / gift-card / walk-in transactions (incl. cash) — so it matches the
   // Payments page. `revenue` above stays appointment-only because it feeds Avg
@@ -527,6 +525,10 @@ export default function DashboardPage() {
     const d = formatDateForDb(new Date(ts));
     return d >= rangeStart && d <= rangeEnd;
   });
+  // Avg Ticket basis: completed visits PAID in this window (dated by when the money
+  // moved, like the headline) — not visits merely booked for these days.
+  const paidCompleted = revenueApptsInRange.filter((a) => a.status === "completed");
+  const revenue = paidCompleted.reduce((s, a) => s + Math.max(0, (a.total_amount ?? 0) - (a.tax_amount ?? 0)), 0);
   // Linked-payment EVIDENCE for the window's bookings from any date — a capture
   // saved just after midnight, a prepaid charge, a separate tip or balance — so
   // each booking's collected gross resolves the same way regardless of window.

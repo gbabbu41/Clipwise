@@ -364,12 +364,12 @@ export async function POST(request: NextRequest) {
       await supabaseAdmin.from("appointments").delete().eq("id", inserted.data.id);
       return NextResponse.json({ error: "Your gift card no longer covers this booking. Please check its balance and try again." }, { status: 409 });
     }
-    // payment_status is plain text and total_amount always exists, so set those
-    // together (must stick); the rest are best-effort follow-ups for lagging columns.
+    // Paid status + WHEN it was paid go together (must stick, so reports date it
+    // today); the rest are best-effort follow-ups for lagging columns.
     await supabaseAdmin.from("appointments")
-      .update({ total_amount: gross, payment_status: "paid" }).eq("id", inserted.data.id);
+      .update({ total_amount: gross, payment_status: "paid", paid_at: new Date().toISOString() }).eq("id", inserted.data.id);
     await supabaseAdmin.from("appointments")
-      .update({ tax_amount: taxAmt, paid_at: new Date().toISOString() }).eq("id", inserted.data.id).then(null, () => null);
+      .update({ tax_amount: taxAmt }).eq("id", inserted.data.id).then(null, () => null);
     await supabaseAdmin.from("appointments")
       .update({ payment_method: "gift_card" }).eq("id", inserted.data.id).then(null, () => null);
     // How much gift value paid for it, so revenue counts it once (at sale), not again here.

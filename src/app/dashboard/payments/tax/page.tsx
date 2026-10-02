@@ -20,7 +20,7 @@ export default function TaxCollectedPage() {
   const { shop } = useAuth();
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
-  const [appts, setAppts] = useState<(RevAppt & { date: string })[]>([]);
+  const [appts, setAppts] = useState<(RevAppt & { paid_at: string })[]>([]);
   const [txs, setTxs] = useState<(RevTx & { created_at: string })[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -31,26 +31,28 @@ export default function TaxCollectedPage() {
   const load = useCallback(async () => {
     if (!shop?.id) return;
     setLoading(true);
-    const from = `${year}-01-01`;
-    const to = `${year}-12-31`;
+    // Tax is reported in the period the money was COLLECTED (local year), never
+    // by the booking's scheduled day: appointments by paid_at, sales by created_at.
+    const from = new Date(`${year}-01-01T00:00:00`).toISOString();
+    const to = new Date(`${year}-12-31T23:59:59.999`).toISOString();
     const [a, t] = await Promise.all([
       supabase.from("appointments")
-        .select("id, client_name, total_amount, tax_amount, payment_status, payment_method, payment_intent_id, status, date")
-        .eq("shop_id", shop.id).gte("date", from).lte("date", to),
+        .select("id, client_name, total_amount, tax_amount, payment_status, payment_method, payment_intent_id, status, paid_at")
+        .eq("shop_id", shop.id).gte("paid_at", from).lte("paid_at", to),
       supabase.from("transactions")
         .select("client_name, service_name, amount, tip, tax, payment_method, payment_intent_id, stripe_session_id, source, refunded, created_at, appointment_id")
-        .eq("shop_id", shop.id).gte("created_at", from).lte("created_at", `${to}T23:59:59`),
+        .eq("shop_id", shop.id).gte("created_at", from).lte("created_at", to),
     ]);
-    setAppts((a.data ?? []) as (RevAppt & { date: string })[]);
+    setAppts((a.data ?? []) as (RevAppt & { paid_at: string })[]);
     setTxs((t.data ?? []) as (RevTx & { created_at: string })[]);
     setLoading(false);
   }, [shop?.id, year]);
 
   useEffect(() => { load(); }, [load]);
 
-  const monthOf = (iso: string) => new Date(iso + (iso.length <= 10 ? "T00:00:00" : "")).getMonth();
+  const monthOf = (iso: string) => new Date(iso).getMonth(); // local month of a timestamp
   const quarterTax = (q: typeof QUARTERS[number]) => {
-    const a = appts.filter(x => { const m = monthOf(x.date); return m >= q.from && m <= q.to; });
+    const a = appts.filter(x => { const m = monthOf(x.paid_at); return m >= q.from && m <= q.to; });
     const t = txs.filter(x => { const m = monthOf(x.created_at); return m >= q.from && m <= q.to; });
     return collectedTotals(a, t).tax;
   };
