@@ -41,5 +41,5 @@ assert(/discountLines\(\(appt as \{ price_breakdown\?: unknown \}\)\.price_break
 const pay = src('src/app/dashboard/payments/page.tsx');
 assert(/discountLines\(i\.priceBreakdown\)/.test(pay) && /client_email, price_breakdown/.test(pay), 'Payments rows + detail show it');
 assert(/\$\{discountRows\(data\.discounts\)\}/.test(src('src/lib/emailer.ts')), 'booking emails show it');
-assert(/discounts: discountEmailField\(/.test(src('src/lib/notify-booking-emails.ts')), 'in-shop booking email shows it');
+assert((src('src/lib/notify-booking-emails.ts').match(/discounts: discountEmailField\(/g) ?? []).length === 2 && /tip_amount, price_breakdown, services\(name\)/.test(src('src/lib/notify-booking-emails.ts')), 'in-shop booking: customer AND owner/barber emails show it');
 console.log('PASS price breakdown: promo + loyalty points recorded on bookings and POS sales, shown on calendar, Payments, alerts and emails (e.g. "Loyalty points (423 pts) −$21.15")');
