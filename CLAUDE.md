@@ -119,6 +119,8 @@ never against a stale checkbox in TODO.md or a migration file header.
   `gift_cards`), phase71 (`gift_pay_appointment` — "Gift card" at checkout) and phase72
   (`price_breakdown` jsonb on appointments + transactions: promo / loyalty points behind a
   discounted total, display-only) are **applied on prod** (verified 2026-09-28/30).
+  phase73 (refund/cancel undoes a visit's loyalty: spent points back, earned points taken back;
+  trigger also fires on `payment_status`) is **applied on prod** (2026-10-02).
 - If a feature "silently does nothing," still capture the supabase `error` (don't only
   read `data`) — but the cause is far more likely code/config than a missing column now.
 
@@ -157,6 +159,10 @@ never against a stale checkbox in TODO.md or a migration file header.
   discount is shared shop/barber "and they figure it out between them". **Do not change this** to
   commission-on-list-price. How the price was reached is stored in `price_breakdown` (phase72) and
   shown on the calendar, Payments, alerts and emails — money columns are unchanged.
+- **Money is dated by when it MOVED (owner rule 2026-10-02):** a booking's money by `paid_at`, a
+  ledger row by `created_at`, a refund on its own refund row's day — never the booking's
+  `created_at` or scheduled `date`. Write `paid_at` in the SAME update that sets paid/captured.
+  Visit COUNTS (completed / no-show) stay by scheduled day.
 - **Stripe Connect:** charges run on each shop's **connected account** (shop = merchant
   of record, 0% platform fee). The Stripe **webhook must listen to connected-account
   events** or `payment_status` never flips to paid. The platform-charge fallback for

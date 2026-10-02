@@ -6,7 +6,7 @@ import { effectivePlan, isPaidPlan } from "@/lib/validation";
 import { canPromptPaymentSetup } from "@/lib/setup-prompts";
 import { ensurePlansHydrated } from "@/lib/plans-server";
 import { prettyDate } from "@/lib/utils";
-import { safeTz, todayInTz, shiftYmd, hoursUntilBooking } from "@/lib/timezone";
+import { safeTz, todayInTz, shiftYmd, hoursUntilBooking, ymdInTz } from "@/lib/timezone";
 import { collectedTotals, type RevAppt, type RevTx } from "@/lib/revenue";
 import { sendAppEmail } from "@/lib/emailer";
 import { processTrials } from "@/lib/process-trials";
@@ -356,24 +356,38 @@ async function run() {
     if (isMonday && sends < MAX_SENDS) {
       const weekAgo = shiftYmd(today, -7);
       const yesterday = shiftYmd(today, -1);
-      const [{ data: lwAppts }, { data: lwTxs }] = await Promise.all([
+      // Visits (completed / no-show counts) are by their scheduled day; MONEY is by
+      // the shop-local day it moved (paid_at / transaction time), never by when the
+      // visit was booked or scheduled. Fetch a day either side, then keep exactly
+      // the shop-local week.
+      const inWeek = (iso: string | null | undefined) => {
+        if (!iso) return false;
+        const d = ymdInTz(iso, tz);
+        return d >= weekAgo && d <= yesterday;
+      };
+      const looseFrom = `${shiftYmd(weekAgo, -1)}T00:00:00Z`, looseTo = `${shiftYmd(yesterday, 1)}T23:59:59Z`;
+      const [{ data: lwAppts }, { data: lwPaid }, { data: lwTxs }] = await Promise.all([
         supabaseAdmin.from("appointments")
-          .select("id, client_name, total_amount, tax_amount, tip_amount, gift_applied, balance_due, payment_status, payment_method, payment_intent_id, status, barber_id")
+          .select("id, status")
           .eq("shop_id", shop.id).gte("date", weekAgo).lte("date", yesterday),
+        supabaseAdmin.from("appointments")
+          .select("id, client_name, total_amount, tax_amount, tip_amount, gift_applied, balance_due, payment_status, payment_method, payment_intent_id, status, barber_id, paid_at")
+          .eq("shop_id", shop.id).gte("paid_at", looseFrom).lte("paid_at", looseTo),
         supabaseAdmin.from("transactions")
           .select("id, client_name, amount, tip, tax, payment_method, created_at, payment_intent_id, source, refunded, barber_id, appointment_id")
-          .eq("shop_id", shop.id).gte("created_at", `${weekAgo}T00:00:00`),
+          .eq("shop_id", shop.id).gte("created_at", looseFrom).lte("created_at", looseTo),
       ]);
-      const lastWeekAppts = (lwAppts ?? []) as RevAppt[];
-      const completed = lastWeekAppts.filter(a => a.status === "completed").length;
-      const noShows = lastWeekAppts.filter(a => a.status === "no-show").length;
-      const txCount = lwTxs?.length ?? 0;
-      if (completed > 0 || noShows > 0 || txCount > 0) {
+      const lastWeekAppts = ((lwPaid ?? []) as (RevAppt & { paid_at: string | null })[]).filter(a => inWeek(a.paid_at));
+      const weekTxs = ((lwTxs ?? []) as (RevTx & { created_at: string })[]).filter(t => inWeek(t.created_at));
+      const completed = (lwAppts ?? []).filter(a => a.status === "completed").length;
+      const noShows = (lwAppts ?? []).filter(a => a.status === "no-show").length;
+      const txCount = weekTxs.length;
+      if (completed > 0 || noShows > 0 || txCount > 0 || lastWeekAppts.length > 0) {
         // Prepaid bookings were charged before this week — load their linked ledger
         // rows (same shop only) as evidence; the week's income window is unchanged.
         // If that read fails the figure is sent as "Unavailable", never recomputed without it.
         const evidence = await loadLinkedEvidence(supabaseAdmin, shop.id, lastWeekAppts);
-        const totals = collectedTotals(lastWeekAppts, (lwTxs ?? []) as RevTx[], undefined, null, evidence.rows);
+        const totals = collectedTotals(lastWeekAppts, weekTxs, undefined, null, evidence.rows);
         const { count: upcoming } = await supabaseAdmin.from("appointments")
           .select("id", { count: "exact", head: true })
           .eq("shop_id", shop.id).gte("date", today).lte("date", shiftYmd(today, 6)).in("status", ["pending", "confirmed"]);

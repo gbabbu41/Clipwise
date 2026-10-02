@@ -237,10 +237,12 @@ export default function AnalyticsPage() {
   // Avg ticket = pre-tax SERVICE revenue per completed appointment (matches the
   // Dashboard). Using gross (which includes POS, tips, tax) over an appointment
   // count inflated it.
-  const completedApptRevenue = filteredAppts
-    .filter(a => a.status === "completed" && a.payment_status !== "refunded")
+  // Dated by when the money moved (paid_at), like the headline — completed visits
+  // PAID in this period, not visits merely scheduled in it.
+  const paidCompletedInRange = revenueApptsInRange.filter(a => a.status === "completed");
+  const completedApptRevenue = paidCompletedInRange
     .reduce((s, a) => s + Math.max(0, (a.total_amount ?? 0) - (a.tax_amount ?? 0)), 0);
-  const avgTicket = completedAppts > 0 ? completedApptRevenue / completedAppts : 0;
+  const avgTicket = paidCompletedInRange.length > 0 ? completedApptRevenue / paidCompletedInRange.length : 0;
 
   // Revenue by barber — SAME basis as the money headline + the Dashboard's top
   // barbers: collected service on paid appointments (money-moved) + POS sales,
@@ -545,10 +547,12 @@ export default function AnalyticsPage() {
                     const bAppts = filteredAppts.filter(a => a.barber_id === b.id);
                     const bCompleted = bAppts.filter(a => a.status === "completed");
                     const bNoShows = bAppts.filter(a => a.status === "no-show").length;
-                    // Revenue excludes refunded completed appts (money handed back);
-                    // the completed COUNT keeps them (the service was still rendered).
-                    const bRevenue = bCompleted.filter(a => a.payment_status !== "refunded").reduce((s, a) => s + Math.max(0, (a.total_amount ?? 0) - (a.tax_amount ?? 0)), 0);
-                    const bAvg = bCompleted.length > 0 ? bRevenue / bCompleted.length : 0;
+                    // Revenue = this barber's completed visits PAID in the period (dated
+                    // by when the money moved; refunds excluded). The visit COUNT stays
+                    // by scheduled day (the service was still rendered).
+                    const bPaid = paidCompletedInRange.filter(a => a.barber_id === b.id);
+                    const bRevenue = bPaid.reduce((s, a) => s + Math.max(0, (a.total_amount ?? 0) - (a.tax_amount ?? 0)), 0);
+                    const bAvg = bPaid.length > 0 ? bRevenue / bPaid.length : 0;
                     const completionRate = bAppts.length > 0 ? Math.round((bCompleted.length / bAppts.length) * 100) : 0;
                     return (
                       <tr key={b.id} className="border-b border-border/50 hover:bg-card-raised/20">

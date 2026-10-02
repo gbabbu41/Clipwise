@@ -32,7 +32,7 @@ const { psql, stop } = startPg();
       create table public.shops (id uuid primary key, owner_id text, subscription_plan text, subscription_status text, booking_settings jsonb);
       create table public.clients (id uuid primary key default gen_random_uuid(), shop_id uuid references public.shops(id), name text, email text, phone text, loyalty_points integer default 0);
       create table public.appointments (id uuid primary key default gen_random_uuid(), shop_id uuid references public.shops(id), client_id uuid references public.clients(id), client_email text, client_phone text,
-        total_amount numeric, loyalty_awarded boolean default false,
+        total_amount numeric, loyalty_awarded boolean default false, payment_status text,
         status text check (status = any (array['pending','confirmed','completed','cancelled','no-show'])));
       create table public.loyalty_rewards (id uuid primary key default gen_random_uuid(), shop_id uuid references public.shops(id) on delete cascade,
         client_id uuid references public.clients(id) on delete cascade, points integer, action text, created_at timestamptz default now());
@@ -43,6 +43,8 @@ const { psql, stop } = startPg();
     assert.equal(schema.code, 0, schema.err);
     const mig = await psql(['-f', path.join(root, 'supabase/migrations/phase68_loyalty_ledger_integrity.sql')]);
     assert.equal(mig.code, 0, mig.err);
+    const mig73 = await psql(['-v', 'ON_ERROR_STOP=1', '-f', path.join(root, 'supabase/migrations/phase73_loyalty_refund_reversal.sql')]);
+    assert.equal(mig73.code, 0, mig73.err);
 
     const one = async sql => { const r = await psql(['-c', sql]); assert.equal(r.code, 0, r.err); return r.out; };
     const bal = async id => Number(await one(`select loyalty_points from public.clients where id = '${id}'`));
@@ -157,6 +159,33 @@ const { psql, stop } = startPg();
     await one(`insert into public.appointments (id, shop_id, total_amount, status) values ('${apptY}', '${SHOP}', 40.25, 'completed')`);
     assert.equal((await awardLoyaltyForAppointment(apptY)).skipped, 'no_client');
     assert.equal(await one(`select loyalty_awarded from public.appointments where id = '${apptY}'`), 'f', 'no client → left unclaimed');
+    // d3) phase73 — a FULL REFUND undoes the visit's points: spent points come
+    //     back, earned points are taken back; a repeat/concurrent refund changes
+    //     nothing more; the balance never goes negative.
+    const refunder = uuid(62), apptR = uuid(163);
+    await client(refunder, 'refund@x.com', 500);
+    await booking(apptR, 'refund@x.com', 'confirmed', 15.93);
+    await one(`select public.loyalty_redeem_for_appointment('${SHOP}', '${refunder}', 423, '${apptR}')`);
+    await setStatus(apptR, 'completed');
+    assert.equal((await awardLoyaltyForAppointment(apptR)).points, 31);
+    assert.equal(await bal(refunder), 500 - 423 + 31);
+    await Promise.all([1, 2].map(() => psql(['-c', `update public.appointments set payment_status = 'refunded' where id = '${apptR}'`])));
+    assert.equal(await bal(refunder), 500, 'refund: 423 given back, 31 taken back — once');
+    assert.deepEqual((await ledger(`appointment_id = '${apptR}'`)).map(r => r.action).sort(), ['earned', 'redeemed', 'restored', 'revoked']);
+    await one(`update public.appointments set payment_status = 'refunded', status = 'completed' where id = '${apptR}'`);
+    assert.equal(await bal(refunder), 500, 'no-op re-save');
+    //     A refunded visit never earns afterwards.
+    const apptR2 = uuid(164);
+    await one(`insert into public.appointments (id, shop_id, client_email, total_amount, status, payment_status) values ('${apptR2}', '${SHOP}', 'refund@x.com', 20, 'completed', 'refunded')`);
+    assert.equal((await awardLoyaltyForAppointment(apptR2)).skipped, 'refunded');
+    //     Earned points already spent elsewhere: take back only what's there (never negative).
+    const spender = uuid(63), apptS = uuid(165);
+    await client(spender, 'spend@x.com');
+    await booking(apptS, 'spend@x.com', 'completed', 40.25);
+    await awardLoyaltyForAppointment(apptS);
+    await one(`select public.loyalty_adjust('${SHOP}', '${spender}', -50, 'redeemed')`);
+    await one(`update public.appointments set payment_status = 'refunded' where id = '${apptS}'`);
+    assert.equal(await bal(spender), 0, 'never below zero');
     // e) two staff redeem 300 each from 423 at the same moment → one succeeds, never overdrawn.
     const shared = uuid(5);
     await client(shared, 'shared@x.com', 423);
@@ -203,6 +232,6 @@ const { psql, stop } = startPg();
     assert.equal(await consistent(), 0, 'balance == sum(ledger) for every client');
 
     const version = await one('show server_version');
-    console.log(`PASS loyalty integrity (real PostgreSQL ${version} + phase68): cancel/no-show restores spent points once, reinstating re-spends (never negative), no spend on a cancelled booking, cancel/redeem races lose nothing, no lost updates, earn once, no overdraw, failures logged and retryable, exact email match, shop isolation, not callable by anon/authenticated, balance == ledger`);
+    console.log(`PASS loyalty integrity (real PostgreSQL ${version} + phase68/73): cancel/no-show restores spent points once, a full refund gives spent points back and takes earned back (once, never negative), reinstating re-spends (never negative), no spend on a cancelled booking, cancel/redeem races lose nothing, no lost updates, earn once, no overdraw, failures logged and retryable, exact email match, shop isolation, not callable by anon/authenticated, balance == ledger`);
   } finally { stop(); }
 })().catch(e => { console.error(e); process.exitCode = 1; });

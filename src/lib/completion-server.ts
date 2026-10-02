@@ -23,11 +23,13 @@ type AwardResult = { ok: boolean; points?: number; loyalty_points?: number; skip
 export async function awardLoyaltyForAppointment(appointmentId: string): Promise<AwardResult> {
   const { data: appt } = await supabaseAdmin
     .from("appointments")
-    .select("id, shop_id, client_id, client_email, client_phone, total_amount, loyalty_awarded, status")
+    .select("id, shop_id, client_id, client_email, client_phone, total_amount, loyalty_awarded, status, payment_status")
     .eq("id", appointmentId).maybeSingle();
   if (!appt) return { ok: false, skipped: "not_found" };
   if (appt.loyalty_awarded) return { ok: true, skipped: "already" };
   if (appt.status !== "completed") return { ok: false, skipped: "not_completed" };
+  // A refunded visit earns nothing (phase73 takes back points earned before a refund).
+  if (appt.payment_status === "refunded") return { ok: true, skipped: "refunded" };
 
   const { data: shop } = await supabaseAdmin
     .from("shops").select("id, subscription_plan, subscription_status, booking_settings")
