@@ -74,7 +74,7 @@ export async function backfillAppointmentStripeFees(limit = 30): Promise<{ scann
   const { data: rows, error } = await supabaseAdmin
     .from("appointments")
     .select("id, shop_id, payment_intent_id")
-    .in("payment_status", ["paid", "captured"])
+    .in("payment_status", ["paid", "captured", "refunded"])   // Stripe keeps the fee on a refund
     .not("payment_intent_id", "is", null)
     .is("stripe_fee", null)
     .lte("created_at", settled)

@@ -1,14 +1,14 @@
-import { appointmentGross, collectedTotals, countablePosTxs, grossContext, isPaid, transactionCollectedAmount, type ByPi, type RevAppt, type RevTx } from "./revenue";
+import { appointmentGross, collectedTotals, countablePosTxs, grossContext, isRefundRow, isSale, refundedAmount, transactionCollectedAmount, type ByPi, type RevAppt, type RevTx } from "./revenue";
 
 /** Missing Stripe entries mean unknown fees, never confirmed zero fees. */
 export function analyticsFeesKnown(appts: RevAppt[], txs: RevTx[], byPi: ByPi) {
   const known = (row: { payment_method?: string | null; payment_intent_id?: string | null }) =>
     row.payment_method === "cash" || (!(row.payment_intent_id || row.payment_method === "card" || row.payment_method === "online")) || !!(row.payment_intent_id && byPi[row.payment_intent_id]);
   const counted = new Set(countablePosTxs(appts, txs));
-  const paidPis = new Set(appts.filter(a => isPaid(a.payment_status) && a.status !== "no-show").map(a => a.payment_intent_id).filter(Boolean));
-  return appts.every(a => !isPaid(a.payment_status) || a.status === "no-show" || collectedTotals([a], []).gross <= 0 || known(a)) &&
+  const paidPis = new Set(appts.filter(a => isSale(a.payment_status) && a.status !== "no-show").map(a => a.payment_intent_id).filter(Boolean));
+  return appts.every(a => !isSale(a.payment_status) || a.status === "no-show" || collectedTotals([a], []).gross <= 0 || known(a)) &&
     txs.every(t => {
-      if (t.refunded) return true;
+      if (isRefundRow(t)) return true;   // a refund carries no new fee
       if (t.source === "completion" && t.payment_intent_id && paidPis.has(t.payment_intent_id)) return true;
       const movesMoney = counted.has(t) ? collectedTotals([], [t]).gross > 0
         : t.source === "balance" ? (t.amount ?? 0) + (t.tax ?? 0) + (t.tip ?? 0) > 0
@@ -49,20 +49,22 @@ export function analyticsRevenueBuckets(appts: DatedAppt[], txs: RevTx[], range:
     const d = new Date(timestamp), key = localDateKey(d);
     daily.set(key, (daily.get(key) ?? 0) + gross); hourly[d.getHours()].revenue += gross;
   };
-  const paidPis = new Set(appts.filter(a => isPaid(a.payment_status) && a.status !== "no-show").map(a => a.payment_intent_id).filter(Boolean));
-  // Same collected-gross rule as the headline (collectedTotals), so the bars sum to it.
+  const paidPis = new Set(appts.filter(a => isSale(a.payment_status) && a.status !== "no-show").map(a => a.payment_intent_id).filter(Boolean));
+  // Same collected-gross rule as the headline (collectedTotals), so the bars sum to it:
+  // a sale on its paid day (even if refunded later), a refund on its own day.
   const ctx = grossContext(appts, txs, byPi, evidence);
   for (const a of appts) {
-    if (!isPaid(a.payment_status) || a.status === "no-show") continue;
+    if (!isSale(a.payment_status) || a.status === "no-show") continue;
     add(a.paid_at ?? a.created_at, appointmentGross(a, ctx).gross);
   }
   const countable = new Set(countablePosTxs(appts, txs));
   for (const tx of txs) {
+    if (isRefundRow(tx)) { add(tx.created_at, -refundedAmount(tx)); continue; }
     if (!countable.has(tx) && tx.source !== "completion" && tx.source !== "balance") continue;
     if (tx.source === "completion" && tx.payment_intent_id && paidPis.has(tx.payment_intent_id)) continue;
     // A later-collected balance lands on its own day (the booking line excludes it).
     const g = tx.source === "balance"
-      ? (tx.refunded ? 0 : transactionCollectedAmount(tx))
+      ? transactionCollectedAmount(tx)
       : collectedTotals([], [tx]).gross;
     add(tx.created_at, g);
   }

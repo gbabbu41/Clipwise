@@ -349,14 +349,17 @@ const post = body => new NextRequest('https://clipwise.ca/api', { method: 'POST'
     const hookSrc = fs.readFileSync(path.join(root, 'src/app/api/webhooks/stripe/route.ts'), 'utf8');
     assert(/\.eq\("payment_intent_id", pi\)\.neq\("source", "refund"\)\.limit\(1\)\.maybeSingle\(\);\s*if \(rtx\?\.shop_id\)[\s\S]{0,900}recordRefundLedger\(/.test(hookSrc), 'charge.refunded re-saves from the sale row');
 
-    // Reports: a refund record changes no figure (refunded sale already excluded).
+    // Reports (owner rule 2026-10-02): the refunded sale still counts on its own day,
+    // and its refund record is money out on the refund's day — together, zero.
     const revenue = load('src/lib/revenue.ts', mocks);
     const sale = await saleRow('pi_route');
     const [refundRec] = await refundRows('pi_route');
     const apptR = { id: APPT_R, client_name: 'C', total_amount: 40.25, tax_amount: 5.25, tip_amount: 0, gift_applied: 0, balance_due: null, payment_status: 'refunded', payment_method: 'card', payment_intent_id: 'pi_route', status: 'completed' };
     const num = r => ({ ...r, amount: Number(r.amount), tax: Number(r.tax), tip: Number(r.tip), stripe_fee: Number(r.stripe_fee) });
     const without = revenue.collectedTotals([apptR], [num(sale)]), withRec = revenue.collectedTotals([apptR], [num(sale), num(refundRec)]);
-    for (const k of ['gross', 'tax', 'tips', 'cash', 'card']) assert.equal(withRec[k], without[k], `${k} unchanged`);
+    assert.equal(without.gross, 40.25, 'sale counts on its paid day'); assert.equal(without.tax, 5.25);
+    assert.equal(withRec.gross, 0, 'sale + refund = 0'); assert.equal(withRec.tax, 0); assert.equal(withRec.refunds, 40.25);
+    assert.equal(revenue.collectedTotals([], [num(refundRec)]).gross, -40.25, 'refund day: money out');
     assert.equal(revenue.countablePosTxs([apptR], [num(refundRec)]).length, 0, 'never a POS line / commission');
     for (const f of ['src/app/api/admin/shops/route.ts', 'src/app/api/admin/shops/[id]/route.ts']) {
       assert(fs.readFileSync(path.join(root, f), 'utf8').includes('.or("source.is.null,source.neq.refund")'), `${f}: GMV excludes refund records`);

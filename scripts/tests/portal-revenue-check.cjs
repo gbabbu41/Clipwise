@@ -25,8 +25,13 @@ assert.equal(transactionCollectedAmount({ amount: 86.96, tax: 13.04, tip: 0 }), 
 result = collectedTotals([], [{ ...base, payment_method: 'card', payment_intent_id: 'pi_fixture', tip: 20 }], { pi_fixture: { gross: 135, fee: 4, net: 131 } });
 assert.equal(result.gross, 135); assert.equal(result.net, 131); assert.equal(result.fees, 4); assert.equal(result.cash, 0);
 assert.equal(result.gross - result.fees, result.net);
-assert.equal(collectedTotals([], [{ ...base, refunded: true }]).gross, 0);
-assert.equal(collectedTotals([], [{ ...base, source: 'refund', amount: -100 }]).gross, 0);
+// Refunds (owner rule 2026-10-02): the sale stays on its own day; the refund row
+// is money out on the refund's day; both in one window net to zero.
+assert.equal(collectedTotals([], [{ ...base, refunded: true }]).gross, 115, 'refunded sale still counts on its day');
+const refundRow = { ...base, source: 'refund', amount: -100, tax: -15, refunded: true };
+result = collectedTotals([], [refundRow]);
+assert.equal(result.gross, -115); assert.equal(result.tax, -15); assert.equal(result.refunds, 115); assert.equal(result.cash, -115);
+assert.equal(collectedTotals([], [{ ...base, refunded: true }, refundRow]).gross, 0, 'sale + refund in one window');
 const appt = { client_name: base.client_name, total_amount: 115, tax_amount: 15, payment_status: 'paid', payment_method: 'cash', status: 'completed' };
 assert.equal(collectedTotals([appt], [{ ...base, source: 'completion' }]).gross, 115);
 result = collectedTotals([], [{ ...base, tip: 20, barber_id: 'owner' }], undefined, 'owner');

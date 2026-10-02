@@ -19,18 +19,18 @@ export function refundRecordId(paymentIntentId: string): string {
  * trail + GST/HST claim-back record a refund needs ("how much did we refund in
  * August", and the tax you reclaim on money handed back).
  *
- * AUDIT-ONLY: source "refund" is EXCLUDED from all revenue math (see
- * countablePosTxs), so it never double-counts — a full refund already drops its
- * revenue via the original row's payment_status/refunded flag. This row exists to
- * be listed and reported, dated at the moment of the refund (the original row is
- * dated at the sale). payment_intent_id is stored ONLY to dedupe (a refund can
- * arrive from our route AND the charge.refunded webhook); it is never used for fee
- * math on these rows.
+ * COUNTED as money out on the day of the refund (owner rule 2026-10-02): the
+ * refunded sale keeps counting on its own paid day and this row subtracts the
+ * refunded amount from gross / net / tax / tips in whatever window holds the
+ * refund (lib/revenue collectedTotals). So EVERY real refund must have this row —
+ * a refund without one would leave the sale counted with nothing taken back.
+ * payment_intent_id dedupes it (a refund can arrive from our route AND the
+ * charge.refunded webhook); it is never used for fee math (Stripe keeps the
+ * original fee, which stays on the sale).
  *
- * The row is stored with refunded=true so EVERY existing `!refunded` filter
- * (analytics, barber earnings, collectedTotals) auto-excludes it — belt-and-braces
- * on top of the explicit source="refund" exclusion — and it can never itself be
- * re-refunded. It's found for reporting/dedupe by source="refund", not the flag.
+ * Stored with refunded=true so per-barber earnings / rankings (which skip
+ * refunded rows) never treat it as a sale, and it can never itself be
+ * re-refunded. Revenue finds it by source="refund", not the flag.
  *
  * Best-effort with a column-drop retry so a lagging schema can never break a
  * refund that already went through on Stripe. Saving it never calls Stripe, so

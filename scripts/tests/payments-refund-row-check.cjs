@@ -1,20 +1,26 @@
 const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
 const src = fs.readFileSync(path.resolve(__dirname, '../../src/app/dashboard/payments/page.tsx'), 'utf8');
 
-// 2026-10-02 smoke test: a refund issued today didn't show under "Today".
-// 1) The refund ledger row (source "refund") becomes its own row, dated at the refund.
-const refundBlock = src.slice(src.indexOf('.filter(t => t.source === "refund")'));
-assert.ok(src.includes('.filter(t => t.source === "refund")'), 'refund rows are in the feed');
-assert.match(refundBlock.slice(0, 1200), /tsIso: t\.created_at/, 'dated when the money went back');
-// ...and never counted: totals only take settled && !refunded lines.
-assert.match(refundBlock.slice(0, 1200), /settled: false/);
-assert.match(refundBlock.slice(0, 1200), /refunded: true, refundOut: true/);
-assert.match(src, /const scopedSettled = feedAll\.filter\(i => i\.settled/);
-assert.match(src, /items\.filter\(x => x\.settled && !x\.refunded\)/);
-// 2) The refunded charge stays on the day it was PAID, not the day it was booked.
+// Refunds on Payments (owner rule 2026-10-02 — a statement, not a rewrite):
+// 1) The refund row is its own line, dated at the refund, COUNTED as money out.
+const at = src.indexOf('.filter(t => isRefundRow(t))');
+assert.ok(at > 0, 'refund rows are in the feed');
+const block = src.slice(at, at + 1400);
+assert.match(block, /tsIso: t\.created_at/, 'dated when the money went back');
+assert.match(block, /settled: true/, 'counted in that day');
+assert.match(block, /refunded: true, refundOut: true/);
+assert.match(block, /tax: -Math\.abs\(t\.tax \?\? 0\)/, 'tax given back');
+// ...as a negative line with no fee of its own (Stripe keeps the sale's fee).
+assert.match(src, /const counted = \(i: FeedItem\) => i\.refundOut \? -i\.amount/);
+assert.match(src, /const feeOf = \(i: FeedItem\) => i\.refundOut \? 0/);
+assert.match(src, /const netOf = \(i: FeedItem\) => i\.refundOut \? -i\.amount/);
+assert.match(src, /const signedAmount = \(i: FeedItem\) => i\.earn \? i\.amount : netOf\(i\);/);
+assert.match(src, /const settled = items\.filter\(x => x\.settled\);[\s\S]{0,120}signedAmount\(x\)/, 'day totals: refunds subtract');
+assert.match(src, /filter\(i => !i\.giftSale && !i\.refundOut\)/, 'a refund is not a cut');
+// 2) The refunded sale stays counted on the day it was PAID.
 assert.match(src, /const tsIso = \(paid \|\| a\.payment_status === "refunded"\) \? \(a\.paid_at \?\? a\.created_at\) : a\.created_at;/);
-// 3) Shown as money out, with no fee maths on it.
-assert.match(src, /const statementAmount = \(i: FeedItem\) => \(i\.earn \|\| i\.refundOut\) \? i\.amount : netOf\(i\);/);
+assert.match(src, /settled: sale, tsIso,/);
+assert.match(src, /settled: true, tsIso: t\.created_at,   \/\/ a refunded sale still happened/);
 assert.match(src, /i\.refundOut \? "−"/);
 assert.match(src, /Returned to customer/);
-console.log('PASS payments refund row: refund shows on its own day as money out, never in totals; refunded charge stays on its paid day');
+console.log('PASS payments refund row: sale stays on its paid day, refund is money out on its own day (counted, no fee), never a cut');

@@ -49,7 +49,11 @@ const txs = [
   { client_name: 'Paid', amount: 100, tip: 10, tax: 15, source: 'completion', payment_intent_id: 'pi_booking', payment_method: 'card', created_at: stamp(15) },
   { client_name: 'POS', amount: 20, tip: 3, tax: 3, source: 'pos', payment_method: 'cash', created_at: stamp(16) },
   { client_name: 'Paid', amount: 0, tip: 5, source: 'completion', payment_intent_id: 'pi_tip', payment_method: 'card', created_at: stamp(17) },
-  { client_name: 'Refund', amount: 888, source: 'pos', refunded: true, payment_method: 'card', created_at: stamp(18) },
+  { client_name: 'Refund', amount: 888, source: 'pos', refunded: true, payment_method: 'card', payment_intent_id: 'pi_refunded', created_at: stamp(18) },
+  // Every refund has its dated refund row (owner rule 2026-10-02): the sales above
+  // stay on their own days, the money goes back on the refund's day.
+  { client_name: 'Refund', amount: -888, source: 'refund', refunded: true, payment_method: 'card', created_at: stamp(17) },
+  { client_name: 'Refund', amount: -888, source: 'refund', refunded: true, payment_method: 'card', created_at: stamp(18) },
   { client_name: 'Balance', amount: 20, source: 'balance', payment_method: 'cash', created_at: stamp(19) },
 ];
 const buckets = analyticsRevenueBuckets(appts, txs, week);
@@ -65,7 +69,9 @@ assert.equal(buckets.hourly.reduce((sum, row) => sum + row.revenue, 0), totals.g
 assert.equal(buckets.daily[1].revenue, 0); assert.equal(buckets.daily[0].label, 'Sep 14');
 assert.equal(totals.tips, 18); assert.equal(totals.ownerTips, 10);
 assert(periods.hasMissingCardFees(appts, txs, {}));
-assert(!periods.hasMissingCardFees(appts, txs, { pi_booking: { gross: 125, net: 121, fee: 4 }, pi_tip: { gross: 5, net: 4.5, fee: .5 } }));
+// A refunded card sale still counts, so its (kept) Stripe fee must be known too.
+assert(periods.hasMissingCardFees(appts, txs, { pi_booking: { gross: 125, net: 121, fee: 4 }, pi_tip: { gross: 5, net: 4.5, fee: .5 } }));
+assert(!periods.hasMissingCardFees(appts, txs, { pi_booking: { gross: 125, net: 121, fee: 4 }, pi_tip: { gross: 5, net: 4.5, fee: .5 }, pi_refunded: { gross: 888, net: 862, fee: 26 } }));
 assert(!periods.hasMissingCardFees([{ ...appts[0], tip_amount: 0, gift_applied: 115 }], [], {}));
 assert(!periods.hasMissingCardFees([{ ...appts[0], payment_method: 'cash' }], [], {}));
 assert(!periods.hasMissingCardFees([], [{ ...txs[1], tip: 0 }], {}));
