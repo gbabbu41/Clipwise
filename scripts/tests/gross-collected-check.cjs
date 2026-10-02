@@ -74,7 +74,11 @@ const feeRows = rows => confirmedFeesFromRows(rows.map((r, i) => ({ id: `r${i}`,
                  appt({ id: 'cash', total_amount: 25, payment_method: 'cash', payment_status: 'paid', payment_intent_id: null })];
   const txs = [row({ appointment_id: 'tip', payment_intent_id: 'pi_t', amount: 40, tip: 6, fee: 1.64 })];
   const t = collectedTotals(appts, txs, feeRows(txs));
-  assert.equal(cents(t.gross), 71); assert.equal(cents(t.tips), 6); assert.equal(cents(t.cash), 25); reconciles(t);
+  // A refunded sale still counts on its paid day (owner rule 2026-10-02) — 46 + 30 + 25.
+  assert.equal(cents(t.gross), 101); assert.equal(cents(t.tips), 6); assert.equal(cents(t.cash), 25); reconciles(t);
+  // Its refund row (money out, on the refund's day) brings the pair back to zero.
+  const withRefund = collectedTotals(appts, [...txs, row({ source: 'refund', refunded: true, appointment_id: 'ref', payment_intent_id: 'pi_r', amount: -30 })], feeRows(txs));
+  assert.equal(cents(withRefund.gross), 71); assert.equal(cents(withRefund.refunds), 30); reconciles(withRefund);
 }
 
 // 6. Loyalty/discounted POS sale: ledger amount is already net of the discount → unchanged.

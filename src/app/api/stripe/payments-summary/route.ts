@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
     const paidAppts = (onlyUncached: boolean) => {
       const q = supabaseAdmin.from("appointments")
         .select("payment_intent_id").eq("shop_id", auth.shop.id)
-        .in("payment_status", ["paid", "captured"]).not("payment_intent_id", "is", null)
+        .in("payment_status", ["paid", "captured", "refunded"]).not("payment_intent_id", "is", null)   // a refunded sale's fee is still a real cost
         .gte("created_at", cutoff);
       return (onlyUncached ? q.is("stripe_fee", null) : q).order("created_at", { ascending: false }).limit(150);
     };

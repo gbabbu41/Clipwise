@@ -115,7 +115,7 @@ export default function AnalyticsPage() {
         // Historical payments still owe commission/tips to inactive barbers.
         readAllRows<Barber>((from, to) => supabase.from("barbers").select("*").eq("shop_id", shop.id).order("name").order("id").range(from, to)),
         readAllRows<{ id: string; name: string }>((from, to) => supabase.from("services").select("id, name").eq("shop_id", shop.id).order("id").range(from, to)),
-        readAllRows<Appointment>((from, to) => supabase.from("appointments").select("*").eq("shop_id", shop.id).in("payment_status", ["paid", "captured"]).or(`and(paid_at.gte.${range.startIso},paid_at.lt.${range.endIso}),and(paid_at.is.null,created_at.gte.${range.startIso},created_at.lt.${range.endIso})`).order("created_at").order("id").range(from, to)),
+        readAllRows<Appointment>((from, to) => supabase.from("appointments").select("*").eq("shop_id", shop.id).in("payment_status", ["paid", "captured", "refunded"]).or(`and(paid_at.gte.${range.startIso},paid_at.lt.${range.endIso}),and(paid_at.is.null,created_at.gte.${range.startIso},created_at.lt.${range.endIso})`).order("created_at").order("id").range(from, to)),
         fetch("/api/stripe/payments-summary", {
           method: "POST",
           headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
@@ -147,8 +147,11 @@ export default function AnalyticsPage() {
     return () => { requestVersion.current += 1; };
   }, [loadData]);
 
+  // Every ledger row in the period — a refunded sale still counts on its own day
+  // and its refund row subtracts on the refund's day (shared rule, lib/revenue).
+  // Per-barber / per-service rankings below skip refunded rows themselves.
   const filteredTx = useMemo(() => transactions.filter(t =>
-    !t.refunded && (barberFilter === "all" || t.barber_id === barberFilter) && timestampInPeriod(t.created_at, range)
+    (barberFilter === "all" || t.barber_id === barberFilter) && timestampInPeriod(t.created_at, range)
   ), [transactions, barberFilter, range]);
   const filteredAppts = useMemo(() => appointments.filter(a =>
     (barberFilter === "all" || a.barber_id === barberFilter) && a.date >= range.startDate && a.date < range.endDate
@@ -221,7 +224,8 @@ export default function AnalyticsPage() {
     // then minus tax (govt), tips (barber), and barber commission (barber/owner).
     // NOT floored at 0 — mirrors the Dashboard, which shows a real negative (e.g. a
     // price raised above the held card) instead of hiding it behind a clamp.
-    const paidOutTips = Math.max(0, t.tips - t.ownerTips);
+    // Not clamped: a refund window gives tips back (negative), which must offset.
+    const paidOutTips = t.tips - t.ownerTips;
     const netRevenue = t.net - t.tax - paidOutTips - commission;
     return { gross: t.gross, fees: t.fees, collected: t.net, tax: t.tax, tips: paidOutTips, totalTips: t.tips, commission, netRevenue };
   }, [revenueApptsInRange, filteredTx, byPi, barbers, shop?.owner_id, linkedEvidence]);
@@ -239,7 +243,7 @@ export default function AnalyticsPage() {
   // count inflated it.
   // Dated by when the money moved (paid_at), like the headline — completed visits
   // PAID in this period, not visits merely scheduled in it.
-  const paidCompletedInRange = revenueApptsInRange.filter(a => a.status === "completed");
+  const paidCompletedInRange = revenueApptsInRange.filter(a => a.status === "completed" && isPaid(a.payment_status));
   const completedApptRevenue = paidCompletedInRange
     .reduce((s, a) => s + Math.max(0, (a.total_amount ?? 0) - (a.tax_amount ?? 0)), 0);
   const avgTicket = paidCompletedInRange.length > 0 ? completedApptRevenue / paidCompletedInRange.length : 0;
@@ -305,7 +309,7 @@ export default function AnalyticsPage() {
     { label: "No-Show Rate", value: `${noShowRate}%`, sub: "Excludes cancelled appointments", color: "text-orange-400" },
     { label: "Top Barber", value: topBarber?.name ?? "—", sub: topBarber ? formatCurrency(topBarber.revenue) : "No data", color: "text-foreground" },
     { label: "Top Service", value: topService?.name ?? "—", sub: topService ? formatCurrency(topService.value) : "No data", color: "text-foreground" },
-    { label: "Transactions", value: String(filteredTx.length), sub: "POS + walk-ins", color: "text-emerald-400" },
+    { label: "Transactions", value: String(filteredTx.filter(t => !t.refunded).length), sub: "POS + walk-ins", color: "text-emerald-400" },
     { label: "Tips Collected", value: formatCurrency(money.totalTips), sub: "Includes owner tips", color: "text-foreground" },
     { label: "Tax Collected", value: formatCurrency(money.tax), sub: "GST/HST + PST to remit", color: "text-foreground" },
   ];

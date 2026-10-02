@@ -9,7 +9,7 @@ import { DashboardHeader } from "@/components/dashboard/page-header";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { supabase } from "@/lib/supabase";
 import { formatCurrency, cn, timeToMinutes, timeAgo } from "@/lib/utils";
-import { countablePosTxs, estimateStripeFee, isNoShowTx, isPaid, lineNetFee, savedChargeGross, separatelyTippedAppts, transactionCollectedAmount, type CardFeeEstimate, type RevAppt } from "@/lib/revenue";
+import { countablePosTxs, estimateStripeFee, isNoShowTx, isPaid, isRefundRow, isSale, lineNetFee, refundedAmount, savedChargeGross, separatelyTippedAppts, transactionCollectedAmount, type CardFeeEstimate, type RevAppt } from "@/lib/revenue";
 import { computeBarberEarnings, barberRowCut } from "@/lib/barber-earnings";
 import { readAllRows } from "@/lib/read-all-rows";
 import { cacheGet, cacheSet } from "@/lib/view-cache";
@@ -388,7 +388,7 @@ export default function PaymentsPage() {
   const sepTipped = separatelyTippedAppts(appts as RevAppt[], txs);
   const appointmentPi = new Map(appts.map(a => [a.id, a.payment_intent_id]));
   for (const t of txs) {
-    if (t.refunded || t.stripe_fee == null || !Number.isFinite(t.stripe_fee) || !t.appointment_id) continue;
+    if (isRefundRow(t) || t.stripe_fee == null || !Number.isFinite(t.stripe_fee) || !t.appointment_id) continue;
     // A later balance charge has its own intent/fee and its own feed row. Never
     // attach that fee to the original appointment as well.
     const parentPi = appointmentPi.get(t.appointment_id);
@@ -409,7 +409,7 @@ export default function PaymentsPage() {
   // count. Mirrors the dedicated "balance" loop in collectedTotals().
   const collectedBalanceByAppt = new Map<string, number>();
   for (const t of txs) {
-    if (t.source !== "balance" || t.refunded) continue;
+    if (t.source !== "balance") continue;
     if (!t.appointment_id) continue;
     const amt = (t.amount ?? 0) + (t.tax ?? 0) + (t.tip ?? 0);
     if (amt <= 0) continue;
@@ -422,7 +422,7 @@ export default function PaymentsPage() {
   // countablePosTxs, so they'd otherwise be counted nowhere on the owner side
   // (they only showed in the barber portal). Mirrors collectedTotals() exactly.
   const apptPiSet = new Set(
-    appts.filter(a => isPaid(a.payment_status) && a.payment_intent_id).map(a => a.payment_intent_id as string),
+    appts.filter(a => isSale(a.payment_status) && a.payment_intent_id).map(a => a.payment_intent_id as string),
   );
 
   const feedAll: FeedItem[] = [
@@ -431,6 +431,9 @@ export default function PaymentsPage() {
       .map((a): FeedItem => {
         const info = statusInfo(a.payment_status);
         const paid = isPaid(a.payment_status);
+        // A refunded sale still HAPPENED: it counts on its paid day (greyed
+        // "Refunded"); its refund row subtracts on the refund's day.
+        const sale = isSale(a.payment_status);
         const noCharge = !paid && (a.total_amount ?? 0) <= 0;
         // A refunded charge stays on the day it was PAID (greyed) — its refund gets
         // its own row on the day the money went back (below).
@@ -444,7 +447,7 @@ export default function PaymentsPage() {
           tipExtra: sepTipped.has(a.id) ? 0 : (a as { tip_amount?: number }).tip_amount ?? 0, // a separately-paid tip is its own line
           statusLabel: noCharge ? "No charge" : info.label,
           tone: noCharge ? "muted" : info.tone,
-          settled: paid, tsIso,
+          settled: sale, tsIso,
           ts: tsIso ? new Date(tsIso).getTime() : apptDateMs(a),
           pi: a.payment_intent_id, method: a.payment_method,
           refunded: a.payment_status === "refunded", appt: a,
@@ -463,7 +466,7 @@ export default function PaymentsPage() {
         amount: transactionCollectedAmount(t), tax: t.tax ?? 0,
         statusLabel: refunded ? "Refunded" : (noShow ? "No-show · Paid" : (t.payment_method === "cash" ? "Paid · Cash" : "Paid · Card")),
         tone: refunded ? "muted" : "good",
-        settled: !refunded, tsIso: t.created_at,
+        settled: true, tsIso: t.created_at,   // a refunded sale still happened; its refund row subtracts
         ts: new Date(t.created_at).getTime(),
         pi: t.payment_intent_id ?? null, method: t.payment_method, refunded,
         client_email: t.client_email, barberName,
@@ -475,7 +478,7 @@ export default function PaymentsPage() {
     // Stripe on its OWN intent — surface it as its own line so the owner sees it.
     // Skip booking tips (pi shares a paid appointment's intent → already counted).
     ...txs
-      .filter(t => t.source === "completion" && !t.refunded && (t.tip ?? 0) > 0
+      .filter(t => t.source === "completion" && (t.tip ?? 0) > 0
         && !(t.payment_intent_id && apptPiSet.has(t.payment_intent_id)))
       .map((t): FeedItem => ({
         key: `tip${t.id}`, name: t.client_name || "Client",
@@ -494,7 +497,7 @@ export default function PaymentsPage() {
     // belongs to counts only its own charge (balanceOf subtracts this), so the two
     // never double-count. Key prefix `b` → refundItem's key.slice(1) yields the tx id.
     ...txs
-      .filter(t => t.source === "balance" && !t.refunded && ((t.amount ?? 0) + (t.tax ?? 0) + (t.tip ?? 0)) > 0)
+      .filter(t => t.source === "balance" && ((t.amount ?? 0) + (t.tax ?? 0) + (t.tip ?? 0)) > 0)
       .map((t): FeedItem => {
         const bName = barbers.find(b => b.id === t.barber_id)?.name ?? null;
         return {
@@ -510,20 +513,20 @@ export default function PaymentsPage() {
           ledgerFee: t.stripe_fee ?? null,
         };
       }),
-    // Refunds (source "refund" — the audit row saved when a charge is refunded,
-    // src/lib/refund-ledger.ts). Shown on the day the money went BACK, as money
-    // out. Display only: refunded=true / settled=false keeps it out of every total.
+    // Refunds (source "refund" — saved when a charge is refunded, lib/refund-ledger).
+    // Money OUT on the day it went back: counted (settled) as a negative line in
+    // that day's totals; the refunded sale stays on its own paid day.
     ...txs
-      .filter(t => t.source === "refund")
+      .filter(t => isRefundRow(t))
       .map((t): FeedItem => {
-        const back = Math.abs((t.amount ?? 0) + (t.tax ?? 0) + (t.tip ?? 0));
+        const back = refundedAmount(t);
         const rName = barbers.find(b => b.id === t.barber_id)?.name ?? null;
         return {
           key: `r${t.id}`, name: t.client_name || "Client",
           sub: `Refund · ${t.service_name || "Payment"}${rName ? ` · ${rName}` : ""}`,
-          amount: back, tax: Math.abs(t.tax ?? 0),
+          amount: back, tax: -Math.abs(t.tax ?? 0),
           statusLabel: "Refund issued", tone: "muted",
-          settled: false, tsIso: t.created_at,
+          settled: true, tsIso: t.created_at,
           ts: new Date(t.created_at).getTime(),
           pi: t.payment_intent_id ?? null, method: t.payment_method, refunded: true, refundOut: true,
           client_email: t.client_email, barberName: rName,
@@ -550,7 +553,7 @@ export default function PaymentsPage() {
     const collectedElsewhere = a.id ? (collectedBalanceByAppt.get(a.id) ?? 0) : 0;
     return due + collectedElsewhere;
   };
-  const counted = (i: FeedItem) => Math.max(0, i.amount + (i.tipExtra ?? 0) - (i.giftApplied ?? 0) - balanceOf(i));
+  const counted = (i: FeedItem) => i.refundOut ? -i.amount : Math.max(0, i.amount + (i.tipExtra ?? 0) - (i.giftApplied ?? 0) - balanceOf(i));
   // Is the live Stripe fee fetch available for this line's intent?
   const liveFee = (i: FeedItem) =>
     !!i.pi && !!stripeNet?.byPi?.[i.pi] && Number.isFinite(stripeNet.byPi[i.pi].fee) && Number.isFinite(stripeNet.byPi[i.pi].net);
@@ -565,25 +568,30 @@ export default function PaymentsPage() {
   // confirmed or estimated. So an uncaptured remainder isn't "collected" and the
   // displayed gross − fee = net for every line and every total.
   const lineGross = (i: FeedItem) => {
-    if (i.earn || i.method === "cash" || !i.pi) return counted(i);
+    if (i.refundOut || i.earn || i.method === "cash" || !i.pi) return counted(i);   // a refund: −amount
     if (liveFee(i)) return stripeNet!.byPi[i.pi].gross;
     return savedGross.get(i.pi) ?? counted(i);
   };
-  const feeExact = (i: FeedItem) => i.earn || i.method === "cash" || lineGross(i) === 0 || liveFee(i) || hasLedgerFee(i);
+  const feeExact = (i: FeedItem) => i.refundOut || i.earn || i.method === "cash" || lineGross(i) === 0 || liveFee(i) || hasLedgerFee(i);
   // Fee: exact when we have it (live → recorded), else a slightly-HIGH estimate so
   // Net is ALWAYS a number (never "Unavailable") and only ticks UP when the real
   // fee lands. Cash / $0 / barber-earnings lines carry no fee.
-  const feeOf = (i: FeedItem) => liveFee(i)
+  // A refund carries no fee of its own (Stripe keeps the ORIGINAL fee, which stays
+  // on the sale's line).
+  const feeOf = (i: FeedItem) => i.refundOut ? 0 : liveFee(i)
     ? lineNetFee(i.pi, counted(i), stripeNet!.byPi).fee
     : hasLedgerFee(i)
       ? (i.ledgerFee as number)
       : (i.earn || i.method === "cash" || lineGross(i) === 0)
         ? 0
         : estimateStripeFee(lineGross(i), stripeNet?.feeEstimate); // platform ESTIMATE rate — unconfirmed fees only
-  const netOf = (i: FeedItem) => liveFee(i)
+  const netOf = (i: FeedItem) => i.refundOut ? -i.amount : liveFee(i)
     ? lineNetFee(i.pi, counted(i), stripeNet!.byPi).net
     : Math.max(0, lineGross(i) - feeOf(i));
+  // Row display (a refund row shows its amount with a "−"); signedAmount is what a
+  // row adds to a day total (a refund subtracts).
   const statementAmount = (i: FeedItem) => (i.earn || i.refundOut) ? i.amount : netOf(i);
+  const signedAmount = (i: FeedItem) => i.earn ? i.amount : netOf(i);
   // A booking paid entirely by gift card: its money came in when the card was
   // SOLD, so it adds $0 to totals — but the row shows the value redeemed.
   const isGiftPaid = (i: FeedItem) => i.method === "gift_card";
@@ -684,7 +692,7 @@ export default function PaymentsPage() {
     const fees = cardIn.reduce((s, i) => s + feeOf(i), 0);
     const tax = [...cardIn, ...cashIn].reduce((s, i) => s + (i.tax ?? 0), 0);
     // Cuts = services, not gift-card sales (the money counts; the sale isn't a cut).
-    const cuts = [...cardIn, ...cashIn].filter(i => !i.giftSale);
+    const cuts = [...cardIn, ...cashIn].filter(i => !i.giftSale && !i.refundOut);
     const count = cuts.length;
     const cutValue = cuts.reduce((s, i) => s + (i.method === "cash" ? counted(i) : lineGross(i)), 0);
     const data = earningsBuckets([...cardIn, ...cashIn].map(i => ({ ...i, created_at: new Date(i.ts).toISOString() })), from, to, monthly, netOf).map(d => ({ label: d.label, net: d.val }));
@@ -911,9 +919,9 @@ export default function PaymentsPage() {
     stmtItems.forEach(i => { const k = dayStart(i.ts); const arr = m.get(k) ?? []; arr.push(i); m.set(k, arr); });
     return Array.from(m.keys()).sort((a, b) => b - a).map(k => {
       const items = m.get(k)!;
-      const settled = items.filter(x => x.settled && !x.refunded);
+      const settled = items.filter(x => x.settled);
       const feesKnown = settled.every(feeExact);
-      const total = settled.reduce((s, x) => s + statementAmount(x), 0);
+      const total = settled.reduce((s, x) => s + signedAmount(x), 0);
       return { key: k, label: dayLabel(k), total, items, feesKnown };
     });
   })();
@@ -1125,7 +1133,7 @@ export default function PaymentsPage() {
             <div key={g.key} className="cwp-daygroup">
               <div className="cwp-day">
                 <span className="cwp-dlabel">{g.label}</span>
-                {g.total > 0 && <span className="cwp-dtot">+{g.feesKnown ? "" : "≈"}{formatCurrency(g.total)}</span>}
+                {Math.abs(g.total) >= 0.005 && <span className="cwp-dtot">{g.total > 0 ? "+" : "−"}{g.feesKnown ? "" : "≈"}{formatCurrency(Math.abs(g.total))}</span>}
               </div>
               {g.items.map(i => {
                 const refunded = i.refunded;

@@ -9,6 +9,15 @@
 // twice. Given the Stripe `byPi` map (paymentIntent -> {gross, fee, net}) it
 // also returns the exact NET after Stripe fees and the total fees paid. Cash
 // never touches Stripe, so it carries no fee (net === gross for cash).
+//
+// REFUNDS (owner rule 2026-10-02 — "a statement, not a rewrite"): a sale counts
+// on the day it was PAID even if it's refunded later, and the refund is its own
+// NEGATIVE entry on the day the money went back (the source "refund" ledger row,
+// lib/refund-ledger). So a past day never changes after the fact, and a refund
+// shows where it happened. Stripe keeps its fee on a refund, so the original fee
+// stays a cost and the refund takes back the full amount from net. Every refunded
+// charge has its refund row (refunds made before refund rows existed were given
+// one dated at the sale — phase74 — so those old days read exactly as before).
 
 export type RevAppt = {
   id?: string;                    // links separately-paid tips / collected balances
@@ -48,8 +57,9 @@ export type RevTx = {
 // paymentIntent id -> exact figures from Stripe balance transactions.
 export type ByPi = Record<string, { gross: number; fee: number; net: number }>;
 
-/** Saved gross per PaymentIntent: the first non-refunded card ledger row for that
- * intent (amount + tax + tip). Charge rows are written from what Stripe actually
+/** Saved gross per PaymentIntent: the first card ledger CHARGE row for that intent
+ * (amount + tax + tip) — refunded or not (a refunded sale still happened; its
+ * refund is a separate row). Charge rows are written from what Stripe actually
  * took (capture rows use amount_received), so this — not the booking total — is
  * the reliable "Gross collected" for the charge, whether its fee is confirmed or
  * still estimated. */
@@ -57,7 +67,7 @@ export function savedChargeGross(txs: RevTx[]): Map<string, number> {
   const saved = new Map<string, number>();
   for (const t of txs) {
     const pi = t.payment_intent_id;
-    if (!pi || saved.has(pi) || t.payment_method !== "card" || t.refunded || t.source === "refund") continue;
+    if (!pi || saved.has(pi) || t.payment_method !== "card" || isRefundRow(t)) continue;
     const g = transactionCollectedAmount(t);
     if (g > 0) saved.set(pi, g);
   }
@@ -74,7 +84,7 @@ export function separatelyTippedAppts(appts: RevAppt[], txs: RevTx[]): Set<strin
   const ids = new Set<string>();
   for (const t of txs) {
     const id = t.appointment_id;
-    if (!id || t.source !== "completion" || t.refunded || !((t.tip ?? 0) > 0) || !piById.has(id)) continue;
+    if (!id || t.source !== "completion" || !((t.tip ?? 0) > 0) || !piById.has(id)) continue;
     if (t.payment_intent_id && t.payment_intent_id !== piById.get(id)) ids.add(id);
   }
   return ids;
@@ -86,7 +96,7 @@ export function separatelyTippedAppts(appts: RevAppt[], txs: RevTx[]): Set<strin
 export function collectedBalances(txs: RevTx[]): Map<string, number> {
   const byAppt = new Map<string, number>();
   for (const t of txs) {
-    if (t.source !== "balance" || t.refunded || !t.appointment_id) continue;
+    if (t.source !== "balance" || !t.appointment_id) continue;
     const amt = transactionCollectedAmount(t);
     if (amt > 0) byAppt.set(t.appointment_id, (byAppt.get(t.appointment_id) ?? 0) + amt);
   }
@@ -130,6 +140,13 @@ export function appointmentGross(a: RevAppt, ctx: GrossContext): { gross: number
 }
 
 export const isPaid = (s: string | null | undefined) => s === "paid" || s === "captured";
+/** A charge that HAPPENED — paid / captured, or paid and LATER refunded. Revenue
+ * counts it on its paid day; its refund row subtracts on the refund's day. */
+export const isSale = (s: string | null | undefined) => isPaid(s) || s === "refunded";
+/** The dated record of money handed back (negative amounts, lib/refund-ledger). */
+export const isRefundRow = (t: Pick<RevTx, "source">) => t.source === "refund";
+/** What a refund row gave back (incl. tax + tip), as a positive number. */
+export const refundedAmount = (t: Pick<RevTx, "amount" | "tax" | "tip">) => Math.abs(transactionCollectedAmount(t));
 export const isNoShowTx = (t: RevTx) => t.source === "no_show" || (t.service_name ?? "").startsWith("No-show fee");
 
 /** Ledger amount is before tax; customer collections include tax and tips. */
@@ -145,7 +162,7 @@ export function transactionCollectedAmount(t: Pick<RevTx, "amount" | "tax" | "ti
  */
 export function countablePosTxs<T extends RevTx>(appts: RevAppt[], txs: T[]): T[] {
   const paidSig = new Set(
-    appts.filter(a => isPaid(a.payment_status)).map(a => `${a.client_name}|${a.total_amount}`),
+    appts.filter(a => isSale(a.payment_status)).map(a => `${a.client_name}|${a.total_amount}`),
   );
   return txs.filter(t => {
     if (isNoShowTx(t)) return true;
@@ -155,11 +172,9 @@ export function countablePosTxs<T extends RevTx>(appts: RevAppt[], txs: T[]): T[
     // appointment counts its full total once balance_due hits 0), so it must NOT
     // also count here as a standalone POS sale.
     if (t.source === "balance") return false;
-    // A "refund" tx is an AUDIT-ONLY dated record of money handed back (see
-    // lib/refund-ledger). The revenue reduction already happens via the original
-    // row's refunded flag / payment_status, so this must NEVER count as income —
-    // otherwise a refund would be subtracted twice.
-    if (t.source === "refund") return false;
+    // A "refund" tx is money handed back, not a sale — collectedTotals subtracts
+    // it on its own day in a dedicated loop, so it is never counted as income here.
+    if (isRefundRow(t)) return false;
     if (!t.source && !t.stripe_session_id && paidSig.has(`${t.client_name}|${t.amount}`)) return false;
     return true;
   });
@@ -204,6 +219,7 @@ export type CollectedTotals = {
   ownerTips: number; // subset of `tips` earned by the OWNER-barber — their own money,
                      // not paid out, so it stays in the owner's net revenue
   preTax: number;  // gross − tax
+  refunds: number; // money handed back in this window (already subtracted from gross/net/tax/tips)
 };
 
 /**
@@ -217,7 +233,7 @@ export function collectedTotals(appts: RevAppt[], txs: RevTx[], byPi?: ByPi, own
   // Same income rule the Payments page uses (shared, so they can't disagree).
   const posTxs = countablePosTxs(appts, txs);
 
-  let gross = 0, fees = 0, net = 0, tax = 0, cash = 0, tips = 0, ownerTips = 0;
+  let gross = 0, fees = 0, net = 0, tax = 0, cash = 0, tips = 0, ownerTips = 0, refunds = 0;
   // A tip belongs to the barber who earned it. The OWNER-barber's own tips are the
   // owner's money (like their 0-commission chair), so they're tracked separately
   // and NOT subtracted from the owner's net revenue.
@@ -234,7 +250,7 @@ export function collectedTotals(appts: RevAppt[], txs: RevTx[], byPi?: ByPi, own
   // Settled appointments — exclude paid no-shows (represented by a tx row so it
   // isn't double-counted).
   for (const a of appts) {
-    if (!isPaid(a.payment_status)) continue;
+    if (!isSale(a.payment_status)) continue;   // a later refund is its own row below
     if (a.status === "no-show") continue;
     // The customer paid: (service + tax) − gift already applied + the booking tip.
     //  · Subtract gift: that value was counted when the card was SOLD, so counting
@@ -267,8 +283,7 @@ export function collectedTotals(appts: RevAppt[], txs: RevTx[], byPi?: ByPi, own
   // POS ledger amount excludes tax. Count tax once in collections, then expose
   // it separately for the owner's tax deduction (not a second deduction).
   for (const t of posTxs) {
-    if (t.refunded) continue;
-    const amt = transactionCollectedAmount(t);
+    const amt = transactionCollectedAmount(t);   // refunded later? its refund row subtracts below
     const { net: n, fee: f } = lineNetFee(t.payment_intent_id, amt, byPi);
     gross += amt; net += n; fees += f;
     tax += t.tax ?? 0;
@@ -285,7 +300,7 @@ export function collectedTotals(appts: RevAppt[], txs: RevTx[], byPi?: ByPi, own
   // shares the appointment's intent (pi ∈ apptPis) and is already inside that
   // appointment's net, so we skip it here to avoid double-counting.
   for (const t of txs) {
-    if (t.source !== "completion" || t.refunded) continue;
+    if (t.source !== "completion") continue;
     const tip = t.tip ?? 0;
     if (tip <= 0) continue;
     const pi = t.payment_intent_id ?? null;
@@ -304,7 +319,7 @@ export function collectedTotals(appts: RevAppt[], txs: RevTx[], byPi?: ByPi, own
   // own gross + net + fee here — gross − fees = net, nothing counted twice. Tax
   // keeps its existing rule (booked on the appointment).
   for (const t of txs) {
-    if (t.source !== "balance" || t.refunded) continue;
+    if (t.source !== "balance") continue;
     const amt = (t.amount ?? 0) + (t.tax ?? 0) + (t.tip ?? 0);
     if (amt <= 0) continue;
     const { net: n, fee: f } = lineNetFee(t.payment_intent_id ?? null, amt, byPi);
@@ -313,5 +328,21 @@ export function collectedTotals(appts: RevAppt[], txs: RevTx[], byPi?: ByPi, own
     if (t.payment_method === "cash") cash += amt;
   }
 
-  return { gross, fees, net, tax, cash, tips, ownerTips, preTax: Math.max(0, gross - tax) };
+  // REFUNDS — money handed back, on the day it went back. The whole amount comes
+  // off gross AND net (Stripe keeps its original fee, which stays in `fees`); the
+  // tax and tip given back come off tax / tips. A window can go negative (a
+  // refund-only day) — that's the truth, not an error.
+  for (const t of txs) {
+    if (!isRefundRow(t)) continue;
+    const back = refundedAmount(t);
+    if (back <= 0) continue;
+    gross -= back; net -= back; refunds += back;
+    tax -= Math.abs(t.tax ?? 0);
+    const tipBack = Math.abs(t.tip ?? 0);
+    tips -= tipBack;
+    if (isOwnerBarber(t.barber_id)) ownerTips -= tipBack;
+    if (t.payment_method === "cash") cash -= back;
+  }
+
+  return { gross, fees, net, tax, cash, tips, ownerTips, preTax: gross - tax, refunds };
 }

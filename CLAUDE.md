@@ -120,7 +120,8 @@ never against a stale checkbox in TODO.md or a migration file header.
   (`price_breakdown` jsonb on appointments + transactions: promo / loyalty points behind a
   discounted total, display-only) are **applied on prod** (verified 2026-09-28/30).
   phase73 (refund/cancel undoes a visit's loyalty: spent points back, earned points taken back;
-  trigger also fires on `payment_status`) is **applied on prod** (2026-10-02).
+  trigger also fires on `payment_status`) and phase74 (refund rows for legacy refunds, dated at the
+  sale) are **applied on prod** (2026-10-02).
 - If a feature "silently does nothing," still capture the supabase `error` (don't only
   read `data`) — but the cause is far more likely code/config than a missing column now.
 
@@ -163,6 +164,13 @@ never against a stale checkbox in TODO.md or a migration file header.
   ledger row by `created_at`, a refund on its own refund row's day — never the booking's
   `created_at` or scheduled `date`. Write `paid_at` in the SAME update that sets paid/captured.
   Visit COUNTS (completed / no-show) stay by scheduled day.
+- **Refunds are a statement, not a rewrite (owner rule 2026-10-02):** a sale counts on the day it
+  was PAID even if refunded later (`isSale` = paid/captured/refunded in `lib/revenue.ts`); the refund
+  is its own NEGATIVE `source='refund'` row on the refund's day, subtracted from gross/net/tax/tips
+  (Stripe keeps the original fee, which stays a cost). Past days never change. So **every refund
+  must write its refund row** (`recordRefundLedger`); legacy refunds got one dated at the sale
+  (phase74). Revenue queries load `refunded` appointments too; never filter refund rows out of a
+  money set. Barber pay/commission still excludes refunded visits (unchanged).
 - **Stripe Connect:** charges run on each shop's **connected account** (shop = merchant
   of record, 0% platform fee). The Stripe **webhook must listen to connected-account
   events** or `payment_status` never flips to paid. The platform-charge fallback for

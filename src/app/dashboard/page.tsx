@@ -336,7 +336,9 @@ export default function DashboardPage() {
       .from("appointments")
       .select("id, client_name, total_amount, tax_amount, tip_amount, gift_applied, balance_due, payment_status, payment_method, payment_intent_id, status, barber_id, paid_at, created_at")
       .eq("shop_id", shop.id)
-      .in("payment_status", ["paid", "captured"])
+      // Refunded too: a sale counts on its paid day even if refunded later; its
+      // refund row (in txns) subtracts on the refund's day (lib/revenue).
+      .in("payment_status", ["paid", "captured", "refunded"])
       .order("created_at", { ascending: false }).order("id");
     if (profile?.role === "barber" && myBarberId) revQ = revQ.eq("barber_id", myBarberId);
     const scheduleReq = Promise.all([
@@ -527,7 +529,7 @@ export default function DashboardPage() {
   });
   // Avg Ticket basis: completed visits PAID in this window (dated by when the money
   // moved, like the headline) — not visits merely booked for these days.
-  const paidCompleted = revenueApptsInRange.filter((a) => a.status === "completed");
+  const paidCompleted = revenueApptsInRange.filter((a) => a.status === "completed" && isPaid(a.payment_status));
   const revenue = paidCompleted.reduce((s, a) => s + Math.max(0, (a.total_amount ?? 0) - (a.tax_amount ?? 0)), 0);
   // Linked-payment EVIDENCE for the window's bookings from any date — a capture
   // saved just after midnight, a prepaid charge, a separate tip or balance — so
@@ -641,7 +643,8 @@ export default function DashboardPage() {
   // so they stay IN net revenue — only tips paid out to other barbers are subtracted.
   // NOT floored at 0 — a genuine loss (heavy refunds, high commission on a slow
   // week) should show as a red negative, not a misleading $0.00.
-  const paidOutTips = Math.max(0, collected.tips - collected.ownerTips);
+  // Not clamped: a refund gives a tip back (negative tips), which must offset.
+  const paidOutTips = collected.tips - collected.ownerTips;
   const netRevenue = collected.net - collected.tax - paidOutTips - commission;
   // Avg Ticket = paid revenue ÷ the SAME paid rows (not all completions — dividing
   // by completed.length, which includes refunds, understated it).
