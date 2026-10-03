@@ -52,10 +52,29 @@ assert.doesNotMatch(src('src/app/dashboard/page.tsx') + src('src/app/dashboard/a
 const sql = src('supabase/migrations/phase74_refund_rows_for_legacy_refunds.sql');
 assert.match(sql, /'clipwise-refund-ledger:' \|\| t\.payment_intent_id/);
 assert.match(sql, /on conflict \(id\) do nothing/);
-// The Dashboard's Collected card explains a refund day instead of a bare negative.
+// "Collected" = money that CAME IN (never pulled below zero by a refund); refunds
+// and the net after refunds are their own lines — Dashboard, Payments, Analytics.
 const carousel = src('src/components/dashboard/stats-carousel.tsx');
-assert.match(carousel, /refundCount > 0 && ` · \$\{refundCount\} refund/, 'sub-line names the refunds');
+assert.match(carousel, /const collectedIn = revenue \+ refunds;/);
+assert.match(carousel, /\{formatCurrency\(collectedIn\)\}\s*<\/p>/, 'headline = money in');
+assert.match(carousel, /Refunded <span[^>]*>−\{formatCurrency\(refunds\)\}/);
+assert.match(carousel, /Net after refunds/);
 assert.match(carousel, /revenue \+ feesPaid > 0 \|\| refunds > 0 \|\| feesPaid > 0/, 'breakdown still shows on a ≤ 0 day');
-assert.match(carousel, /refunds > 0 \? "Sales" : "Gross"/); assert.match(carousel, /− Refunds/);
 assert.match(src('src/app/dashboard/page.tsx'), /refunds=\{collected\.refunds\} refundCount=\{txnsInRange\.filter\(isRefundRow\)\.length\}/);
+const pay = src('src/app/dashboard/payments/page.tsx');
+assert.match(pay, /headline: s\.net \+ s\.cash \+ s\.refunds/, 'Payments headline = money in');
+assert.match(pay, /net: s\.net \+ s\.cash \}/);
+assert.match(pay, /− Refunds<\/span>[\s\S]{0,200}Net after refunds/);
+const an = src('src/app/dashboard/analytics/page.tsx');
+assert.match(an, /sales: t\.gross \+ t\.refunds, fees: t\.fees, collected: t\.net \+ t\.refunds, refunds: t\.refunds, netAfterRefunds: t\.net/);
+assert.match(an, /const totalRevenue = money\.sales;/);
+// The numbers: Oct 2 smoke test — $40.25 sale (fee 1.79), refunds 40.25 + 15.93.
+const oct2 = collectedTotals([], [
+  { client_name: 'C', amount: 35, tax: 5.25, tip: 0, payment_method: 'card', payment_intent_id: 'pi_a', source: 'pos', refunded: true, created_at: WED },
+  { client_name: 'C', amount: -35, tax: -5.25, tip: 0, payment_method: 'card', payment_intent_id: 'pi_a', source: 'refund', refunded: true, created_at: WED },
+  { client_name: 'C', amount: -13.85, tax: -2.08, tip: 0, payment_method: 'card', payment_intent_id: 'pi_b', source: 'refund', refunded: true, created_at: WED },
+], { pi_a: { gross: 40.25, fee: 1.79, net: 38.46 } });
+assert.equal(c(oct2.net + oct2.refunds), 38.46, 'Collected (money in)');
+assert.equal(c(oct2.refunds), 56.18, 'Refunded');
+assert.equal(c(oct2.net), -17.72, 'Net after refunds');
 console.log('PASS refund statement: sale stays on its paid day, refund is money out on its own day (fee kept), week nets to −fee, chart + POS + every report agree');
