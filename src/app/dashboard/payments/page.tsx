@@ -9,7 +9,7 @@ import { DashboardHeader } from "@/components/dashboard/page-header";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { supabase } from "@/lib/supabase";
 import { formatCurrency, cn, timeToMinutes, timeAgo } from "@/lib/utils";
-import { countablePosTxs, estimateStripeFee, isGiftRefundRow, isNoShowTx, isPaid, isRefundRow, isSale, lineNetFee, refundedAmount, savedChargeGross, separatelyTippedAppts, transactionCollectedAmount, type CardFeeEstimate, type RevAppt } from "@/lib/revenue";
+import { countablePosTxs, estimateStripeFee, isGiftRefundRow, isNoShowTx, isPaid, isRefundRow, noShowFeeVisit, paidAheadPis, isSale, lineNetFee, refundedAmount, savedChargeGross, separatelyTippedAppts, transactionCollectedAmount, type CardFeeEstimate, type RevAppt } from "@/lib/revenue";
 import { computeBarberEarnings, barberRowCut, isBarberLedgerRow, isRefundTx } from "@/lib/barber-earnings";
 import { readAllRows } from "@/lib/read-all-rows";
 import { cacheGet, cacheSet } from "@/lib/view-cache";
@@ -432,9 +432,11 @@ export default function PaymentsPage() {
     appts.filter(a => isSale(a.payment_status) && a.payment_intent_id).map(a => a.payment_intent_id as string),
   );
 
+  const paidAhead = paidAheadPis(txs);
   const feedAll: FeedItem[] = [
     ...appts
-      .filter(a => !(a.status === "no-show" && isPaid(a.payment_status)))
+      // A no-show's fee has its own line (below); a no-show PAID IN ADVANCE keeps its payment here.
+      .filter(a => !noShowFeeVisit(a, paidAhead))
       .map((a): FeedItem => {
         const info = statusInfo(a.payment_status);
         const paid = isPaid(a.payment_status);

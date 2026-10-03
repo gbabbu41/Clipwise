@@ -96,7 +96,8 @@ export async function POST(request: NextRequest) {
         const tipPart = chargeCents > 0 ? Math.round(refundedCents * (Math.round((appt.tip_amount ?? 0) * 100) / chargeCents)) : 0;
         await recordRefundLedger({
           shopId: appt.shop_id, barberId: appt.barber_id, clientName: appt.client_name,
-          serviceName: (appt.services as { name: string } | null)?.name ?? null,
+          // A no-show's money is the shop's: tag it so no commission is taken back.
+          serviceName: appt.status === "no-show" ? `${(appt.services as { name: string } | null)?.name ?? "Payment"} (no-show)` : (appt.services as { name: string } | null)?.name ?? null,
           refundedCents, taxCents: taxPart, tipCents: tipPart,
           appointmentId: appt.id, paymentIntentId: appt.payment_intent_id, stripeRefundId,
         });

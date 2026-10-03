@@ -100,7 +100,8 @@ export function planAppointmentRefund(appt: PlanAppt, txs: PlanTx[], doneKeys: S
     } else if (pi) {
       // A no-show's charge is the fee on its ledger row, not the booking total.
       const own = rows.find(t => t.payment_intent_id === pi);
-      const noShow = appt.status === "no-show" && own;
+      // (A no-show paid in advance refunds its own payment — not a fee.)
+      const noShow = appt.status === "no-show" && own && (own.source === "no_show" || /no-show fee/i.test(own.service_name ?? ""));
       const cents = noShow ? rowCents(own) : payC;
       parts.push({ key: pi, kind: "card", label: noShow ? "No-show fee · Card" : "Card",
         cents, taxCents: noShow ? Math.max(0, c(own.tax)) : tax, tipCents: noShow ? Math.max(0, c(own.tip)) : tip,
