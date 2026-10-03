@@ -13,7 +13,8 @@ function load(route) { const file = path.join(root, `src/app/api/stripe/${route}
 const request = (token = 'valid') => new NextRequest('https://clipwise.ca/api/test', { method: 'POST', headers: { Origin: 'https://attacker.invalid', Authorization: `Bearer ${token}` }, body: JSON.stringify({ appointment_id: 'appt' }) });
 global.fetch = async () => { throw Error('Unexpected HTTP email hop'); };
 (async () => {
-  for (const route of ['refund', 'refund-payment']) {
+  // refund-payment (the part-by-part refund engine) has its own check: refund-engine-check.cjs
+  for (const route of ['refund']) {
     const POST = load(route);
     for (const state of ['confirmed', 'completed', 'no-show']) {
       reset(); appt.status = state; const result = await POST(request()); assert.equal(result.status, 200); assert.deepEqual(await result.json(), { ok: true, released: false });

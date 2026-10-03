@@ -60,7 +60,7 @@ assert.match(carousel, /\{formatCurrency\(collectedIn\)\}\s*<\/p>/, 'headline = 
 assert.match(carousel, /Refunded <span[^>]*>−\{formatCurrency\(refunds\)\}/);
 assert.match(carousel, /Net after refunds/);
 assert.match(carousel, /revenue \+ feesPaid > 0 \|\| refunds > 0 \|\| feesPaid > 0/, 'breakdown still shows on a ≤ 0 day');
-assert.match(src('src/app/dashboard/page.tsx'), /refunds=\{collected\.refunds\} refundCount=\{txnsInRange\.filter\(isRefundRow\)\.length\}/);
+assert.match(src('src/app/dashboard/page.tsx'), /refunds=\{collected\.refunds\} refundCount=\{txnsInRange\.filter\(t => isRefundRow\(t\) && !isGiftRefundRow\(t\)\)\.length\}/, 'money refunds counted; the gift-card part is not a second refund');
 const pay = src('src/app/dashboard/payments/page.tsx');
 assert.match(pay, /headline: s\.net \+ s\.cash \+ s\.refunds/, 'Payments headline = money in');
 assert.match(pay, /net: s\.net \+ s\.cash \}/);

@@ -41,11 +41,12 @@ interface LedgerRow {
 function historyLabel(h: LedgerRow): string {
   switch (h.action) {
     case "redeemed": return h.appointment_id ? "Used for a booking" : "Used at checkout";
-    case "restored": return "Given back — booking cancelled";
+    case "restored": return "Given back — booking cancelled or refunded";
     case "reapplied": return "Used again — booking reinstated";
     case "adjusted": return Number(h.amount) < 0 ? "Balance removed by owner" : "Balance added back by owner";
     case "voided": return "Voided";
     case "reactivated": return "Reactivated";
+    case "refunded": return "Unused balance refunded — card voided";
     default: return h.action;
   }
 }

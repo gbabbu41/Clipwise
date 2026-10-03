@@ -342,9 +342,15 @@ const post = body => new NextRequest('https://clipwise.ca/api', { method: 'POST'
     assert.equal(refunds.length, 1, 'refunded once');
     assert.equal((await saleRow('pi_route')).refunded, true, 'sale flagged refunded');
     assert.equal((await refundRows('pi_route')).length, 0); assert.equal(logs.length, 1, 'failed record save visible');
+    // The owner's retry heals the missing record: the card part has no refund record
+    // yet, so it runs again under the SAME Stripe idempotency key (no second refund)
+    // and saves the record. A third try is refused; the webhook re-save is a no-op.
+    fixtures.appointments.payment_status = 'refunded';
     const retry = await refundPayment(refundReq());
-    assert.equal(retry.status, 400); assert.equal(refunds.length, 1, 'retry cannot refund again');
-    assert.equal(await recordRefundLedger({ ...refundArgs('pi_route'), clientName: 'C' }), 'recorded', 'webhook re-save');
+    assert.equal(retry.status, 200); assert.equal(refunds.length, 1, 'retry cannot refund again');
+    assert.equal((await refundRows('pi_route')).length, 1, 'retry saved the missing record');
+    assert.equal((await refundPayment(refundReq())).status, 400, 'nothing left to refund');
+    assert.equal(await recordRefundLedger({ ...refundArgs('pi_route'), clientName: 'C' }), 'already', 'webhook re-save');
     assert.equal((await refundRows('pi_route')).length, 1); assert.equal(refunds.length, 1);
     const hookSrc = fs.readFileSync(path.join(root, 'src/app/api/webhooks/stripe/route.ts'), 'utf8');
     assert(/\.eq\("payment_intent_id", pi\)\.neq\("source", "refund"\)\.limit\(1\)\.maybeSingle\(\);\s*if \(rtx\?\.shop_id\)[\s\S]{0,900}recordRefundLedger\(/.test(hookSrc), 'charge.refunded re-saves from the sale row');

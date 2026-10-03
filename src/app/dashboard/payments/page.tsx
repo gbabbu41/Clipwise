@@ -9,8 +9,8 @@ import { DashboardHeader } from "@/components/dashboard/page-header";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { supabase } from "@/lib/supabase";
 import { formatCurrency, cn, timeToMinutes, timeAgo } from "@/lib/utils";
-import { countablePosTxs, estimateStripeFee, isNoShowTx, isPaid, isRefundRow, isSale, lineNetFee, refundedAmount, savedChargeGross, separatelyTippedAppts, transactionCollectedAmount, type CardFeeEstimate, type RevAppt } from "@/lib/revenue";
-import { computeBarberEarnings, barberRowCut, isNoShowEarning, isRefundTx } from "@/lib/barber-earnings";
+import { countablePosTxs, estimateStripeFee, isGiftRefundRow, isNoShowTx, isPaid, isRefundRow, isSale, lineNetFee, refundedAmount, savedChargeGross, separatelyTippedAppts, transactionCollectedAmount, type CardFeeEstimate, type RevAppt } from "@/lib/revenue";
+import { computeBarberEarnings, barberRowCut, isBarberLedgerRow, isRefundTx } from "@/lib/barber-earnings";
 import { readAllRows } from "@/lib/read-all-rows";
 import { cacheGet, cacheSet } from "@/lib/view-cache";
 import { earningsBuckets } from "@/lib/earnings-chart";
@@ -126,6 +126,9 @@ export default function PaymentsPage() {
   // Row expand + tx filter
   const [detailItem, setDetailItem] = useState<FeedItem | null>(null);
   const [refunding, setRefunding] = useState(false);
+  // The refund confirm sheet: what goes back, part by part (from the server's plan).
+  type RefundPreviewPart = { key: string; kind: "card" | "cash" | "gift_card"; label: string; cents: number; done: boolean; blocked: string | null };
+  const [refundPlan, setRefundPlan] = useState<{ item: FeedItem; parts: RefundPreviewPart[]; giftCard: { code: string; remainingCents: number; initialCents: number } | null; served: boolean } | null>(null);
   const [txFilter, setTxFilter] = useState<"all" | "card" | "cash" | "unpaid" | "refunded">("all");
   useEffect(() => { setVisibleTx(10); }, [netSlide, txFilter, selectedBarber]);
   const [showFilterMenu, setShowFilterMenu] = useState(false);
@@ -375,6 +378,10 @@ export default function PaymentsPage() {
     // day the refund happened as "−$X", never counted in totals (the refunded
     // charge already drops out of them).
     refundOut?: boolean;
+    // The gift-card part of a refund: value put back ON the gift card. Shown for
+    // the record, but moves no money (counted when the card was sold) — only its
+    // tax / tip share comes back (lib/revenue isGiftRefundRow).
+    giftBack?: boolean;
   };
 
   // Recorded Stripe fee per appointment — from its completion/capture transaction
@@ -521,11 +528,12 @@ export default function PaymentsPage() {
       .map((t): FeedItem => {
         const back = refundedAmount(t);
         const rName = barbers.find(b => b.id === t.barber_id)?.name ?? null;
+        const giftBack = isGiftRefundRow(t);
         return {
-          key: `r${t.id}`, name: t.client_name || "Client",
-          sub: `Refund · ${t.service_name || "Payment"}${rName ? ` · ${rName}` : ""}`,
+          key: `r${t.id}`, name: t.client_name || "Client", giftBack,
+          sub: `${giftBack ? "Back on gift card" : t.payment_method === "cash" ? "Cash refund" : "Refund"} · ${(t.service_name || "Payment").replace(/^Refund\s*—\s*/, "")}${rName ? ` · ${rName}` : ""}`,
           amount: back, tax: -Math.abs(t.tax ?? 0),
-          statusLabel: "Refund issued", tone: "muted",
+          statusLabel: giftBack ? "Back on gift card" : t.payment_method === "cash" ? "Refunded · Cash" : "Refund issued", tone: "muted",
           settled: true, tsIso: t.created_at,
           ts: new Date(t.created_at).getTime(),
           pi: t.payment_intent_id ?? null, method: t.payment_method, refunded: true, refundOut: true,
@@ -553,7 +561,7 @@ export default function PaymentsPage() {
     const collectedElsewhere = a.id ? (collectedBalanceByAppt.get(a.id) ?? 0) : 0;
     return due + collectedElsewhere;
   };
-  const counted = (i: FeedItem) => i.refundOut ? -i.amount : Math.max(0, i.amount + (i.tipExtra ?? 0) - (i.giftApplied ?? 0) - balanceOf(i));
+  const counted = (i: FeedItem) => i.giftBack ? 0 : i.refundOut ? -i.amount : Math.max(0, i.amount + (i.tipExtra ?? 0) - (i.giftApplied ?? 0) - balanceOf(i));
   // Is the live Stripe fee fetch available for this line's intent?
   const liveFee = (i: FeedItem) =>
     !!i.pi && !!stripeNet?.byPi?.[i.pi] && Number.isFinite(stripeNet.byPi[i.pi].fee) && Number.isFinite(stripeNet.byPi[i.pi].net);
@@ -585,7 +593,7 @@ export default function PaymentsPage() {
       : (i.earn || i.method === "cash" || lineGross(i) === 0)
         ? 0
         : estimateStripeFee(lineGross(i), stripeNet?.feeEstimate); // platform ESTIMATE rate — unconfirmed fees only
-  const netOf = (i: FeedItem) => i.refundOut ? -i.amount : liveFee(i)
+  const netOf = (i: FeedItem) => i.refundOut ? counted(i) : liveFee(i)
     ? lineNetFee(i.pi, counted(i), stripeNet!.byPi).net
     : Math.max(0, lineGross(i) - feeOf(i));
   // Row display (a refund row shows its amount with a "−"); signedAmount is what a
@@ -624,7 +632,7 @@ export default function PaymentsPage() {
         // No-show penalty fees aren't the barber's earnings — exclude them so this
         // per-barber view matches what the barber sees in their own portal. A
         // refunded sale stays on its day; its refund row takes the cut back.
-        && !isNoShowEarning(t))
+        && isBarberLedgerRow(t))
         // The barber's take-home is commission + tips, with NO card fee deducted
         // (the shop bears processing entirely). So this per-barber view doesn't
         // need the live Stripe fee at all — just carry a sortable timestamp.
@@ -698,7 +706,7 @@ export default function PaymentsPage() {
     const cutValue = cuts.reduce((s, i) => s + (i.method === "cash" ? counted(i) : lineGross(i)), 0);
     const data = earningsBuckets([...cardIn, ...cashIn].map(i => ({ ...i, created_at: new Date(i.ts).toISOString() })), from, to, monthly, netOf).map(d => ({ label: d.label, net: d.val }));
     // Money handed back in this window (refund lines are already negative inside net/gross).
-    const refundsIn = [...cardIn, ...cashIn].filter(i => i.refundOut);
+    const refundsIn = [...cardIn, ...cashIn].filter(i => i.refundOut && !i.giftBack);
     const refunds = refundsIn.reduce((s, i) => s + i.amount, 0);
     return { net, cash, gross, fees, feesKnown, tax, count, data, avg: count ? cutValue / count : 0, refunds, refundCount: refundsIn.length };
   };
@@ -788,21 +796,44 @@ export default function PaymentsPage() {
     showToast(data.changed ? `Updated → ${statusInfo(data.payment_status).label}` : "No change — still " + statusInfo(data.payment_status).label.toLowerCase());
   };
 
-  // ── Refund a settled card payment (appointment or POS) — keeps the booking ──
+  // ── Refund a payment — every part back the way it came in (card → Stripe,
+  // cash → recorded as handed back, gift card → back on the card). Step 1 asks
+  // the server for the plan and shows it; step 2 (the sheet's button) runs it.
+  const refundBody = (i: FeedItem) => i.appt ? { appointment_id: i.appt.id } : { transaction_id: i.key.slice(1) };
   const refundItem = async (i: FeedItem) => {
     if (!accessToken) return;
-    if (!(await confirm({ title: "Refund payment", message: "Refund this payment to the customer's card? The appointment itself stays.", confirmText: "Refund", tone: "danger" }))) return;
     setRefunding(true);
-    const body = i.appt ? { appointment_id: i.appt.id } : { transaction_id: i.key.slice(1) };
     const res = await fetch("/api/stripe/refund-payment", {
       method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ ...refundBody(i), preview: true }),
+    });
+    const data = await res.json().catch(() => ({}));
+    setRefunding(false);
+    if (!res.ok) { showToast(data.error ?? "Couldn't load the refund", false); return; }
+    if (data.held) {
+      if (!(await confirm({ title: "Release card hold", message: "This card was only held, never charged. Release the hold? Nothing is charged or refunded.", confirmText: "Release", tone: "danger" }))) return;
+      return runRefund(i);
+    }
+    const parts = ((data.parts ?? []) as RefundPreviewPart[]).filter(p => !p.done && p.cents > 0);
+    if (data.alreadyRefunded || !parts.length) { showToast(data.alreadyRefunded ? "Already refunded." : "Nothing left to refund.", false); return; }
+    const blocked = parts.find(p => p.blocked);
+    if (blocked) { showToast(blocked.blocked!, false); return; }
+    setRefundPlan({ item: i, parts, giftCard: data.giftCard ?? null, served: data.served !== false });
+  };
+  const runRefund = async (i: FeedItem) => {
+    if (!accessToken) return;
+    setRefunding(true);
+    const res = await fetch("/api/stripe/refund-payment", {
+      method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify(refundBody(i)),
     });
     const data = await res.json().catch(() => ({}));
     setRefunding(false);
     if (!res.ok) { showToast(data.error ?? "Refund failed", false); return; }
-    showToast("Refunded · customer emailed");
+    setRefundPlan(null);
     setDetailItem(null);
+    if (data.partial) showToast(data.error ?? "Part of the refund didn't go through — try again.", false);
+    else showToast(data.released ? "Card hold released" : data.giftCardVoided ? "Refunded · gift card voided" : "Refunded");
     loadData();
   };
 
@@ -1168,9 +1199,9 @@ export default function PaymentsPage() {
                     <div className="cwp-rright">
                       <div className={cn("cwp-a", unpaid ? "cwp-adue" : "cwp-apos")}>{giftPaid
                         ? formatCurrency(i.giftApplied ?? 0)
-                        : <>{i.refundOut ? "−" : i.settled && !feeExact(i) ? "≈" : ""}{formatCurrency(statementAmount(i))}</>}</div>
+                        : <>{i.refundOut && !i.giftBack ? "−" : i.settled && !i.refundOut && !feeExact(i) ? "≈" : ""}{formatCurrency(statementAmount(i))}</>}</div>
                       <div className="cwp-m">
-                        {refunded ? <span className="cwp-tag cwp-tref">{i.refundOut ? "Refund" : "Refunded"}</span>
+                        {refunded ? <span className="cwp-tag cwp-tref">{i.giftBack ? "To gift card" : i.refundOut ? "Refund" : "Refunded"}</span>
                           : unpaid ? <span className="cwp-tag cwp-tdue">Unpaid</span>
                           : <>
                               <span className="cwp-method">{methodLabel(i)}</span>
@@ -1201,7 +1232,10 @@ export default function PaymentsPage() {
         const canSendLink = !!a && (a.payment_status === "unpaid" || a.payment_status === "failed" || !a.payment_status) && (a.total_amount ?? 0) > 0;
         // Never offer refund on a barber-earnings row — it represents that barber's
         // cut, not the underlying charge (and its key isn't a refundable tx id).
-        const refundable = !i.earn && i.settled && i.method !== "cash" && !!i.pi && !i.refunded;
+        // Any settled visit or sale can be refunded — each part goes back its own way.
+        // A balance / separate-tip line refunds with its visit (one refund per visit).
+        const refundable = !i.earn && i.settled && !i.refunded && !i.refundOut && (!!i.appt || i.key.startsWith("t"));
+        const cashOnly = refundable && i.method === "cash";
         const dt = i.tsIso ? new Date(i.tsIso) : null;
         return (
           <>
@@ -1236,8 +1270,13 @@ export default function PaymentsPage() {
                   {/* Money breakdown. For a card payment with a known fee, spell out
                       gross → fee → net so "after fee" is never ambiguous (the old
                       single "Amount" row actually showed the net, which read unclear). */}
-                  {i.refundOut ? (
-                    <div className="flex justify-between"><span className="text-grey">Returned to customer</span><span className="text-foreground font-semibold">−{formatCurrency(i.amount)}</span></div>
+                  {i.giftBack ? (
+                    <>
+                      <div className="flex justify-between"><span className="text-grey">Put back on gift card</span><span className="text-foreground font-semibold">{formatCurrency(i.amount)}</span></div>
+                      <p className="text-[11px] text-grey-muted">No money left the shop — the value went back on the customer&apos;s gift card.</p>
+                    </>
+                  ) : i.refundOut ? (
+                    <div className="flex justify-between"><span className="text-grey">{i.method === "cash" ? "Cash handed back" : "Returned to customer"}</span><span className="text-foreground font-semibold">−{formatCurrency(i.amount)}</span></div>
                   ) : i.earn ? (
                     <div className="flex justify-between"><span className="text-grey">Earned</span><span className="text-foreground font-semibold">{formatCurrency(i.amount)}</span></div>
                   ) : isGiftPaid(i) && i.settled && !i.refunded ? (
@@ -1291,11 +1330,61 @@ export default function PaymentsPage() {
                   {refundable && (
                     <button onClick={() => refundItem(i)} disabled={refunding}
                       className="flex items-center justify-center gap-1.5 rounded-xl bg-red-500/15 text-red-400 border border-red-500/30 text-sm font-semibold py-2.5 hover:bg-red-500/25 disabled:opacity-50">
-                      {refunding ? "Refunding…" : "↩ Refund payment"}
+                      {refunding ? "Loading…" : i.giftSale ? "↩ Refund gift card & void" : cashOnly ? "↩ Record cash refund" : "↩ Refund payment"}
                     </button>
                   )}
-                  {i.refunded && <p className="text-center text-xs text-grey">✓ Refunded</p>}
-                  {i.method === "cash" && !i.refunded && <p className="text-center text-[11px] text-grey-muted">Cash payment — refund in person.</p>}
+                  {i.refunded && !i.refundOut && <p className="text-center text-xs text-grey">✓ Refunded</p>}
+                  {!i.refunded && !i.earn && (i.key.startsWith("b") || i.key.startsWith("tip")) && <p className="text-center text-[11px] text-grey-muted">Refunds together with its visit — open the visit&apos;s payment.</p>}
+                </div>
+              </div>
+            </div>
+          </>
+        );
+      })()}
+
+      {/* ── Refund sheet: what goes back, part by part ─────────────────────── */}
+      {refundPlan && (() => {
+        const { item, parts, giftCard } = refundPlan;
+        const total = parts.reduce((s, p) => s + p.cents, 0);
+        const cash = parts.filter(p => p.kind === "cash").reduce((s, p) => s + p.cents, 0);
+        const way = (p: RefundPreviewPart) => p.kind === "card" ? "back to their card" : p.kind === "cash" ? "hand back in cash" : "back on their gift card";
+        return (
+          <>
+            <div className="fixed inset-0 bg-black/70 z-[80]" onClick={() => !refunding && setRefundPlan(null)} />
+            <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 overflow-y-auto overscroll-contain [&>*]:my-auto">
+              <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-sm space-y-4 shadow-xl">
+                <div className="flex items-center justify-between gap-2">
+                  <h2 className="text-lg font-bold text-foreground">{item.giftSale ? "Refund gift card" : "Refund payment"}</h2>
+                  <button onClick={() => !refunding && setRefundPlan(null)} className="text-grey hover:text-foreground text-xl leading-none">✕</button>
+                </div>
+                <p className="text-sm text-grey">{item.name} · {item.sub}</p>
+                {giftCard && (
+                  <p className="text-sm text-grey">
+                    Card <span className="font-mono text-foreground">{giftCard.code}</span> has {formatCurrency(giftCard.remainingCents / 100)} unused
+                    {giftCard.remainingCents < giftCard.initialCents ? ` (${formatCurrency((giftCard.initialCents - giftCard.remainingCents) / 100)} already spent stays spent)` : ""}.
+                    Refunding it sets the card to $0 and voids it.
+                  </p>
+                )}
+                <div className="space-y-2 text-sm">
+                  {parts.map(p => (
+                    <div key={p.key} className="flex justify-between gap-3">
+                      <span className="text-grey">{p.label} <span className="text-grey-muted">· {way(p)}</span></span>
+                      <span className="text-foreground font-semibold tabular-nums">{formatCurrency(p.cents / 100)}</span>
+                    </div>
+                  ))}
+                  {parts.length > 1 && (
+                    <div className="flex justify-between border-t border-dashed border-border pt-2"><span className="text-grey">Total</span><span className="text-foreground font-bold tabular-nums">{formatCurrency(total / 100)}</span></div>
+                  )}
+                </div>
+                {cash > 0 && <p className="text-[11px] text-grey-muted">Hand {formatCurrency(cash / 100)} back in cash — this records it on today&apos;s statement.</p>}
+                {!item.giftSale && item.appt && <p className="text-[11px] text-grey-muted">{refundPlan.served ? "The visit stays on the calendar, marked refunded." : "The booking is cancelled and its time slot reopens."} Loyalty points from this visit are reversed.</p>}
+                <div className="flex gap-2 pt-1">
+                  <button onClick={() => setRefundPlan(null)} disabled={refunding}
+                    className="flex-1 rounded-xl border border-border bg-card-raised text-foreground text-sm font-medium py-2.5 hover:bg-surface-overlay disabled:opacity-50">Cancel</button>
+                  <button onClick={() => runRefund(item)} disabled={refunding}
+                    className="flex-1 rounded-xl bg-red-500/15 text-red-400 border border-red-500/30 text-sm font-semibold py-2.5 hover:bg-red-500/25 disabled:opacity-50">
+                    {refunding ? "Refunding…" : `Refund ${formatCurrency(total / 100)}`}
+                  </button>
                 </div>
               </div>
             </div>
