@@ -36,9 +36,13 @@ export type EarningTx = {
 // barber's past pay periods never change after the fact, and a refund after
 // payday shows up as a deduction in the period it happened — not silently lost.
 export const isRefundTx = (t: { source?: string | null }) => t.source === "refund";
-/** No-show penalty fees (and their refunds) are shop income, never a barber's cut. */
+/** No-show money is the shop's, never a barber's cut (owner decision 2026-10-03):
+ *  no-show FEES ("No-show fee — …"), and a visit paid in advance that no-showed —
+ *  its earnings line is tagged "(no-show)" by the database the moment the visit is
+ *  marked no-show (phase77), and its refunds carry the same tag. So nothing on a
+ *  no-show is credited to, or taken back from, a barber. */
 export const isNoShowEarning = (t: { source?: string | null; service_name?: string | null }) =>
-  t.source === "no_show" || /no-show fee/i.test(t.service_name ?? "");
+  t.source === "no_show" || /no-show/i.test(t.service_name ?? "");
 /** Rows that belong in a barber's OWN earnings ledger (portal + Payments filtered
  *  to a barber): everything but no-show fees. A gift-card visit has its earnings
  *  line (payment_method "gift_card", written by the database — phase76) and its
@@ -113,7 +117,7 @@ export function shopBarberCommission(
     if (isRefundTx(t)) return sum - refundClawback({ ...t, amount: t.amount ?? 0 }, pctByBarber[t.barber_id] ?? 0);
     // No-show penalty fees are shop income, not a service the barber performed —
     // they never pay commission (matches the Dashboard + barber-portal rule).
-    if (t.source === "no_show" || (t.service_name ?? "").startsWith("No-show fee")) return sum;
+    if (isNoShowEarning(t)) return sum;
     const pct = pctByBarber[t.barber_id] ?? 0;
     return sum + safeCommission(t.amount, t.commission_amount, pct);
   }, 0);

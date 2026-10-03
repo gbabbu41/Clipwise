@@ -168,11 +168,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "This shop's Stripe account isn't connected — can't refund the card part." }, { status: 400 });
     }
 
+    // A no-show's money is the shop's: its refunds are tagged so no commission is
+    // taken back (none was paid — lib/barber-earnings isNoShowEarning).
+    const noShowTag = appt.status === "no-show" ? " (no-show)" : "";
     const recordPart = async (p: RefundPart, cents: number, stripeRefundId: string | null = null) => {
       const split = scaleSplit(p, cents);
+      const base = p.kind === "gift_card" ? `${serviceName ?? "Payment"} (back on gift card)` : p.label.startsWith("Card") ? serviceName : `${serviceName ?? "Payment"} (${p.label.toLowerCase()})`;
       const res = await recordRefundLedger({
         shopId: appt.shop_id, barberId: appt.barber_id, clientName: appt.client_name,
-        serviceName: p.kind === "gift_card" ? `${serviceName ?? "Payment"} (back on gift card)` : p.label.startsWith("Card") ? serviceName : `${serviceName ?? "Payment"} (${p.label.toLowerCase()})`,
+        serviceName: noShowTag && !/no-show/i.test(base ?? "") ? `${base ?? "Payment"}${noShowTag}` : base,
         refundedCents: cents, taxCents: split.taxCents, tipCents: split.tipCents,
         appointmentId: appt.id, paymentIntentId: p.paymentIntentId, method: p.kind, dedupeKey: p.paymentIntentId ? null : p.key,
         stripeRefundId,

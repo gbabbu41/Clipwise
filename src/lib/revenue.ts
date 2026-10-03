@@ -105,7 +105,7 @@ export function collectedBalances(txs: RevTx[]): Map<string, number> {
 
 const rowKey = (t: RevTx) => t.id ?? [t.payment_intent_id, t.source, t.created_at, t.amount, t.tax, t.tip, t.appointment_id].join("|");
 
-export type GrossContext = { saved: Map<string, number>; sepTipped: Set<string>; balances: Map<string, number>; byPi?: ByPi };
+export type GrossContext = { saved: Map<string, number>; sepTipped: Set<string>; balances: Map<string, number>; byPi?: ByPi; paidAhead: Set<string> };
 /** Everything the collected-gross rule needs, built once per screen/report.
  * `evidence` = ledger rows LINKED to the report's bookings (same payment id or
  * same booking) loaded regardless of the report's date window. It is only ever
@@ -114,7 +114,30 @@ export function grossContext(appts: RevAppt[], txs: RevTx[], byPi?: ByPi, eviden
   const seen = new Set<string>();
   const rows: RevTx[] = [];
   for (const t of [...txs, ...evidence]) { const k = rowKey(t); if (!seen.has(k)) { seen.add(k); rows.push(t); } }
-  return { saved: savedChargeGross(rows), sepTipped: separatelyTippedAppts(appts, rows), balances: collectedBalances(rows), byPi };
+  return { saved: savedChargeGross(rows), sepTipped: separatelyTippedAppts(appts, rows), balances: collectedBalances(rows), byPi, paidAhead: paidAheadPis(rows) };
+}
+
+/** Charges recorded as the booking's OWN payment (its "completion" line) — so a
+ *  later no-show on that booking was paid in advance, not charged a no-show fee. */
+export function paidAheadPis(txs: RevTx[]): Set<string> {
+  const pis = new Set<string>();
+  for (const t of txs) if (t.source === "completion" && t.payment_intent_id) pis.add(t.payment_intent_id);
+  return pis;
+}
+
+/**
+ * Is this booking's money its NO-SHOW FEE line (and so not the booking itself)?
+ * A no-show charged a fee from a held card is "captured" and the fee has its own
+ * ledger row (source "no_show") — counted there, so the booking is skipped. A
+ * booking PAID IN ADVANCE that then no-shows keeps its own payment: the shop
+ * keeps that money (owner decision 2026-10-03), so it still counts here — the
+ * barber earns no commission on it (lib/barber-earnings isNoShowEarning).
+ */
+export function noShowFeeVisit(a: Pick<RevAppt, "status" | "payment_status" | "payment_intent_id">, paidAhead?: Set<string>): boolean {
+  if (a.status !== "no-show") return false;
+  if (a.payment_status === "paid") return false;   // paid in advance (card online, gift card, cash)
+  if (a.payment_status === "refunded") return !(a.payment_intent_id && paidAhead?.has(a.payment_intent_id));
+  return true;                                      // "captured" no-show fee
 }
 
 /** THE collected-gross rule for one paid booking, shared by every screen and
@@ -152,6 +175,7 @@ export const isGiftRefundRow = (t: Pick<RevTx, "source" | "payment_method">) => 
 /** The service a refund row belongs to: "Refund — Skin Fade (back on gift card)" → "Skin Fade". */
 export const refundServiceKey = (name: string | null | undefined) => (name ?? "")
   .replace(/^Refund\s*—\s*/, "")
+  .replace(/\s*\(no-show\)$/i, "")
   .replace(/\s*\((?:back on gift card|cash|balance · (?:card|cash)|tip · card|no-show fee · card|refund date not recorded; dated at sale)\)$/i, "")
   .trim();
 /** What a refund row gave back (incl. tax + tip), as a positive number. */
@@ -256,11 +280,12 @@ export function collectedTotals(appts: RevAppt[], txs: RevTx[], byPi?: ByPi, own
   // collected, and a tip paid on its own charge is counted once (its own line).
   const ctx = grossContext(appts, txs, byPi, evidence);
 
-  // Settled appointments — exclude paid no-shows (represented by a tx row so it
-  // isn't double-counted).
+  // Settled appointments — exclude no-shows whose money is their no-show FEE row
+  // (counted below, so it isn't double-counted). A no-show paid in advance keeps
+  // its own payment (noShowFeeVisit).
   for (const a of appts) {
     if (!isSale(a.payment_status)) continue;   // a later refund is its own row below
-    if (a.status === "no-show") continue;
+    if (noShowFeeVisit(a, ctx.paidAhead)) continue;
     // The customer paid: (service + tax) − gift already applied + the booking tip.
     //  · Subtract gift: that value was counted when the card was SOLD, so counting
     //    the full total here would double-count it (total_amount stays full for the
