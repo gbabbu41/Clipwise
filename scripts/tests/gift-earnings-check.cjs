@@ -55,7 +55,6 @@ const { psql, stop } = startPg();
     await pay(A0, 'OLD-50'); await one(`update public.appointments set status = 'completed' where id = '${A0}'`);
     assert.equal((await lines(A0)).length, 0, 'nothing before phase76');
     await apply('phase76_gift_card_earnings');
-    await apply('phase77_no_show_earnings');
     assert.deepEqual(await lines(A0), [{ source: 'completion', payment_method: 'gift_card', amount: 35, tax: 5.25, tip: 0, refunded: false, service_name: 'Skin Fade', barber_id: GILL }], 'backfilled');
 
     // 1. Paid by gift card (checkout) → ONE earnings line, dated when paid; tax + tip share.
@@ -93,26 +92,15 @@ const { psql, stop } = startPg();
     await one(`update public.appointments set status = 'cancelled' where id = '${A1}'`);
     assert.equal((await lines(A1)).length, 2);
 
-    // 5. No-show keeps the gift value (the shop keeps it) → the line stays, tagged
-    //    "(no-show)" so the barber earns nothing on it (phase77); undoing the
-    //    no-show removes the tag; a refund of the no-show is tagged too.
+    // 5. No-show keeps the gift value (the shop keeps it) → the line stays: paid
+    //    money is split with the barber (owner decision 2026-10-03); only a refund
+    //    takes it back.
     const A3 = uuid(13), G3 = uuid(4);
     await card(G3, 'NS-50', 50); await visit(A3, 40.25, 5.25, 0); await pay(A3, 'NS-50');
     await one(`update public.appointments set status = 'no-show' where id = '${A3}'`);
-    assert.deepEqual((await lines(A3)).map(l => [l.source, l.service_name]), [['completion', 'Skin Fade (no-show)']]);
-    await one(`update public.appointments set status = 'completed' where id = '${A3}'`);
-    assert.deepEqual((await lines(A3)).map(l => l.service_name), ['Skin Fade'], 'un-no-show → tag removed');
-    await one(`update public.appointments set status = 'no-show' where id = '${A3}'`);
-    await one(`update public.appointments set status = 'no-show' where id = '${A3}'`);
-    assert.deepEqual((await lines(A3)).map(l => l.service_name), ['Skin Fade (no-show)'], 'tagged once');
+    assert.deepEqual((await lines(A3)).map(l => [l.source, l.service_name]), [['completion', 'Skin Fade']]);
     await one(`update public.appointments set payment_status = 'refunded' where id = '${A3}'`);
-    assert.deepEqual((await lines(A3)).map(l => [l.source, l.service_name]), [['completion', 'Skin Fade (no-show)'], ['refund', 'Refund — Skin Fade (back on gift card) (no-show)']]);
-    // A card visit paid in advance (its own earnings line) → tagged the same way.
-    const A6 = uuid(16); await visit(A6, 40.25, 5.25, 0);
-    await one(`update public.appointments set payment_status = 'paid', payment_method = 'card', paid_at = now() where id = '${A6}'`);
-    await one(`insert into public.transactions (shop_id, barber_id, appointment_id, service_name, amount, tax, tip, payment_method, type, source, payment_intent_id) values ('${SHOP}', '${GILL}', '${A6}', 'Skin Fade', 35, 5.25, 0, 'card', 'service', 'completion', 'pi_pre')`);
-    await one(`update public.appointments set status = 'no-show' where id = '${A6}'`);
-    assert.deepEqual((await lines(A6)).map(l => l.service_name), ['Skin Fade (no-show)']);
+    assert.deepEqual((await lines(A3)).map(l => l.source), ['completion', 'refund'], 'refund takes it back');
 
     // 6. Booking prepaid by gift card (book/in-person: tax set BEFORE paid) → tax share right.
     const A4 = uuid(14), G4 = uuid(5);
@@ -131,10 +119,6 @@ const { psql, stop } = startPg();
     assert.equal((await lines(A5)).length, 0);
     assert.equal(await one(`select count(*) from public.error_logs`), '0');
     for (const role of ['anon', 'authenticated']) {
-      const f = await psql(['-c', `set role ${role}; select public.no_show_earnings_sync()`]);
-      assert.match(f.err, /permission denied|trigger functions can only be called as triggers/, `${role} cannot call it`);
-    }
-    for (const role of ['anon', 'authenticated']) {
       const f = await psql(['-c', `set role ${role}; select public.gift_earning_sync('${A1}')`]);
       assert.match(f.err, /permission denied/, `${role} cannot call it`);
     }
@@ -148,21 +132,20 @@ const { psql, stop } = startPg();
     const without = rev.collectedTotals([appt], []), withLine = rev.collectedTotals([appt], [earn]);
     assert.deepEqual([withLine.gross, withLine.net, withLine.tips, withLine.tax, withLine.cash], [without.gross, without.net, without.tips, without.tax, without.cash], 'the earnings line adds NO shop money');
     assert.equal(rev.countablePosTxs([appt], [earn]).length, 0, 'never a POS sale');
-    let e = be.computeBarberEarnings([earn].filter(be.isBarberLedgerRow), 50);
+    let e = be.computeBarberEarnings([earn], 50);
     assert.deepEqual([e.commission, e.tips, e.youKeep, e.count], [17.5, 5, 22.5, 1], 'Gill sees 50% of $35 + the $5 tip');
-    e = be.computeBarberEarnings([earn, back].filter(be.isBarberLedgerRow), 50);
+    e = be.computeBarberEarnings([earn, back], 50);
     assert.equal(Math.round(e.youKeep * 100), 0, 'refunded → taken back');
     assert.equal(be.computeBarberEarnings([earn], 0, true).youKeep, 40, 'owner chair keeps 100% + tip');
     // Shop money after the refund: only the tax/tip share comes back (no money out).
     const shop = rev.collectedTotals([{ ...appt, payment_status: 'refunded' }], [earn, back]);
     assert.deepEqual([shop.gross, shop.refunds, Math.round(shop.tax * 100), Math.round(shop.tips * 100)], [0, 0, 0, 0]);
-    // The no-show gift visit: the barber earns nothing, nothing is taken back.
+    // The no-show gift visit: the barber earned 50% when it was paid; the refund takes it back.
     const ns = (await rows(`select t.*, t.amount::float as amount, t.tax::float as tax, t.tip::float as tip from public.transactions t where appointment_id = '${A3}'`));
-    assert.equal(be.computeBarberEarnings(ns.filter(be.isBarberLedgerRow), 50).youKeep, 0, 'no-show: nothing for the barber');
-    assert.equal(ns.filter(be.isBarberLedgerRow).length, 0);
-    assert.equal(be.refundClawback(ns.find(t => t.source === 'refund'), 50), 0, 'no commission comes back either');
+    assert.equal(be.computeBarberEarnings(ns.filter(t => t.source === 'completion'), 50).youKeep, 17.5, 'no-show: barber keeps the split');
+    assert.equal(Math.round(be.computeBarberEarnings(ns, 50).youKeep * 100), 0, 'refunded → taken back');
 
     const version = await one('show server_version');
-    console.log(`PASS gift-card earnings (real PostgreSQL ${version} + phase69/70/71/75/76/77): paid by gift card → one barber earnings line (gift share of service/tax/tip, dated when paid; split visits only the gift part; prepaid bookings too), cancel / refund → taken back once under the app's own id, no-show keeps it tagged "(no-show)" (barber earns nothing; undo removes the tag; its refund tagged too; card prepaid lines too), existing visits backfilled, server-only, no failures — barber sees 50% + tip, shop money unchanged`);
+    console.log(`PASS gift-card earnings (real PostgreSQL ${version} + phase69/70/71/75/76): paid by gift card → one barber earnings line (gift share of service/tax/tip, dated when paid; split visits only the gift part; prepaid bookings too), cancel / refund → taken back once under the app's own id, no-show keeps it (split with the barber; a refund takes it back), existing visits backfilled, server-only, no failures — barber sees 50% + tip, shop money unchanged`);
   } finally { stop(); }
 })().catch(e => { console.error(e); process.exitCode = 1; });

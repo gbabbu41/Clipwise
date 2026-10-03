@@ -36,26 +36,17 @@ export type EarningTx = {
 // barber's past pay periods never change after the fact, and a refund after
 // payday shows up as a deduction in the period it happened — not silently lost.
 export const isRefundTx = (t: { source?: string | null }) => t.source === "refund";
-/** No-show money is the shop's, never a barber's cut (owner decision 2026-10-03):
- *  no-show FEES ("No-show fee — …"), and a visit paid in advance that no-showed —
- *  its earnings line is tagged "(no-show)" by the database the moment the visit is
- *  marked no-show (phase77), and its refunds carry the same tag. So nothing on a
- *  no-show is credited to, or taken back from, a barber. */
-export const isNoShowEarning = (t: { source?: string | null; service_name?: string | null }) =>
-  t.source === "no_show" || /no-show/i.test(t.service_name ?? "");
-/** Rows that belong in a barber's OWN earnings ledger (portal + Payments filtered
- *  to a barber): everything but no-show fees. A gift-card visit has its earnings
- *  line (payment_method "gift_card", written by the database — phase76) and its
- *  refund takes that cut back, exactly like a card visit. Those lines are the
- *  barber's earnings only — never shop money (lib/revenue skips them). */
-export const isBarberLedgerRow = (t: { source?: string | null; service_name?: string | null; payment_method?: string | null }) =>
-  !isNoShowEarning(t);
+// NO-SHOWS (owner decision 2026-10-03 — "split everything"): any money a customer
+// paid is split at the barber's %, and only a refund takes it back. That covers a
+// visit paid in advance that no-showed AND a no-show fee charged to a held card —
+// the barber blocked that time either way. So every line of the barber's ledger
+// counts (a gift-card visit's line too — phase76; never shop money, lib/revenue).
 
 /** Commission taken BACK by a refund row (a positive number to subtract). Same rule
  *  as the sale's cut: the stored cut when sane, else amount × pct; the owner's own
- *  chair takes back 100%; no-show fees pay no commission so nothing comes back. */
+ *  chair takes back 100%. */
 export function refundClawback(t: { amount: number | null; commission_amount?: number | null; service_name?: string | null; source?: string | null }, pct: number, isOwner = false): number {
-  if (!isRefundTx(t) || isNoShowEarning(t)) return 0;
+  if (!isRefundTx(t)) return 0;
   const amt = Math.abs(t.amount ?? 0);
   if (isOwner) return amt;
   const stored = t.commission_amount == null ? null : Math.abs(t.commission_amount);
@@ -115,9 +106,6 @@ export function shopBarberCommission(
     if (!t.barber_id) return sum;
     // A refund row takes its cut back on its own day; the refunded sale keeps its cut.
     if (isRefundTx(t)) return sum - refundClawback({ ...t, amount: t.amount ?? 0 }, pctByBarber[t.barber_id] ?? 0);
-    // No-show penalty fees are shop income, not a service the barber performed —
-    // they never pay commission (matches the Dashboard + barber-portal rule).
-    if (isNoShowEarning(t)) return sum;
     const pct = pctByBarber[t.barber_id] ?? 0;
     return sum + safeCommission(t.amount, t.commission_amount, pct);
   }, 0);
@@ -125,8 +113,9 @@ export function shopBarberCommission(
 
 export function computeBarberEarnings(txs: EarningTx[], commissionPercent: number, isOwner = false): BarberEarnings {
   // A refunded sale still counts on its own day; its refund row takes the cut +
-  // tip back on the refund's day (see REFUNDS above). No-show fees never count.
-  const list = txs.filter(isBarberLedgerRow);
+  // tip back on the refund's day (see REFUNDS above). No-show money counts too
+  // (see NO-SHOWS above).
+  const list = txs;
   const sales = list.filter(t => !isRefundTx(t));
   const refunds = list.filter(isRefundTx);
   const tips = sales.reduce((s, t) => s + (t.tip ?? 0), 0) - refunds.reduce((s, t) => s + Math.abs(t.tip ?? 0), 0);

@@ -103,11 +103,9 @@ export async function importChargeRefunds(args: {
     const taxOf = byAppt ? cents(appointment!.tax_amount) : cents(sale?.tax);
     const tipOf = byAppt ? cents(appointment!.tip_amount) : cents(sale?.tip);
     const svc = appointment?.services;
-    const baseName = byAppt
+    const serviceName = byAppt
       ? (Array.isArray(svc) ? svc[0]?.name ?? null : svc?.name ?? null)
       : (sale?.service_name ?? null);
-    // A no-show's money is the shop's: tag its refunds so no commission comes back.
-    const serviceName = appointment?.status === "no-show" && !/no-show/i.test(baseName ?? "") ? `${baseName ?? "Payment"} (no-show)` : baseName;
 
     for (const r of refundsToImport(list, recorded)) {
       const res = await recordRefundLedger({

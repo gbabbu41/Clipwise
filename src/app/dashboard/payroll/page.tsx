@@ -10,8 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { FeatureLock } from "@/components/dashboard/feature-lock";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import { countablePosTxs, isNoShowTx, isRefundRow, isSale, type RevAppt, type RevTx } from "@/lib/revenue";
-import { isNoShowEarning, refundClawback, safeCommission } from "@/lib/barber-earnings";
+import { countablePosTxs, isRefundRow, isSale, noShowFeeVisit, paidAheadPis, type RevAppt, type RevTx } from "@/lib/revenue";
+import { refundClawback, safeCommission } from "@/lib/barber-earnings";
 import type { Barber } from "@/lib/database.types";
 
 // Theme-aware (renders inside `.portal`, CSS vars resolve to the active theme).
@@ -140,20 +140,23 @@ export default function PayrollPage() {
       const collectedTax = total > 0 ? (a.tax_amount ?? 0) * (collectedTotal / total) : (a.tax_amount ?? 0);
       return Math.max(0, collectedTotal - collectedTax);
     };
-    // POS sales that carry commission (product / walk-in) — completion & no-show
-    // rows are dropped (the appointment already covers those), de-duped vs paid
+    // POS sales that carry commission (product / walk-in, and no-show fees — no-show
+    // money is split like any payment, owner decision 2026-10-03) — completion rows
+    // are dropped (the appointment already covers those), de-duped vs paid
     // appointments. SAME rule as the Dashboard, so nothing is double-counted.
     const countablePos = countablePosTxs(apptsInRange as unknown as RevAppt[], txsInRange as RevTx[])
-      .filter(t => !!t.barber_id && !isNoShowTx(t) && t.source !== "completion");
+      .filter(t => !!t.barber_id && t.source !== "completion");
     // Refunds in this period — each takes its service + commission back from the
     // barber who did the visit (a refund of a sale paid in an earlier, already-paid
     // period shows here as a deduction instead of silently vanishing).
-    const periodRefunds = (txsInRange as RevTx[]).filter(t => isRefundRow(t) && !!t.barber_id && !isNoShowEarning(t));
+    const periodRefunds = (txsInRange as RevTx[]).filter(t => isRefundRow(t) && !!t.barber_id);
+    const paidAhead = paidAheadPis(txsInRange as RevTx[]);
 
     const result: BarberPayroll[] = barberList.map(b => {
       const pct = b.commission_percent ?? 0;
-      // Paid, non-no-show appointments this barber performed (money-moved basis).
-      const bAppts = apptsInRange.filter(a => a.barber_id === b.id && isSale(a.payment_status) && a.status !== "no-show");
+      // Paid appointments of this barber (money-moved basis) — a no-show paid in
+      // advance included (split like any payment); a no-show FEE is its own line.
+      const bAppts = apptsInRange.filter(a => a.barber_id === b.id && isSale(a.payment_status) && !noShowFeeVisit(a, paidAhead));
       const apptService = bAppts.reduce((s, a) => s + apptServiceCollected(a), 0);
       const apptCommission = (apptService * pct) / 100;
       // POS commission — prefer the stored cut (safeCommission guards a corrupt one).

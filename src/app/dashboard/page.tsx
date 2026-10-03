@@ -33,9 +33,9 @@ import { UnreadBadge } from "@/components/notification-badge";
 import { useShopUnreadCount } from "@/hooks/use-unread-count";
 import { useAuth } from "@/lib/auth-context";
 import { isNativeApp } from "@/lib/native-app";
-import { collectedTotals, countablePosTxs, isGiftRefundRow, isNoShowTx, isPaid, isRefundRow, isSale, type RevTx, type RevAppt, type ByPi } from "@/lib/revenue";
+import { collectedTotals, countablePosTxs, isGiftRefundRow, isPaid, isRefundRow, isSale, noShowFeeVisit, paidAheadPis, type RevTx, type RevAppt, type ByPi } from "@/lib/revenue";
 import { evidenceView, loadLinkedEvidence, type EvidenceSnapshot } from "@/lib/revenue-evidence";
-import { isNoShowEarning, refundClawback, safeCommission } from "@/lib/barber-earnings";
+import { refundClawback, safeCommission } from "@/lib/barber-earnings";
 import type { AppointmentWithDetails, Barber, Notification } from "@/lib/database.types";
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
@@ -594,7 +594,8 @@ export default function DashboardPage() {
   // Payroll: commission = the barber's rate × service on each COUNTED sale.
   //  · counted paid appointments → (total − tax) × that barber's rate
   //  · counted POS sales with a barber → stored cut (or amount × rate)
-  // No-show penalty fees never pay commission — they're not a service performed.
+  // No-show money is split like any payment (owner decision 2026-10-03): a visit
+  // paid in advance counts as its appointment, a no-show fee as its own line.
   // Service revenue ACTUALLY COLLECTED for an appointment, pre-tax. Commission
   // must follow the money, not the label: a price edited ABOVE the held card
   // captures LESS than total_amount, leaving a `balance_due`. Base the cut on
@@ -612,12 +613,15 @@ export default function DashboardPage() {
   // Refunds (owner rule 2026-10-03): a refunded sale keeps its commission on the
   // day it was paid; its refund row takes the commission back on the refund's day
   // (refundClawback — the same rule the barber portal and Payroll use).
+  // No-shows (owner decision 2026-10-03): any money paid is split — a visit paid in
+  // advance counts here; a no-show FEE counts as its own line below.
+  const paidAhead = paidAheadPis(txnsInRange as RevTx[]);
   const apptCommission = revenueApptsInRange.reduce((sum, a) => {
-    if (!isSale(a.payment_status) || a.status === "no-show" || !a.barber_id) return sum;
+    if (!isSale(a.payment_status) || noShowFeeVisit(a, paidAhead) || !a.barber_id) return sum;
     return sum + (apptServiceCollected(a) * (commissionPct[a.barber_id] ?? 0)) / 100;
   }, 0);
   const posCommission = countablePosTxs(revenueApptsInRange, txnsInRange).reduce((sum, t) => {
-    if (!t.barber_id || isNoShowTx(t) || t.source === "completion") return sum;
+    if (!t.barber_id || t.source === "completion") return sum;
     const pct = commissionPct[t.barber_id] ?? 0;
     return sum + safeCommission(t.amount, t.commission_amount, pct);
   }, 0);
@@ -631,16 +635,16 @@ export default function DashboardPage() {
   // names (two barbers who share a first name stay distinct).
   const barberRevMap: Record<string, number> = {};
   revenueApptsInRange.forEach((a) => {
-    if (!isSale(a.payment_status) || a.status === "no-show" || !a.barber_id) return;
+    if (!isSale(a.payment_status) || noShowFeeVisit(a, paidAhead) || !a.barber_id) return;
     barberRevMap[a.barber_id] = (barberRevMap[a.barber_id] ?? 0) + apptServiceCollected(a);
   });
   countablePosTxs(revenueApptsInRange, txnsInRange).forEach((t) => {
-    if (!t.barber_id || isNoShowTx(t) || t.source === "completion") return;
+    if (!t.barber_id || t.source === "completion") return;
     barberRevMap[t.barber_id] = (barberRevMap[t.barber_id] ?? 0) + (t.amount ?? 0);
   });
   // Service handed back on a refund comes off that barber on the refund's day.
   txnsInRange.forEach((t) => {
-    if (!isRefundRow(t) || !t.barber_id || isNoShowEarning(t)) return;
+    if (!isRefundRow(t) || !t.barber_id) return;
     barberRevMap[t.barber_id] = (barberRevMap[t.barber_id] ?? 0) - Math.abs(t.amount ?? 0);
   });
   const topBarbers = Object.entries(barberRevMap)

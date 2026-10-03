@@ -10,7 +10,7 @@ import { useConfirm } from "@/components/ui/confirm-dialog";
 import { supabase } from "@/lib/supabase";
 import { formatCurrency, cn, timeToMinutes, timeAgo } from "@/lib/utils";
 import { countablePosTxs, estimateStripeFee, isGiftRefundRow, isNoShowTx, isPaid, isRefundRow, noShowFeeVisit, paidAheadPis, isSale, lineNetFee, refundedAmount, savedChargeGross, separatelyTippedAppts, transactionCollectedAmount, type CardFeeEstimate, type RevAppt } from "@/lib/revenue";
-import { computeBarberEarnings, barberRowCut, isBarberLedgerRow, isRefundTx } from "@/lib/barber-earnings";
+import { computeBarberEarnings, barberRowCut, isRefundTx } from "@/lib/barber-earnings";
 import { readAllRows } from "@/lib/read-all-rows";
 import { cacheGet, cacheSet } from "@/lib/view-cache";
 import { earningsBuckets } from "@/lib/earnings-chart";
@@ -630,11 +630,10 @@ export default function PaymentsPage() {
   );
   const selDisplayPct = selIsOwner ? 100 : selPct;
   const barberEarnTx = barberMode
-    ? txs.filter(t => t.barber_id === selectedBarber
-        // No-show penalty fees aren't the barber's earnings — exclude them so this
-        // per-barber view matches what the barber sees in their own portal. A
-        // refunded sale stays on its day; its refund row takes the cut back.
-        && isBarberLedgerRow(t))
+    // Every line of that barber (no-show money included — split like any payment),
+    // matching their own portal. A refunded sale stays on its day; its refund row
+    // takes the cut back.
+    ? txs.filter(t => t.barber_id === selectedBarber)
         // The barber's take-home is commission + tips, with NO card fee deducted
         // (the shop bears processing entirely). So this per-barber view doesn't
         // need the live Stripe fee at all — just carry a sortable timestamp.
