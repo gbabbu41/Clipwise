@@ -23,11 +23,17 @@
   margin: 0 auto;
 }
 
+.nav { position: relative; isolation: isolate; }
+.nav::before { position: absolute; z-index: -1; top: 0; bottom: 0; left: 50%; width: 100vw; transform: translateX(-50%); background: #000; content: ""; }
+.nav > * { position: relative; z-index: 1; }
 .wordmark { color: var(--ink); font-size: 19px; font-weight: 800; letter-spacing: -.045em; text-decoration: none; }
 .links,.footerLinks { display: flex; align-items: center; gap: clamp(16px, 3vw, 44px); }
 .links a,.footer a { display: inline-flex; min-height: 44px; align-items: center; color: var(--ink); font-size: 13px; text-decoration: none; }
 .mobileNavVisible { display: inline-flex; }
 .links a:hover,.footer a:hover,.compareLink:hover { color: var(--blue); }
+.nav .wordmark { color: #fff; }
+.nav .links a { color: #e7e9ed; }
+.nav .links a:hover { color: #fff; }
 .navCta,.primaryButton,.outlineButton,.planButton {
   display: inline-flex;
   min-height: 44px;
@@ -45,6 +51,7 @@
   transition: background-color .16s ease, border-color .16s ease;
 }
 .navCta:hover,.primaryButton:hover,.planButton:hover { border-color: #24354a; background: #24354a; }
+.nav .navCta { border-color: #fff; color: #000; background: #fff; box-shadow: none; transition: none; }
 .navCta:focus-visible,.primaryButton:focus-visible,.outlineButton:focus-visible,.planButton:focus-visible,.links a:focus-visible,.footer a:focus-visible,.compareLink:focus-visible { outline: 3px solid #73a8e9; outline-offset: 3px; }
 
 .hero {
