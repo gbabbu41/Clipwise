@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), Module = require('node:module');
 const root = path.resolve(__dirname, '../..'), req = Module.createRequire(path.join(root, 'package.json')), ts = req('typescript');
 const load = rel => { const f = path.join(root, rel), m = new Module(f, module); m.filename = f; m.require = id => id.startsWith('@/') ? load(`src/${id.slice(2)}.ts`) : req(id); m._compile(ts.transpileModule(fs.readFileSync(f, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, f); return m.exports; };
-const { computeBarberEarnings, barberRowCut, refundClawback } = load('src/lib/barber-earnings.ts');
+const { computeBarberEarnings, barberRowCut, refundClawback, isBarberLedgerRow } = load('src/lib/barber-earnings.ts');
 const { apptSpend } = load('src/lib/client-identity.ts');
 const c = n => Math.round(n * 100) / 100;
 
@@ -31,14 +31,24 @@ assert.equal(refundClawback(nsRefund, 50), 0);
 assert.equal(computeBarberEarnings([nsRefund], 50).youKeep, 0);
 // A sale is never mistaken for a refund.
 assert.equal(refundClawback(sale, 50), 0);
+// Split refund (phase75): a gift-paid visit wrote no earnings row in the barber's
+// own ledger, so its gift-card refund part takes nothing back THERE (the card part
+// still does). Shop-wide commission counts gift visits from the appointment, so it
+// takes every part back (refundClawback stays on for any refund row).
+const giftPart = { amount: -20, tip: 0, source: 'refund', payment_method: 'gift_card', service_name: 'Refund — Skin Fade (back on gift card)' };
+const cardPart = { amount: -15, tip: -5, source: 'refund', payment_method: 'card', service_name: 'Refund — Skin Fade (balance · card)' };
+assert.equal(isBarberLedgerRow(giftPart), false); assert.equal(isBarberLedgerRow(cardPart), true); assert.equal(isBarberLedgerRow(sale), true);
+assert.equal(isBarberLedgerRow(nsRefund), false, 'no-show fees stay out too');
+assert.equal(c(computeBarberEarnings([giftPart, cardPart], 50).youKeep), -12.5, 'portal: only the card part comes back');
+assert.equal(refundClawback(giftPart, 50), 10, 'shop-wide: the gift part comes back too');
 
 // Every screen uses the same take-back.
 const src = f => fs.readFileSync(path.join(root, f), 'utf8');
 const api = src('src/app/api/barber/earnings/route.ts');
-assert.match(api, /\.filter\(t => !isNoShowEarning\(t\)\)/, 'barber API keeps refunded sales + refund rows');
+assert.match(api, /\.filter\(isBarberLedgerRow\)/, 'barber API keeps refunded sales + refund rows');
 assert.doesNotMatch(api, /!t\.refunded/);
 assert.match(src('src/app/barber-dashboard/earnings/page.tsx'), /barberRowCut\(t, pct, isOwner\)/);
-assert.match(src('src/app/dashboard/payments/page.tsx'), /&& !isNoShowEarning\(t\)\)/);
+assert.match(src('src/app/dashboard/payments/page.tsx'), /&& isBarberLedgerRow\(t\)\)/);
 for (const f of ['src/app/dashboard/page.tsx', 'src/app/dashboard/analytics/page.tsx', 'src/app/dashboard/payroll/page.tsx']) {
   const s = src(f);
   assert.match(s, /refundClawback\(/, `${f}: commission taken back on the refund day`);

@@ -186,10 +186,13 @@ export async function notifyRefundIssued(args: {
   clientName?: string | null;
   amountCents?: number;
   date?: string | null;
+  /** How it went back, e.g. "$15.25 to their card, $25.00 on their gift card". */
+  returnedTo?: string | null;
 }): Promise<void> {
   const amt = args.amountCents ? ` $${(args.amountCents / 100).toFixed(2)}` : "";
   const niceDate = prettyDate(args.date);
-  const message = `Refunded ${args.clientName ?? "a client"}${amt}${niceDate ? ` for ${niceDate}` : ""}. The money has been returned to their card.`;
+  const how = args.returnedTo?.trim();
+  const message = `Refunded ${args.clientName ?? "a client"}${amt}${niceDate ? ` for ${niceDate}` : ""}. ${how ? `Returned ${how}.` : "The money has been returned to their card."}`;
 
   const recipients = new Set<string>();
   if (args.ownerId) recipients.add(args.ownerId);

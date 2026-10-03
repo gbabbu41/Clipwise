@@ -27,6 +27,7 @@ export type EarningTx = {
   refunded?: boolean | null;
   source?: string | null;            // "refund" = money handed back (see below)
   service_name?: string | null;
+  payment_method?: string | null;
 };
 
 // REFUNDS (owner rule 2026-10-03 — commission take-back): a refunded sale keeps
@@ -38,6 +39,13 @@ export const isRefundTx = (t: { source?: string | null }) => t.source === "refun
 /** No-show penalty fees (and their refunds) are shop income, never a barber's cut. */
 export const isNoShowEarning = (t: { source?: string | null; service_name?: string | null }) =>
   t.source === "no_show" || /no-show fee/i.test(t.service_name ?? "");
+/** Rows that never belong in a barber's OWN earnings ledger (portal + Payments
+ *  filtered to a barber): no-show fees, and the gift-card part of a refund — a
+ *  gift-paid visit writes no earnings row there, so its refund takes nothing back
+ *  there either. (Shop-wide commission counts gift visits from the appointment
+ *  and so DOES take the gift part back — see Dashboard / Analytics / Payroll.) */
+export const isBarberLedgerRow = (t: { source?: string | null; service_name?: string | null; payment_method?: string | null }) =>
+  !isNoShowEarning(t) && !(isRefundTx(t) && t.payment_method === "gift_card");
 
 /** Commission taken BACK by a refund row (a positive number to subtract). Same rule
  *  as the sale's cut: the stored cut when sane, else amount × pct; the owner's own
@@ -114,7 +122,7 @@ export function shopBarberCommission(
 export function computeBarberEarnings(txs: EarningTx[], commissionPercent: number, isOwner = false): BarberEarnings {
   // A refunded sale still counts on its own day; its refund row takes the cut +
   // tip back on the refund's day (see REFUNDS above). No-show fees never count.
-  const list = txs.filter(t => !isNoShowEarning(t));
+  const list = txs.filter(isBarberLedgerRow);
   const sales = list.filter(t => !isRefundTx(t));
   const refunds = list.filter(isRefundTx);
   const tips = sales.reduce((s, t) => s + (t.tip ?? 0), 0) - refunds.reduce((s, t) => s + Math.abs(t.tip ?? 0), 0);

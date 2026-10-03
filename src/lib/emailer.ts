@@ -685,13 +685,14 @@ function refundIssued(data: Record<string, string>) {
     ${shopHeader(data.shopName)}
     <div class="green-badge">💳 Refund Issued</div>
     <h1>Hi ${data.clientName},</h1>
-    <p>A refund has been issued for your cancelled appointment at <span class="highlight">${data.shopName}</span>.</p>
+    <p>A refund has been issued for your ${data.cancelled === "" ? "visit" : "cancelled appointment"} at <span class="highlight">${data.shopName}</span>.</p>
     <hr class="divider">
     <div class="row"><span class="label">Service</span><span class="val">${data.serviceName}</span></div>
     <div class="row"><span class="label">Original Date</span><span class="val">${data.date}</span></div>
     <div class="row"><span class="label">Refund Amount</span><span class="val">${data.total}</span></div>
+    ${data.breakdown ? `<div class="row"><span class="label">Returned as</span><span class="val">${data.breakdown}</span></div>` : ""}
     <hr class="divider">
-    <p style="font-size:13px;color:#6B7280">Refunds typically appear on your statement within 5–10 business days depending on your bank.</p>
+    ${data.cardBack === "" ? "" : `<p style="font-size:13px;color:#6B7280">Card refunds typically appear on your statement within 5–10 business days depending on your bank.</p>`}
     <p>We hope to see you again soon.</p>
     <a href="${BASE_URL}/book/${data.shopSlug}" class="btn">Book Again →</a>
     <p style="color:#6B7280">— ${data.shopName} via ClipWise</p>

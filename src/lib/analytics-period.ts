@@ -1,4 +1,4 @@
-import { appointmentGross, collectedTotals, countablePosTxs, grossContext, isRefundRow, isSale, refundedAmount, transactionCollectedAmount, type ByPi, type RevAppt, type RevTx } from "./revenue";
+import { appointmentGross, collectedTotals, countablePosTxs, grossContext, isGiftRefundRow, isRefundRow, isSale, refundedAmount, transactionCollectedAmount, type ByPi, type RevAppt, type RevTx } from "./revenue";
 
 /** Missing Stripe entries mean unknown fees, never confirmed zero fees. */
 export function analyticsFeesKnown(appts: RevAppt[], txs: RevTx[], byPi: ByPi) {
@@ -59,7 +59,7 @@ export function analyticsRevenueBuckets(appts: DatedAppt[], txs: RevTx[], range:
   }
   const countable = new Set(countablePosTxs(appts, txs));
   for (const tx of txs) {
-    if (isRefundRow(tx)) { add(tx.created_at, -refundedAmount(tx)); continue; }
+    if (isRefundRow(tx)) { if (!isGiftRefundRow(tx)) add(tx.created_at, -refundedAmount(tx)); continue; }   // gift-card part moves no money
     if (!countable.has(tx) && tx.source !== "completion" && tx.source !== "balance") continue;
     if (tx.source === "completion" && tx.payment_intent_id && paidPis.has(tx.payment_intent_id)) continue;
     // A later-collected balance lands on its own day (the booking line excludes it).

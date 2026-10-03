@@ -145,6 +145,15 @@ export const isPaid = (s: string | null | undefined) => s === "paid" || s === "c
 export const isSale = (s: string | null | undefined) => isPaid(s) || s === "refunded";
 /** The dated record of money handed back (negative amounts, lib/refund-ledger). */
 export const isRefundRow = (t: Pick<RevTx, "source">) => t.source === "refund";
+/** The gift-card part of a refund (phase75): the value went back ON the gift card,
+ * so no money moved — it was counted when the card was sold, and the visit's
+ * gross never included it. It only takes back the tax / tip that part covered. */
+export const isGiftRefundRow = (t: Pick<RevTx, "source" | "payment_method">) => isRefundRow(t) && t.payment_method === "gift_card";
+/** The service a refund row belongs to: "Refund — Skin Fade (back on gift card)" → "Skin Fade". */
+export const refundServiceKey = (name: string | null | undefined) => (name ?? "")
+  .replace(/^Refund\s*—\s*/, "")
+  .replace(/\s*\((?:back on gift card|cash|balance · (?:card|cash)|tip · card|no-show fee · card|refund date not recorded; dated at sale)\)$/i, "")
+  .trim();
 /** What a refund row gave back (incl. tax + tip), as a positive number. */
 export const refundedAmount = (t: Pick<RevTx, "amount" | "tax" | "tip">) => Math.abs(transactionCollectedAmount(t));
 export const isNoShowTx = (t: RevTx) => t.source === "no_show" || (t.service_name ?? "").startsWith("No-show fee");
@@ -336,7 +345,8 @@ export function collectedTotals(appts: RevAppt[], txs: RevTx[], byPi?: ByPi, own
     if (!isRefundRow(t)) continue;
     const back = refundedAmount(t);
     if (back <= 0) continue;
-    gross -= back; net -= back; refunds += back;
+    // Gift-card part: no money out (see isGiftRefundRow) — only its tax / tip come back.
+    if (!isGiftRefundRow(t)) { gross -= back; net -= back; refunds += back; }
     tax -= Math.abs(t.tax ?? 0);
     const tipBack = Math.abs(t.tip ?? 0);
     tips -= tipBack;

@@ -391,8 +391,17 @@ require Connect unconditionally** (even in test).
 - **POS**: `pos-checkout` / `pos-finalize` (`flow: pos_sale`), `terminal/*` (Tap to Pay —
   connection-token, create-intent [card_present, manual capture, no app fee], capture).
 - **Refunds**: `refund` (appointment refund WITH 30-day window, cancels upcoming booking),
-  `refund-payment` (from Payments page WITHOUT cancelling — service rendered; handles a
-  standalone POS `transaction_id` too).
+  `refund-payment` (from Payments page — the **refund engine**, 2026-10-03): every part goes
+  back the way it came in, planned by `lib/refund-plan.ts` (shared by the preview sheet and the
+  route): card charges → Stripe (booking charge, `source='balance'` charges, a separately paid
+  tip), cash → recorded as handed back, gift-card value → back on the card (phase75 trigger).
+  `preview: true` returns the parts without changing anything. Served visits stay (marked
+  refunded); upcoming ones are cancelled. Handles POS `transaction_id` (card or cash, "Record
+  cash refund") and gift-card SALES (refunds only the unused value via `gift_refund_sale`,
+  voids the card; balance put back if Stripe fails). Each part writes its own refund record
+  (`recordRefundLedger` with `method` card|cash|gift_card + a `dedupeKey` for non-card parts);
+  a `gift_card` refund record moves no money — it only reverses its tax/tip share
+  (`isGiftRefundRow`), and the barber's own ledger skips it (`isBarberLedgerRow`).
 - **Connect/onboarding**: `connect` (create/resume Express account), `connect/status`
   (`active = charges_enabled && payouts_enabled`, self-heals `stripe_connected`),
   `dashboard-link` (Express login link).

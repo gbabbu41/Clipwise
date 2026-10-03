@@ -121,7 +121,9 @@ never against a stale checkbox in TODO.md or a migration file header.
   discounted total, display-only) are **applied on prod** (verified 2026-09-28/30).
   phase73 (refund/cancel undoes a visit's loyalty: spent points back, earned points taken back;
   trigger also fires on `payment_status`) and phase74 (refund rows for legacy refunds, dated at the
-  sale) are **applied on prod** (2026-10-02).
+  sale) are **applied on prod** (2026-10-02). phase75 (refund engine: a refunded visit puts its
+  gift-card value back; `transactions.payment_method` allows `gift_card`; `gift_refund_sale`)
+  is **applied on prod** (2026-10-03).
 - If a feature "silently does nothing," still capture the supabase `error` (don't only
   read `data`) — but the cause is far more likely code/config than a missing column now.
 
@@ -176,6 +178,12 @@ never against a stale checkbox in TODO.md or a migration file header.
   per-barber, Payroll, Dashboard/Analytics commission all use it. Refund rows carry the sale's
   stored POS cut negated. No-show fee refunds take nothing back. Client lifetime spend = money
   kept (`apptSpend`: refunded/unpaid visits add $0).
+- **Refunds go back the way the money came in (owner decision 2026-10-03):** one engine,
+  `lib/refund-plan.ts` + `/api/stripe/refund-payment` — card → Stripe, cash → "Record cash
+  refund", gift card → back on the card, split payments part by part, gift-card sales refund the
+  unused value and void the card. Store credit is NOT built (deferred). A `gift_card` refund
+  record moves no money (only its tax/tip share comes back). Any new payment method must add its
+  part to the plan, or it can't be refunded.
 - **Stripe Connect:** charges run on each shop's **connected account** (shop = merchant
   of record, 0% platform fee). The Stripe **webhook must listen to connected-account
   events** or `payment_status` never flips to paid. The platform-charge fallback for

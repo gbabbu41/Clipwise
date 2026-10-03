@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { computeBarberEarnings, isNoShowEarning } from "@/lib/barber-earnings";
+import { computeBarberEarnings, isBarberLedgerRow } from "@/lib/barber-earnings";
 import type { Transaction } from "@/lib/database.types";
 import { readAllRows } from "@/lib/read-all-rows";
 
@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
   // No-show penalty fees aren't a service the barber performed — they're a shop
   // penalty charge — so they don't pay commission or count as the barber's
   // earnings. Exclude them from both the totals and the returned list.
-  const list = (transactions ?? []).filter(t => !isNoShowEarning(t));
+  const list = (transactions ?? []).filter(isBarberLedgerRow);
 
   // Owner on their own chair keeps 100% (their cuts are shop profit, so their
   // stored commission is 0 — see barber-earnings header). Everyone else uses

@@ -11,9 +11,9 @@ assert.match(block, /settled: true/, 'counted in that day');
 assert.match(block, /refunded: true, refundOut: true/);
 assert.match(block, /tax: -Math\.abs\(t\.tax \?\? 0\)/, 'tax given back');
 // ...as a negative line with no fee of its own (Stripe keeps the sale's fee).
-assert.match(src, /const counted = \(i: FeedItem\) => i\.refundOut \? -i\.amount/);
+assert.match(src, /const counted = \(i: FeedItem\) => i\.giftBack \? 0 : i\.refundOut \? -i\.amount/, 'money refund subtracts; gift-card part moves no money');
 assert.match(src, /const feeOf = \(i: FeedItem\) => i\.refundOut \? 0/);
-assert.match(src, /const netOf = \(i: FeedItem\) => i\.refundOut \? -i\.amount/);
+assert.match(src, /const netOf = \(i: FeedItem\) => i\.refundOut \? counted\(i\)/);
 assert.match(src, /const signedAmount = \(i: FeedItem\) => i\.earn \? i\.amount : netOf\(i\);/);
 assert.match(src, /const settled = items\.filter\(x => x\.settled\);[\s\S]{0,120}signedAmount\(x\)/, 'day totals: refunds subtract');
 assert.match(src, /filter\(i => !i\.giftSale && !i\.refundOut\)/, 'a refund is not a cut');
@@ -21,6 +21,6 @@ assert.match(src, /filter\(i => !i\.giftSale && !i\.refundOut\)/, 'a refund is n
 assert.match(src, /const tsIso = \(paid \|\| a\.payment_status === "refunded"\) \? \(a\.paid_at \?\? a\.created_at\) : a\.created_at;/);
 assert.match(src, /settled: sale, tsIso,/);
 assert.match(src, /settled: true, tsIso: t\.created_at,   \/\/ a refunded sale still happened/);
-assert.match(src, /i\.refundOut \? "−"/);
+assert.match(src, /i\.refundOut && !i\.giftBack \? "−"/);
 assert.match(src, /Returned to customer/);
 console.log('PASS payments refund row: sale stays on its paid day, refund is money out on its own day (counted, no fee), never a cut');
