@@ -37,7 +37,7 @@ export default function TaxCollectedPage() {
     const to = new Date(`${year}-12-31T23:59:59.999`).toISOString();
     const [a, t] = await Promise.all([
       supabase.from("appointments")
-        .select("id, client_name, total_amount, tax_amount, payment_status, payment_method, payment_intent_id, status, paid_at")
+        .select("id, client_name, total_amount, tax_amount, tip_amount, gift_applied, gift_free, balance_due, payment_status, payment_method, payment_intent_id, status, paid_at")
         .eq("shop_id", shop.id).gte("paid_at", from).lte("paid_at", to),
       supabase.from("transactions")
         .select("client_name, service_name, amount, tip, tax, payment_method, payment_intent_id, stripe_session_id, source, refunded, created_at, appointment_id")

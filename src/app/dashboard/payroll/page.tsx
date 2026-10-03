@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { FeatureLock } from "@/components/dashboard/feature-lock";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import { countablePosTxs, isRefundRow, isSale, noShowFeeVisit, paidAheadPis, type RevAppt, type RevTx } from "@/lib/revenue";
+import { apptServiceCollected as apptServiceCollectedRule, countablePosTxs, isRefundRow, isSale, noShowFeeVisit, paidAheadPis, type RevAppt, type RevTx } from "@/lib/revenue";
 import { refundClawback, safeCommission } from "@/lib/barber-earnings";
 import type { Barber } from "@/lib/database.types";
 
@@ -34,6 +34,7 @@ interface StaffHour {
 type PayAppt = {
   id: string; date: string; client_name: string | null;
   total_amount: number | null; tax_amount: number | null; balance_due: number | null;
+  tip_amount?: number | null; gift_free?: number | null;
   payment_status: string | null; status: string | null; barber_id: string | null;
   paid_at: string | null; created_at: string | null;
 };
@@ -103,7 +104,7 @@ export default function PayrollPage() {
       // the SAME money-moved basis the Dashboard uses (so commission only counts
       // COLLECTED money, and a booking paid today for a future day is included).
       supabase.from("appointments")
-        .select("id, date, client_name, total_amount, tax_amount, balance_due, payment_status, status, barber_id, paid_at, created_at")
+        .select("id, date, client_name, total_amount, tax_amount, tip_amount, gift_free, balance_due, payment_status, status, barber_id, paid_at, created_at")
         // Refunded too: the sale's cut stays in the period it was paid; the refund
         // row takes it back in the period of the refund (lib/barber-earnings).
         .eq("shop_id", shop.id).in("payment_status", ["paid", "captured", "refunded"])
@@ -133,13 +134,8 @@ export default function PayrollPage() {
     // Service ACTUALLY COLLECTED on a paid appointment, pre-tax — subtract any
     // still-owed balance_due (a price raised above the held card) and scale the tax
     // to the collected fraction. Identical to the Dashboard's apptServiceCollected.
-    const apptServiceCollected = (a: PayAppt) => {
-      const total = Math.max(0, a.total_amount ?? 0);
-      const bal = Math.min(Math.max(0, a.balance_due ?? 0), total);
-      const collectedTotal = Math.max(0, total - bal);
-      const collectedTax = total > 0 ? (a.tax_amount ?? 0) * (collectedTotal / total) : (a.tax_amount ?? 0);
-      return Math.max(0, collectedTotal - collectedTax);
-    };
+    // (One shared rule — lib/revenue apptServiceCollected; a FREE gift card's part pays no commission.)
+    const apptServiceCollected = (a: PayAppt) => apptServiceCollectedRule(a as unknown as RevAppt);
     // POS sales that carry commission (product / walk-in, and no-show fees — no-show
     // money is split like any payment, owner decision 2026-10-03) — completion rows
     // are dropped (the appointment already covers those), de-duped vs paid

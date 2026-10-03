@@ -371,7 +371,7 @@ async function run() {
           .select("id, status")
           .eq("shop_id", shop.id).gte("date", weekAgo).lte("date", yesterday),
         supabaseAdmin.from("appointments")
-          .select("id, client_name, total_amount, tax_amount, tip_amount, gift_applied, balance_due, payment_status, payment_method, payment_intent_id, status, barber_id, paid_at")
+          .select("id, client_name, total_amount, tax_amount, tip_amount, gift_applied, gift_free, balance_due, payment_status, payment_method, payment_intent_id, status, barber_id, paid_at")
           .eq("shop_id", shop.id).gte("paid_at", looseFrom).lte("paid_at", looseTo),
         supabaseAdmin.from("transactions")
           .select("id, client_name, amount, tip, tax, payment_method, created_at, payment_intent_id, source, refunded, barber_id, appointment_id")

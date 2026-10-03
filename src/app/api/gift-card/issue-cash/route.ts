@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
   if (!planHasFeature(plan, "loyalty")) return NextResponse.json({ error: "Gift cards require a paid plan." }, { status: 403 });
 
   const code = generateGiftCode();
-  const { error: insErr } = await supabaseAdmin.from("gift_cards").insert({
+  const cardRow: Record<string, unknown> = {
     shop_id: shop.id, code, initial_value: amount, remaining_value: amount,
     purchased_by: b.purchased_by?.trim() || null,
     purchased_by_email: b.purchased_by_email?.trim() || null,
@@ -46,7 +46,16 @@ export async function POST(request: NextRequest) {
     recipient_email: b.recipient_email?.trim() || null,
     note: free ? `Complimentary${b.note?.trim() ? ` — ${b.note.trim()}` : ""}` : (b.note?.trim() || null),
     is_active: true,
-  });
+    // A free card is a 100% promo when used: no income, tax, tip or commission (phase77).
+    ...(free ? { complimentary: true } : {}),
+  };
+  let { error: insErr } = await supabaseAdmin.from("gift_cards").insert(cardRow);
+  // A database a step behind (no `complimentary` column yet): the "Complimentary"
+  // note still marks it, and phase77 backfills the flag from that note.
+  if (insErr && /complimentary/.test(insErr.message ?? "")) {
+    delete cardRow.complimentary;
+    ({ error: insErr } = await supabaseAdmin.from("gift_cards").insert(cardRow));
+  }
   if (insErr) return NextResponse.json({ error: "Couldn't issue the gift card." }, { status: 500 });
 
   // Real cash sale → record revenue (mirrors the POS cash-sale ledger row).

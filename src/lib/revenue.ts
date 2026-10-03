@@ -26,6 +26,7 @@ export type RevAppt = {
   tax_amount?: number | null;
   tip_amount?: number | null;     // booking tip, charged on the SAME intent
   gift_applied?: number | null;   // gift-card value applied — already counted at sale
+  gift_free?: number | null;      // of that, how much a FREE (complimentary) card covered — a 100% promo
   balance_due?: number | null;    // uncollected part of total_amount (partial capture)
   payment_status?: string | null;
   payment_method?: string | null;
@@ -149,17 +150,98 @@ export function noShowFeeVisit(a: Pick<RevAppt, "status" | "payment_status" | "p
  * dates, + tip unless paid on its own charge). Booking ids never change which
  * rule applies; they only link a booking to its separate tip/balance rows. */
 export function appointmentGross(a: RevAppt, ctx: GrossContext): { gross: number; tip: number; fromCharge: boolean } {
-  const total = a.total_amount ?? 0;
-  const bal = Math.min(Math.max(0, a.balance_due ?? 0), total);
+  const total = Math.max(0, a.total_amount ?? 0);
   const later = a.id ? ctx.balances.get(a.id) ?? 0 : 0;
   const gift = Math.max(0, a.gift_applied ?? 0);
-  const svcTax = Math.max(0, total - bal - gift - later);
   const tip = a.id && ctx.sepTipped.has(a.id) ? 0 : Math.max(0, a.tip_amount ?? 0);
-  // A gift card at checkout can cover the tip too — that part isn't new money either.
-  const giftOnTip = Math.max(0, gift - Math.max(0, total - bal - later));
+  // Still owed (a raised price's service + tax, or the rest after a gift card —
+  // which can include the tip), never more than the booking itself.
+  const bal = Math.min(Math.max(0, a.balance_due ?? 0), total + tip);
+  // The booking line took everything not paid another way: not the gift card (its
+  // value was counted when the card was sold — it can cover the tip too), not what
+  // is still owed, not balances collected on their own dates (those carry their
+  // own tip share, so the tip is never counted twice).
+  const own = Math.max(0, total + tip - bal - gift - later);
   const pi = a.payment_intent_id;
   const charged = pi && a.payment_method !== "cash" ? (ctx.byPi?.[pi]?.gross ?? ctx.saved.get(pi)) : undefined;
-  return charged !== undefined ? { gross: charged, tip, fromCharge: true } : { gross: svcTax + Math.max(0, tip - giftOnTip), tip, fromCharge: false };
+  return charged !== undefined ? { gross: charged, tip, fromCharge: true } : { gross: own, tip, fromCharge: false };
+}
+
+/**
+ * The part of a booking paid with a FREE (complimentary) gift card — a 100% promo
+ * (owner decision 2026-10-03): no money came in for it, so it counts $0 tax, $0
+ * tip and pays no commission. Split like every gift part, in proportion to the
+ * booking's service + tax + tip — the SAME split the database uses for a paid
+ * card's earnings line (phase76/77 gift_earning_sync). A paid gift card is
+ * unaffected (income when sold; tax + barber % when used).
+ */
+export function freeGiftShare(a: Pick<RevAppt, "gift_free" | "total_amount" | "tax_amount" | "tip_amount">): BookingShare {
+  return proportionalShare(a, Number(a.gift_free) || 0);
+}
+
+export type BookingShare = { total: number; service: number; tax: number; tip: number };
+const r2 = (n: number) => Math.round(n * 100) / 100;
+/**
+ * THE split for a payment that covers `part` of a booking's service + tax + tip
+ * (a gift card's part, an online card's part, a balance collected later): its own
+ * service / tax / tip, in proportion. The database uses the same rounding for a
+ * gift card's earnings line (phase76/77), so the pieces of one visit always add up
+ * to exactly that visit — tax and the barber's tip are never counted twice.
+ */
+export function proportionalShare(a: Pick<RevAppt, "total_amount" | "tax_amount" | "tip_amount">, part: number): BookingShare {
+  const g = Math.max(0, Number(part) || 0);
+  const base = Math.max(0, Number(a.total_amount) || 0) + Math.max(0, Number(a.tip_amount) || 0);
+  if (g <= 0 || base <= 0) return { total: 0, service: 0, tax: 0, tip: 0 };
+  const tax = Math.min(g, r2((g * Math.max(0, Number(a.tax_amount) || 0)) / base));
+  const tip = Math.min(g - tax, r2((g * Math.max(0, Number(a.tip_amount) || 0)) / base));
+  return { total: r2(g), service: r2(g - tax - tip), tax, tip };
+}
+
+/** What the rest of a booking is once `part` of it was paid another way (e.g. the
+ *  card charge beside a gift card): everything minus that part's share — so the
+ *  two add up to the booking exactly, to the cent. */
+export function restShare(a: Pick<RevAppt, "total_amount" | "tax_amount" | "tip_amount">, part: number): BookingShare {
+  const total = Math.max(0, Number(a.total_amount) || 0), taxAll = Math.max(0, Number(a.tax_amount) || 0), tipAll = Math.max(0, Number(a.tip_amount) || 0);
+  const p = proportionalShare(a, part);
+  const tax = r2(Math.max(0, taxAll - p.tax)), tip = r2(Math.max(0, tipAll - p.tip));
+  const service = r2(Math.max(0, (total - taxAll) - p.service));
+  return { total: r2(service + tax + tip), service, tax, tip };
+}
+
+/**
+ * How a BALANCE collected later splits. After a gift card covered part of a visit,
+ * the balance is the rest of service + tax + TIP — so it carries the rest's own tip
+ * share (the barber keeps 100% of a tip, never only their % of it). Otherwise (a
+ * price raised above a held card) the balance is the rest of service + tax only,
+ * split by the booking's tax ratio, as before.
+ */
+export function balanceShare(a: Pick<RevAppt, "total_amount" | "tax_amount" | "tip_amount" | "gift_applied">, balance: number): BookingShare {
+  const bal = r2(Math.max(0, Number(balance) || 0));
+  const gift = Math.max(0, Number(a.gift_applied) || 0);
+  if (gift > 0) {
+    const rest = restShare(a, gift);
+    return Math.abs(rest.total - bal) < 0.005 ? rest : proportionalShare(a, bal);
+  }
+  const total = Math.max(0, Number(a.total_amount) || 0);
+  const ratio = total > 0 ? Math.min(1, Math.max(0, Number(a.tax_amount) || 0) / total) : 0;
+  const tax = r2(bal * ratio);
+  return { total: bal, service: r2(Math.max(0, bal - tax)), tax, tip: 0 };
+}
+
+/**
+ * The ONE commission basis for an appointment (Dashboard, Analytics, Payroll):
+ * service revenue ACTUALLY COLLECTED, pre-tax. A price edited above the held card
+ * leaves a `balance_due` still owed — base it on (total − balance_due) minus the
+ * tax on that collected part, rising to the full amount once the balance is
+ * collected. Minus a FREE gift card's service share (a promo pays no commission).
+ * Matches the barber portal (completion + balance + gift earnings lines).
+ */
+export function apptServiceCollected(a: Pick<RevAppt, "total_amount" | "tax_amount" | "tip_amount" | "balance_due" | "gift_free">): number {
+  const total = Math.max(0, a.total_amount ?? 0);
+  const bal = Math.min(Math.max(0, a.balance_due ?? 0), total);
+  const collectedTotal = Math.max(0, total - bal);
+  const collectedTax = total > 0 ? (a.tax_amount ?? 0) * (collectedTotal / total) : (a.tax_amount ?? 0);
+  return Math.max(0, collectedTotal - collectedTax - freeGiftShare(a).service);
 }
 
 export const isPaid = (s: string | null | undefined) => s === "paid" || s === "captured";
@@ -252,6 +334,7 @@ export type CollectedTotals = {
                      // not paid out, so it stays in the owner's net revenue
   preTax: number;  // gross − tax
   refunds: number; // money handed back in this window (already subtracted from gross/net/tax/tips)
+  freeGifts: number; // value of FREE gift cards used in this window — a promo, never income
 };
 
 /**
@@ -265,7 +348,7 @@ export function collectedTotals(appts: RevAppt[], txs: RevTx[], byPi?: ByPi, own
   // Same income rule the Payments page uses (shared, so they can't disagree).
   const posTxs = countablePosTxs(appts, txs);
 
-  let gross = 0, fees = 0, net = 0, tax = 0, cash = 0, tips = 0, ownerTips = 0, refunds = 0;
+  let gross = 0, fees = 0, net = 0, tax = 0, cash = 0, tips = 0, ownerTips = 0, refunds = 0, freeGifts = 0;
   // A tip belongs to the barber who earned it. The OWNER-barber's own tips are the
   // owner's money (like their 0-commission chair), so they're tracked separately
   // and NOT subtracted from the owner's net revenue.
@@ -306,9 +389,13 @@ export function collectedTotals(appts: RevAppt[], txs: RevTx[], byPi?: ByPi, own
     gross += lineGross; net += n; fees += f;
     // Tax keeps its existing rule (booking tax scaled by recorded balance_due) —
     // it feeds "tax to remit" + Net revenue, so the Gross fix doesn't change it.
-    tax += total > 0 ? (a.tax_amount ?? 0) * (collectedSvcTax / total) : (a.tax_amount ?? 0);
-    tips += apptTip;
-    if (isOwnerBarber(a.barber_id)) ownerTips += apptTip;
+    // A FREE gift card's part is a promo: its tax + tip were never collected.
+    const free = freeGiftShare(a);
+    tax += (total > 0 ? (a.tax_amount ?? 0) * (collectedSvcTax / total) : (a.tax_amount ?? 0)) - free.tax;
+    const tipIn = Math.max(0, apptTip - free.tip);
+    tips += tipIn;
+    if (isOwnerBarber(a.barber_id)) ownerTips += tipIn;
+    if (isPaid(a.payment_status)) freeGifts += free.total;
     if (a.payment_method === "cash") cash += lineGross;
     if (a.payment_intent_id) apptPis.add(a.payment_intent_id);
   }
@@ -379,5 +466,5 @@ export function collectedTotals(appts: RevAppt[], txs: RevTx[], byPi?: ByPi, own
     if (t.payment_method === "cash") cash -= back;
   }
 
-  return { gross, fees, net, tax, cash, tips, ownerTips, preTax: gross - tax, refunds };
+  return { gross, fees, net, tax, cash, tips, ownerTips, preTax: gross - tax, refunds, freeGifts };
 }

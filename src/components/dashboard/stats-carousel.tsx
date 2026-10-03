@@ -21,7 +21,7 @@ const CHART_COLORS = { bookings: "#6ea8fe", barbers: "#6ea8fe" } as const;
 const SLIDE_NAMES = ["Revenue", "Bookings", "Top barbers", "Booking status"] as const;
 
 export function StatsCarousel({
-  revenue, taxCollected = 0, cashIncluded = 0, feesPaid = 0, tips = 0, commission = 0, netRevenue, feesLoading = false, feesUnavailable = false, paidVisits = 0, refunds = 0, refundCount = 0, appointments, completed, topBarbers, filterControl, periodLabel, rangeStart, rangeEnd, initialSlide = 0, onSlideChange,
+  revenue, taxCollected = 0, cashIncluded = 0, feesPaid = 0, tips = 0, commission = 0, netRevenue, feesLoading = false, feesUnavailable = false, paidVisits = 0, refunds = 0, refundCount = 0, freeGifts = 0, appointments, completed, topBarbers, filterControl, periodLabel, rangeStart, rangeEnd, initialSlide = 0, onSlideChange,
 }: {
   revenue: number;         // COLLECTED = net after Stripe fees (incl. tax + cash + tips)
   taxCollected?: number;   // GST/HST + PST portion (subtracted in the waterfall — owed to gov't)
@@ -34,6 +34,7 @@ export function StatsCarousel({
   feesUnavailable?: boolean; // revenue prop is gross, not net, while fees are unknown
   paidVisits?: number;     // paid appts in the window (money-moved basis) — reconciles with Collected
   refunds?: number;        // money handed back in the window (already taken off Collected)
+  freeGifts?: number;      // value of FREE gift cards used in the window — a promo, never income
   refundCount?: number;    // how many refunds — explains a low or negative day
   appointments: AppointmentWithDetails[];
   completed: AppointmentWithDetails[];
@@ -185,6 +186,7 @@ export function StatsCarousel({
                 <div className="flex justify-between text-[12px]"><span className="text-grey">− Refunds</span><span className="font-mono tabular-nums text-foreground">−{formatCurrency(refunds)}</span></div>
                 <div className="flex justify-between text-[12px] border-t border-dashed border-border pt-2"><span className="text-foreground">Net after refunds</span><span className={cn("font-mono tabular-nums", revenue < 0 ? "text-red-400" : "text-foreground")}>{formatCurrency(revenue)}</span></div>
               </>}
+              {freeGifts > 0 && <div className="flex justify-between text-[12px]"><span className="text-grey">Free gift cards used <span className="text-[10px] text-grey-muted">promo · not income</span></span><span className="font-mono tabular-nums text-grey">{formatCurrency(freeGifts)}</span></div>}
               {cashIncluded > 0 && <div className="flex justify-between text-[11px] text-grey"><span>incl. cash</span><span className="font-mono tabular-nums">{formatCurrency(cashIncluded)}</span></div>}
               {Math.abs(taxCollected) >= 0.005 && <div className="flex justify-between text-[12px]"><span className="text-grey">{taxCollected > 0 ? "− Sales tax" : "+ Sales tax refunded"}</span><span className="font-mono tabular-nums text-foreground">{taxCollected > 0 ? "−" : "+"}{formatCurrency(Math.abs(taxCollected))}</span></div>}
               {Math.abs(tips) >= 0.005 && <div className="flex justify-between text-[12px]"><span className="text-grey">{tips > 0 ? "− Tips" : "+ Tips refunded"}</span><span className="font-mono tabular-nums text-foreground">{tips > 0 ? "−" : "+"}{formatCurrency(Math.abs(tips))}</span></div>}

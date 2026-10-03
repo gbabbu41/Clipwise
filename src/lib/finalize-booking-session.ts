@@ -5,6 +5,7 @@ import { clampLen, FIELD_CAPS } from "@/lib/validation";
 import { isDoubleBookError, barberHasConflict } from "@/lib/booking-conflict";
 import { scheduleBlockReason } from "@/lib/schedule-block";
 import { recordOnlinePaymentTx } from "@/lib/finalize-appointment-payment";
+import { restShare } from "@/lib/revenue";
 import { insertNotifications } from "@/lib/notify-server";
 import { notifyNewBookingStaff } from "@/lib/notify-staff-server";
 import { timeToMinutes, prettyDateWithContext, formatCurrency } from "@/lib/utils";
@@ -324,21 +325,23 @@ export async function finalizeBookingFromSession(params: {
     summaryServiceName = service?.name ?? "Service";
     // A pay-now booking is an online payment — ledger it (held/saved charge later).
     if (!isSave && !isHold && paymentIntentId) {
-      const taxDollars = Number(m.tax_amount ?? 0);
-      const tipDollars = Number(m.tip_amount ?? 0);
-      // Record only REAL money as revenue. A gift card was pre-paid (and already
-      // counted as income when it was sold), so subtract the gift portion here to
-      // avoid double-counting the same dollars.
-      const giftApplied = Number(m.gift_applied ?? 0);
+      // Record only REAL money: this charge's own share of service / tax / tip.
+      // A gift card that covered part of it has its OWN line (written by the
+      // database the moment the card is spent — phase76/77, a free card none),
+      // split in the same proportion — so the two add up to exactly one visit and
+      // nothing (tax, the barber's tip) is counted twice.
+      const own = restShare(
+        { total_amount: Number(m.total_amount ?? 0), tax_amount: Number(m.tax_amount ?? 0), tip_amount: Number(m.tip_amount ?? 0) },
+        Number(m.gift_applied ?? 0));
       await recordOnlinePaymentTx({
         appointmentId: appt.id,
         shopId: m.shop_id,
         barberId: m.barber_id || null,
         clientName: m.client_name ?? null,
         serviceName: summaryServiceName,
-        amountDollars: Math.max(0, Number(m.total_amount ?? 0) - taxDollars - giftApplied),
-        taxDollars,
-        tipDollars,
+        amountDollars: own.service,
+        taxDollars: own.tax,
+        tipDollars: own.tip,
         paymentIntentId,
       });
     }

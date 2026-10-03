@@ -25,6 +25,7 @@ export type PlanAppt = {
   tax_amount?: number | null;
   tip_amount?: number | null;
   gift_applied?: number | null;
+  gift_free?: number | null;      // the part a FREE gift card covered (a promo — phase77)
   balance_due?: number | null;
 };
 
@@ -54,6 +55,7 @@ export type RefundPart = {
   txIds: string[];                // ledger rows to flag refunded with this part
   done: boolean;                  // its refund record already exists
   blocked?: string;               // why this part can't be refunded from the app
+  free?: boolean;                 // a FREE gift card's part: value goes back on the card, nothing to record
 };
 
 const c = (v: number | null | undefined) => Math.round((Number(v) || 0) * 100);
@@ -128,8 +130,12 @@ export function planAppointmentRefund(appt: PlanAppt, txs: PlanTx[], doneKeys: S
 
   if (giftC > 0) {
     const key = `gift:${appt.id}`;
-    parts.push({ key, kind: "gift_card", label: "Gift card", cents: giftC, taxCents: giftTax, tipCents: giftTip, paymentIntentId: null,
-      txIds: [], done: doneKeys.has(key) });
+    // A FREE gift card's part was a promo — no tax / tip was counted for it, so its
+    // refund only puts the value back on the card (nothing to record).
+    const free = c(appt.gift_free) > 0;
+    parts.push({ key, kind: "gift_card", label: free ? "Free gift card" : "Gift card", cents: giftC,
+      taxCents: free ? 0 : giftTax, tipCents: free ? 0 : giftTip, paymentIntentId: null,
+      txIds: [], done: doneKeys.has(key), ...(free ? { free: true } : {}) });
   }
   return parts;
 }
