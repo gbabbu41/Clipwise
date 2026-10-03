@@ -17,15 +17,16 @@ export function isAlreadyRefunded(err: unknown): boolean {
  * we cancel the PaymentIntent instead: the authorization is released, $0 moves,
  * and the customer's held funds free up.
  *
- * Returns the cents actually refunded (0 when a hold was released), whether it
- * was a hold release, and whether Stripe reported the charge as already refunded
- * (treat that as success — the caller keeps its own amount fallback).
+ * Returns the cents actually refunded (0 when a hold was released), Stripe's id
+ * for that refund (the refund record is keyed by it — lib/refund-ledger), whether
+ * it was a hold release, and whether Stripe reported the charge as already
+ * refunded (treat that as success — the caller keeps its own amount fallback).
  */
 export async function refundOrReleaseHold(
   paymentIntentId: string,
   stripeAccount: string,
   idempotencyKey: string,
-): Promise<{ refundedCents: number | null; released: boolean; alreadyRefunded: boolean }> {
+): Promise<{ refundedCents: number | null; refundId?: string | null; released: boolean; alreadyRefunded: boolean }> {
   const acct = { stripeAccount };
 
   // Is the payment only held (not captured)? Those statuses can be cancelled but
@@ -51,7 +52,7 @@ export async function refundOrReleaseHold(
 
   try {
     const refund = await stripe.refunds.create({ payment_intent: paymentIntentId }, { ...acct, idempotencyKey });
-    return { refundedCents: typeof refund.amount === "number" ? refund.amount : null, released: false, alreadyRefunded: false };
+    return { refundedCents: typeof refund.amount === "number" ? refund.amount : null, refundId: refund.id ?? null, released: false, alreadyRefunded: false };
   } catch (err) {
     if (isAlreadyRefunded(err)) return { refundedCents: null, released: false, alreadyRefunded: true };
     throw err;

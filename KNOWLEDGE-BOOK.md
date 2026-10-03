@@ -425,7 +425,7 @@ both platform and connected-account events. Dispatch:
 - `payment_intent.succeeded` → `paid` **only** from `["unpaid","held","saved","failed"]` (guard
   so a captured no-show fee isn't overwritten).
 - `payment_intent.payment_failed` → `failed` (from unpaid/held/saved).
-- `charge.refunded` → **full refunds only** → appointment/tx `refunded`.
+- `charge.refunded` → **every refund, full or partial** (`lib/refund-import.ts`): each Stripe refund is recorded once, keyed by its `re_…` id, with its own amount and date ($10 Monday + $30 Friday → two records). Only a FULL refund marks the appointment/tx `refunded`; a partial one leaves the visit paid. Chargebacks are keyed by their dispute id.
 
 ### 3.4 Payment lifecycle & `payment_status` values
 

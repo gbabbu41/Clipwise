@@ -49,12 +49,14 @@ export async function POST(request: NextRequest) {
   // it so we skip the $-refund side effects (ledger row, "you were refunded"
   // email) that don't apply when nothing was actually charged.
   let releasedHold = false;
+  let stripeRefundId: string | null = null;   // keys the refund record (one per Stripe refund)
   try {
     // Real Stripe refund when there's a captured payment on the connected account;
     // idempotency-keyed by the intent so concurrent refund taps collapse into one.
     if (appt.payment_intent_id && shop.stripe_account_id) {
       const r = await refundOrReleaseHold(appt.payment_intent_id, shop.stripe_account_id, `refund-appt-${appt.payment_intent_id}`);
       releasedHold = r.released;
+      stripeRefundId = r.refundId ?? null;
       if (r.released) refundedCents = 0;
       else if (r.refundedCents != null) refundedCents = r.refundedCents;
       // r.alreadyRefunded → keep the total_amount fallback (already handled above).
@@ -96,7 +98,7 @@ export async function POST(request: NextRequest) {
           shopId: appt.shop_id, barberId: appt.barber_id, clientName: appt.client_name,
           serviceName: (appt.services as { name: string } | null)?.name ?? null,
           refundedCents, taxCents: taxPart, tipCents: tipPart,
-          appointmentId: appt.id, paymentIntentId: appt.payment_intent_id,
+          appointmentId: appt.id, paymentIntentId: appt.payment_intent_id, stripeRefundId,
         });
       }
 

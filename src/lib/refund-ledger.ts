@@ -30,8 +30,9 @@ export function refundRecordId(paymentIntentId: string): string {
  * charge.refunded webhook); it is never used for fee math (Stripe keeps the
  * original fee, which stays on the sale).
  *
- * One record per PART of a refund (lib/refund-plan): card parts are keyed by
- * their charge, cash / gift-card parts by `dedupeKey`. A gift-card part
+ * One record per Stripe refund (keyed by its re_… id — a charge refunded in
+ * parts gets one record per part, each on its own day) and per non-card PART of
+ * a refund (lib/refund-plan, keyed by `dedupeKey`). A gift-card part
  * (method "gift_card") moves no money — revenue only reverses its tax / tip.
  *
  * Stored with refunded=true so per-barber earnings / rankings (which skip
@@ -58,14 +59,23 @@ export async function recordRefundLedger(args: {
   method?: "card" | "cash" | "gift_card";
   /** Stable key for a part with no card charge — one record per part, ever. */
   dedupeKey?: string | null;
+  /** Stripe's id for THIS refund (re_…). A charge can be refunded in several
+   *  parts (e.g. $10 Monday, $30 Friday) — each Stripe refund gets its own record,
+   *  keyed by its id, so the route and the webhook can never record one twice. */
+  stripeRefundId?: string | null;
+  /** When the money actually went back (Stripe's refund time) — the record's date.
+   *  Defaults to now. */
+  refundedAt?: string | null;
 }): Promise<"recorded" | "already" | "failed" | "skipped"> {
   const refunded = Math.max(0, Math.round(args.refundedCents));
   if (refunded <= 0 || !args.shopId) return "skipped";
   const method = args.method ?? "card";
-  const key = args.paymentIntentId || args.dedupeKey || null;
+  // One record per Stripe refund (its id), per non-card part (dedupeKey), or —
+  // only when neither is known — per charge (older callers / already-refunded).
+  const key = args.stripeRefundId || args.dedupeKey || args.paymentIntentId || null;
 
-  // Dedupe — if this charge's (or part's) refund row already exists, stop.
-  if (args.paymentIntentId) {
+  // Dedupe — if this refund's record already exists, stop.
+  if (!args.stripeRefundId && !args.dedupeKey && args.paymentIntentId) {
     const { data: existing } = await supabaseAdmin.from("transactions")
       .select("id").eq("source", "refund").eq("payment_intent_id", args.paymentIntentId).limit(1).maybeSingle();
     if (existing) return "already";
@@ -75,24 +85,28 @@ export async function recordRefundLedger(args: {
     if (existing) return "already";
   }
 
+  const tax = Math.min(refunded, Math.max(0, Math.round(args.taxCents ?? 0)));
+  const tip = Math.min(refunded - tax, Math.max(0, Math.round(args.tipCents ?? 0)));
+  const service = Math.max(0, refunded - tax - tip);
+
   // The sale's stored commission cut (POS sales store one), so the take-back on
-  // the refund's day is exactly what the barber was credited — not re-derived.
+  // the refund's day is exactly what the barber was credited — scaled to the
+  // share of the service refunded (a $10 part of a $40 sale takes back a quarter).
   // Best-effort: without it the take-back is derived from the barber's rate.
   let saleCut: number | null = null;
   if (args.paymentIntentId) {
     try {
       const { data: sales } = await supabaseAdmin.from("transactions")
-        .select("commission_amount").eq("payment_intent_id", args.paymentIntentId).neq("source", "refund").limit(5);
-      for (const r of (sales ?? []) as { commission_amount?: unknown }[]) {
-        const c = Number(r.commission_amount);
-        if (r.commission_amount != null && Number.isFinite(c) && c > 0) { saleCut = c; break; }
+        .select("commission_amount, amount").eq("payment_intent_id", args.paymentIntentId).neq("source", "refund").limit(5);
+      for (const r of (sales ?? []) as { commission_amount?: unknown; amount?: unknown }[]) {
+        const c = Number(r.commission_amount), saleSvc = Math.round(Number(r.amount) * 100);
+        if (r.commission_amount != null && Number.isFinite(c) && c > 0) {
+          saleCut = saleSvc > 0 && service < saleSvc ? Math.round(c * 100 * service / saleSvc) / 100 : c;
+          break;
+        }
       }
     } catch { /* derived from the rate instead */ }
   }
-
-  const tax = Math.min(refunded, Math.max(0, Math.round(args.taxCents ?? 0)));
-  const tip = Math.min(refunded - tax, Math.max(0, Math.round(args.tipCents ?? 0)));
-  const service = Math.max(0, refunded - tax - tip);
 
   const row: Record<string, unknown> = {
     ...(key ? { id: refundRecordId(key) } : {}),
@@ -108,6 +122,7 @@ export async function recordRefundLedger(args: {
     payment_intent_id: args.paymentIntentId ?? null,
     refunded: true, stripe_fee: 0,
     ...(saleCut != null ? { commission_amount: -saleCut } : {}),
+    ...(args.refundedAt ? { created_at: args.refundedAt } : {}),
   };
   let saveError: unknown = null;
   try {

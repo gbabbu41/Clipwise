@@ -186,7 +186,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
             await recordRefundLedger({
               shopId: appt.shop_id, barberId: appt.barber_id, clientName: appt.client_name,
               serviceName: svcName, refundedCents, taxCents: taxPart, tipCents: tipPart,
-              appointmentId: appt.id, paymentIntentId: appt.payment_intent_id,
+              appointmentId: appt.id, paymentIntentId: appt.payment_intent_id, stripeRefundId: r.refundId ?? null,
             }).catch(() => null);
             if (shopPay.owner_id) {
               notifyRefundIssued({
