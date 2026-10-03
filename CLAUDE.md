@@ -124,7 +124,8 @@ never against a stale checkbox in TODO.md or a migration file header.
   sale) are **applied on prod** (2026-10-02). phase75 (refund engine: a refunded visit puts its
   gift-card value back; `transactions.payment_method` allows `gift_card`; `gift_refund_sale`)
   is **applied on prod** (2026-10-03). phase76 (barber earnings line for gift-card visits +
-  its take-back on cancel/refund, written by the appointments trigger) — see status in the PR.
+  its take-back on cancel/refund, written by the appointments trigger) is **applied on prod**
+  (2026-10-03; both existing gift visits backfilled).
 - If a feature "silently does nothing," still capture the supabase `error` (don't only
   read `data`) — but the cause is far more likely code/config than a missing column now.
 
