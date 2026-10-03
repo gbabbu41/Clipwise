@@ -52,4 +52,10 @@ assert.doesNotMatch(src('src/app/dashboard/page.tsx') + src('src/app/dashboard/a
 const sql = src('supabase/migrations/phase74_refund_rows_for_legacy_refunds.sql');
 assert.match(sql, /'clipwise-refund-ledger:' \|\| t\.payment_intent_id/);
 assert.match(sql, /on conflict \(id\) do nothing/);
+// The Dashboard's Collected card explains a refund day instead of a bare negative.
+const carousel = src('src/components/dashboard/stats-carousel.tsx');
+assert.match(carousel, /refundCount > 0 && ` · \$\{refundCount\} refund/, 'sub-line names the refunds');
+assert.match(carousel, /revenue \+ feesPaid > 0 \|\| refunds > 0 \|\| feesPaid > 0/, 'breakdown still shows on a ≤ 0 day');
+assert.match(carousel, /refunds > 0 \? "Sales" : "Gross"/); assert.match(carousel, /− Refunds/);
+assert.match(src('src/app/dashboard/page.tsx'), /refunds=\{collected\.refunds\} refundCount=\{txnsInRange\.filter\(isRefundRow\)\.length\}/);
 console.log('PASS refund statement: sale stays on its paid day, refund is money out on its own day (fee kept), week nets to −fee, chart + POS + every report agree');

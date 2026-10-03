@@ -33,7 +33,7 @@ import { UnreadBadge } from "@/components/notification-badge";
 import { useShopUnreadCount } from "@/hooks/use-unread-count";
 import { useAuth } from "@/lib/auth-context";
 import { isNativeApp } from "@/lib/native-app";
-import { collectedTotals, countablePosTxs, isNoShowTx, isPaid, type RevTx, type RevAppt, type ByPi } from "@/lib/revenue";
+import { collectedTotals, countablePosTxs, isNoShowTx, isPaid, isRefundRow, type RevTx, type RevAppt, type ByPi } from "@/lib/revenue";
 import { evidenceView, loadLinkedEvidence, type EvidenceSnapshot } from "@/lib/revenue-evidence";
 import { safeCommission } from "@/lib/barber-earnings";
 import type { AppointmentWithDetails, Barber, Notification } from "@/lib/database.types";
@@ -895,7 +895,7 @@ export default function DashboardPage() {
 
             {((repFromCache && loadingAppts) || evidence.updating) && <p className="text-xs text-grey mb-2" role="status">Updating…</p>}
             {/* Revenue hero (swipeable — revenue, bookings, top barbers, status) */}
-            <StatsCarousel revenue={feesUnavailable ? collected.gross : collected.net} taxCollected={collected.tax} cashIncluded={collected.cash} feesPaid={collected.fees} tips={paidOutTips} commission={commission} netRevenue={netRevenue} feesLoading={feesLoading} feesUnavailable={feesUnavailable} paidVisits={paidVisits} appointments={appointments} completed={completed} topBarbers={topBarbers} periodLabel={DATE_FILTER_LABELS[dateFilter]} rangeStart={rangeStart} rangeEnd={rangeEnd} initialSlide={statsSlide} onSlideChange={setStatsSlide} />
+            <StatsCarousel revenue={feesUnavailable ? collected.gross : collected.net} taxCollected={collected.tax} cashIncluded={collected.cash} feesPaid={collected.fees} tips={paidOutTips} commission={commission} netRevenue={netRevenue} feesLoading={feesLoading} feesUnavailable={feesUnavailable} paidVisits={paidVisits} refunds={collected.refunds} refundCount={txnsInRange.filter(isRefundRow).length} appointments={appointments} completed={completed} topBarbers={topBarbers} periodLabel={DATE_FILTER_LABELS[dateFilter]} rangeStart={rangeStart} rangeEnd={rangeEnd} initialSlide={statsSlide} onSlideChange={setStatsSlide} />
             {feesUnavailable && !feesLoading && <button type="button" className="mb-3 border border-border rounded-lg px-4 py-2 text-sm" onClick={() => setFeeRetry(v => v + 1)}>Retry processing fees</button>}
 
             {/* Minimal stat tiles — label + number only (helper sub-text removed),
