@@ -10,7 +10,7 @@ import { useConfirm } from "@/components/ui/confirm-dialog";
 import { supabase } from "@/lib/supabase";
 import { formatCurrency, cn, timeToMinutes, timeAgo } from "@/lib/utils";
 import { countablePosTxs, estimateStripeFee, isNoShowTx, isPaid, isRefundRow, isSale, lineNetFee, refundedAmount, savedChargeGross, separatelyTippedAppts, transactionCollectedAmount, type CardFeeEstimate, type RevAppt } from "@/lib/revenue";
-import { computeBarberEarnings, barberRowCut } from "@/lib/barber-earnings";
+import { computeBarberEarnings, barberRowCut, isNoShowEarning, isRefundTx } from "@/lib/barber-earnings";
 import { readAllRows } from "@/lib/read-all-rows";
 import { cacheGet, cacheSet } from "@/lib/view-cache";
 import { earningsBuckets } from "@/lib/earnings-chart";
@@ -620,10 +620,11 @@ export default function PaymentsPage() {
   );
   const selDisplayPct = selIsOwner ? 100 : selPct;
   const barberEarnTx = barberMode
-    ? txs.filter(t => t.barber_id === selectedBarber && !t.refunded
+    ? txs.filter(t => t.barber_id === selectedBarber
         // No-show penalty fees aren't the barber's earnings — exclude them so this
-        // per-barber view matches what the barber sees in their own portal.
-        && t.source !== "no_show" && !(t.service_name ?? "").startsWith("No-show fee"))
+        // per-barber view matches what the barber sees in their own portal. A
+        // refunded sale stays on its day; its refund row takes the cut back.
+        && !isNoShowEarning(t))
         // The barber's take-home is commission + tips, with NO card fee deducted
         // (the shop bears processing entirely). So this per-barber view doesn't
         // need the live Stripe fee at all — just carry a sortable timestamp.
@@ -644,9 +645,9 @@ export default function PaymentsPage() {
     key: `be${t.id}`, name: t.client_name || "Client",
     sub: t.service_name || "Service",
     amount: barberRowCut(t, selPct, selIsOwner), tax: 0,
-    statusLabel: t.payment_method === "cash" ? "Paid · Cash" : "Paid · Card",
-    tone: "good", settled: true, tsIso: t.created_at, ts: t.ts,
-    pi: t.payment_intent_id ?? null, method: t.payment_method, refunded: false, earn: true,
+    statusLabel: isRefundTx(t) ? "Refund · cut taken back" : t.payment_method === "cash" ? "Paid · Cash" : "Paid · Card",
+    tone: isRefundTx(t) ? "muted" : "good", settled: true, tsIso: t.created_at, ts: t.ts,
+    pi: t.payment_intent_id ?? null, method: t.payment_method, refunded: isRefundTx(t), earn: true,
   }));
   const scopedSettled = feedAll.filter(i => i.settled && (!barberName || i.appt?.barbers?.name === barberName));
   const cardSettled = scopedSettled.filter(i => i.method !== "cash");

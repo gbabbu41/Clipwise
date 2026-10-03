@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { confirmedStripeFee, stripeFeeCents } from "@/lib/stripe";
+import { isRefundRow } from "@/lib/revenue";
 
 /**
  * Fill in Stripe fees that weren't ready at charge time.
@@ -21,7 +22,7 @@ export async function backfillMissingStripeFees(): Promise<{ scanned: number; fi
 
   const { data: rows, error: rowsError } = await supabaseAdmin
     .from("transactions")
-    .select("id, shop_id, payment_intent_id, refunded")
+    .select("id, shop_id, payment_intent_id, source")
     .eq("payment_method", "card")
     .not("payment_intent_id", "is", null)
     .or("stripe_fee.is.null,stripe_fee.eq.0")
@@ -46,7 +47,7 @@ export async function backfillMissingStripeFees(): Promise<{ scanned: number; fi
 
   let filled = 0;
   for (const r of rows) {
-    if (r.refunded) continue;
+    if (isRefundRow(r)) continue;   // a refunded sale keeps its fee (Stripe keeps it); only the refund row has none
     const acct = r.shop_id ? acctByShop.get(r.shop_id) ?? null : null;
     const feeCents = await stripeFeeCents(r.payment_intent_id as string, acct);
     if (feeCents > 0) {

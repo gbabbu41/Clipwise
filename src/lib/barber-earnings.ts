@@ -20,12 +20,35 @@
 // the take-home to the full 100% the owner actually keeps. Two lenses, one truth.
 
 export type EarningTx = {
-  amount: number;                    // service amount (pre-tip)
-  tip?: number | null;               // 100% the barber's
+  amount: number;                    // service amount (pre-tip); NEGATIVE on a refund row
+  tip?: number | null;               // 100% the barber's; negative on a refund row
   commission_amount?: number | null; // stored cut; falls back to amount × pct
   stripe_fee?: number | null;        // real card fee on this charge (0 for cash)
   refunded?: boolean | null;
+  source?: string | null;            // "refund" = money handed back (see below)
+  service_name?: string | null;
 };
+
+// REFUNDS (owner rule 2026-10-03 — commission take-back): a refunded sale keeps
+// its cut on the day it was paid, and its refund row (source "refund", negative
+// amounts, same barber) takes the cut + tip back on the day of the refund. So a
+// barber's past pay periods never change after the fact, and a refund after
+// payday shows up as a deduction in the period it happened — not silently lost.
+export const isRefundTx = (t: { source?: string | null }) => t.source === "refund";
+/** No-show penalty fees (and their refunds) are shop income, never a barber's cut. */
+export const isNoShowEarning = (t: { source?: string | null; service_name?: string | null }) =>
+  t.source === "no_show" || /no-show fee/i.test(t.service_name ?? "");
+
+/** Commission taken BACK by a refund row (a positive number to subtract). Same rule
+ *  as the sale's cut: the stored cut when sane, else amount × pct; the owner's own
+ *  chair takes back 100%; no-show fees pay no commission so nothing comes back. */
+export function refundClawback(t: { amount: number | null; commission_amount?: number | null; service_name?: string | null; source?: string | null }, pct: number, isOwner = false): number {
+  if (!isRefundTx(t) || isNoShowEarning(t)) return 0;
+  const amt = Math.abs(t.amount ?? 0);
+  if (isOwner) return amt;
+  const stored = t.commission_amount == null ? null : Math.abs(t.commission_amount);
+  return safeCommission(amt, stored, pct);
+}
 
 export type BarberEarnings = {
   revenue: number;        // service + tips the barber generated
@@ -59,6 +82,8 @@ export function safeCommission(amount: number | null | undefined, stored: number
 // own chair keeps 100% of the service (isOwner), so both the row cut and the
 // period headline reflect the barber's full take + tips.
 export function barberRowCut(t: EarningTx, commissionPercent: number, isOwner = false): number {
+  // A refund row takes the cut and the tip back (negative).
+  if (isRefundTx(t)) return -refundClawback(t, commissionPercent, isOwner) - Math.abs(t.tip ?? 0);
   const cut = isOwner ? Math.max(0, t.amount) : safeCommission(t.amount, t.commission_amount, commissionPercent);
   return cut + (t.tip ?? 0);
 }
@@ -67,7 +92,7 @@ export function barberRowCut(t: EarningTx, commissionPercent: number, isOwner = 
 // SAME formula the barber portal reads, so the dashboard/Analytics "barber
 // commission" line equals the sum of what every barber sees they earned. Only
 // rows tied to a barber count (gift/product/no-barber sales carry no barber_id →
-// shop revenue, no commission). Refunded rows excluded. commission_amount is the
+// shop revenue, no commission). Refunds claw back on their own day. commission_amount is the
 // stored cut (POS); appointment-completion rows store none, so it falls back to
 // the barber's rate × the service amount — identical to computeBarberEarnings.
 export function shopBarberCommission(
@@ -75,7 +100,9 @@ export function shopBarberCommission(
   pctByBarber: Record<string, number>,
 ): number {
   return txs.reduce((sum, t) => {
-    if (t.refunded || !t.barber_id) return sum;
+    if (!t.barber_id) return sum;
+    // A refund row takes its cut back on its own day; the refunded sale keeps its cut.
+    if (isRefundTx(t)) return sum - refundClawback({ ...t, amount: t.amount ?? 0 }, pctByBarber[t.barber_id] ?? 0);
     // No-show penalty fees are shop income, not a service the barber performed —
     // they never pay commission (matches the Dashboard + barber-portal rule).
     if (t.source === "no_show" || (t.service_name ?? "").startsWith("No-show fee")) return sum;
@@ -85,18 +112,21 @@ export function shopBarberCommission(
 }
 
 export function computeBarberEarnings(txs: EarningTx[], commissionPercent: number, isOwner = false): BarberEarnings {
-  // Exclude refunded — a refunded charge must not keep inflating a barber's cut.
-  // Filter in JS (not .neq) so rows where `refunded` is null/absent are kept.
-  const list = txs.filter(t => !t.refunded);
-  const tips = list.reduce((s, t) => s + (t.tip ?? 0), 0);
-  const serviceAmount = list.reduce((s, t) => s + t.amount, 0);
+  // A refunded sale still counts on its own day; its refund row takes the cut +
+  // tip back on the refund's day (see REFUNDS above). No-show fees never count.
+  const list = txs.filter(t => !isNoShowEarning(t));
+  const sales = list.filter(t => !isRefundTx(t));
+  const refunds = list.filter(isRefundTx);
+  const tips = sales.reduce((s, t) => s + (t.tip ?? 0), 0) - refunds.reduce((s, t) => s + Math.abs(t.tip ?? 0), 0);
+  const serviceAmount = sales.reduce((s, t) => s + t.amount, 0) - refunds.reduce((s, t) => s + Math.abs(t.amount), 0);
   const revenue = serviceAmount + tips;
   // Owner on their own chair keeps 100% of the service (see header note); a real
   // barber keeps their configured % (stored cut when sane, else derived).
-  const commission = isOwner
-    ? serviceAmount
-    : list.reduce((s, t) => s + safeCommission(t.amount, t.commission_amount, commissionPercent), 0);
-  const stripeFee = list.reduce((s, t) => s + (t.stripe_fee ?? 0), 0);
+  const commission = (isOwner
+    ? sales.reduce((s, t) => s + Math.max(0, t.amount), 0)
+    : sales.reduce((s, t) => s + safeCommission(t.amount, t.commission_amount, commissionPercent), 0))
+    - refunds.reduce((s, t) => s + refundClawback(t, commissionPercent, isOwner), 0);
+  const stripeFee = sales.reduce((s, t) => s + (t.stripe_fee ?? 0), 0);
   // The shop bears the ENTIRE card fee: the barber's take-home is commission +
   // tips with nothing deducted, and the shop's cut absorbs the full fee.
   const barberFeeShare = 0;
@@ -104,6 +134,6 @@ export function computeBarberEarnings(txs: EarningTx[], commissionPercent: numbe
   const shopKeeps = Math.max(0, serviceAmount - commission - stripeFee);
   return {
     revenue, serviceAmount, commission, tips, stripeFee, barberFeeShare,
-    youKeep, shopKeeps, count: list.length, avgTicket: list.length ? revenue / list.length : 0,
+    youKeep, shopKeeps, count: sales.length, avgTicket: sales.length ? sales.reduce((s, t) => s + t.amount + (t.tip ?? 0), 0) / sales.length : 0,
   };
 }

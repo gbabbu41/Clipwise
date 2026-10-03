@@ -175,7 +175,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
           // Real money moved (not just a hold released) → correct the ledger, alert
           // the shop, and email the customer their refund. Mirrors refund-payment.
           if (!r.released) {
-            const refundedCents = r.refundedCents ?? Math.round((appt.total_amount ?? 0) * 100);
+            const refundedCents = r.refundedCents ?? (Math.round((appt.total_amount ?? 0) * 100) + Math.round((appt.tip_amount ?? 0) * 100));
             await supabaseAdmin.from("transactions")
               .update({ refunded: true }).eq("payment_intent_id", appt.payment_intent_id).neq("source", "refund").then(null, () => null);
             const chargeCents = Math.round((appt.total_amount ?? 0) * 100) + Math.round((appt.tip_amount ?? 0) * 100);

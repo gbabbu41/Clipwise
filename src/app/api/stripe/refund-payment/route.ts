@@ -44,7 +44,8 @@ export async function POST(request: NextRequest) {
     // Report the amount ACTUALLY refunded, not the full booked total. A no-show
     // fee refund only returns the fee (e.g. $10 on a $60 booking) — telling the
     // customer "$60.00 refunded" is wrong and pollutes the audit trail.
-    let refundedCents = Math.round((appt.total_amount ?? 0) * 100);
+    // Fallback = what was collected: total_amount is service + tax, tip is separate.
+    let refundedCents = Math.round((appt.total_amount ?? 0) * 100) + Math.round((appt.tip_amount ?? 0) * 100);
     // A card that was only HELD (uncaptured) has no charge to refund — release the
     // hold instead of erroring, and skip the $-refund side effects below.
     let releasedHold = false;
@@ -147,7 +148,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "No card charge to refund (e.g. cash). Refund it in person." }, { status: 400 });
   }
 
-  let refundedCents = Math.round((tx.amount ?? 0) * 100);
+  // Fallback = what was collected (amount + tax + tip), same as the split below.
+  let refundedCents = Math.round((tx.amount ?? 0) * 100) + Math.round((tx.tax ?? 0) * 100) + Math.round((tx.tip ?? 0) * 100);
   try {
     const refund = await stripe.refunds.create(
       { payment_intent: tx.payment_intent_id },

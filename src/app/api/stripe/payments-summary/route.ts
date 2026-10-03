@@ -5,7 +5,7 @@ import { authorizeShop } from "@/lib/api-auth";
 import { cardFeeEstimateSafe } from "@/lib/platform-settings";
 import { readAllRows } from "@/lib/read-all-rows";
 import { confirmedFeesFromAppts, confirmedFeesFromRows, missingFeeIntents, type ApptFeeRow, type FeeRow } from "@/lib/confirmed-fees";
-import type { ByPi } from "@/lib/revenue";
+import { isRefundRow, type ByPi } from "@/lib/revenue";
 
 const FEE_RETRY_MS = 10 * 60_000;
 const FEE_LOOKUPS_PER_REQUEST = 8;
@@ -147,7 +147,7 @@ export async function POST(req: NextRequest) {
           .eq("shop_id", auth.shop.id).eq("payment_intent_id", pi).is("stripe_fee", null)
           .then(null, () => null);
       }
-      const row = missingRows.find(r => r.payment_intent_id === pi && !r.refunded && r.source !== "refund");
+      const row = missingRows.find(r => r.payment_intent_id === pi && !isRefundRow(r));   // a refunded sale keeps its fee; only the refund row has none
       // Legacy schema defaults to 0: it cannot distinguish confirmed zero from
       // pending. Return a real zero now, but do not pretend it is durable cache.
       if (!row || exact.fee <= 0) return;

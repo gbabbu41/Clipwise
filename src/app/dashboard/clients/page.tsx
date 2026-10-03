@@ -132,7 +132,7 @@ export default function ClientsPage() {
       supabase.from("appointments").select("client_id, client_name, client_email, client_phone").eq("shop_id", shop.id).eq("status", "no-show"),
       // Appointments incl. the phase-36 client_id link. Fall back without it if the
       // migration hasn't been run yet, so the page never breaks in that window.
-      supabase.from("appointments").select("client_id, client_name, client_email, client_phone, date, status, total_amount").eq("shop_id", shop.id).order("date", { ascending: false }),
+      supabase.from("appointments").select("client_id, client_name, client_email, client_phone, date, status, total_amount, payment_status").eq("shop_id", shop.id).order("date", { ascending: false }),
       // POS / walk-in sales, so a client's visits + spend include walk-ins and
       // product sales — not only booked appointments. Appointment-linked rows are
       // filtered out inside groupClients so nothing double-counts. Best-effort.
@@ -143,7 +143,7 @@ export default function ClientsPage() {
     if (withCid.error) {
       const noCid = await supabase
         .from("appointments")
-        .select("client_name, client_email, client_phone, date, status, total_amount")
+        .select("client_name, client_email, client_phone, date, status, total_amount, payment_status")
         .eq("shop_id", shop.id).order("date", { ascending: false });
       if (seq !== loadSeqRef.current) return; // a newer load started — bail
       if (noCid.error) console.error("clients: appointment history load failed:", noCid.error.message);

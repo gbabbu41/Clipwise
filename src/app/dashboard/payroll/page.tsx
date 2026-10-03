@@ -10,8 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { FeatureLock } from "@/components/dashboard/feature-lock";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import { countablePosTxs, isNoShowTx, isPaid, type RevAppt, type RevTx } from "@/lib/revenue";
-import { safeCommission } from "@/lib/barber-earnings";
+import { countablePosTxs, isNoShowTx, isRefundRow, isSale, type RevAppt, type RevTx } from "@/lib/revenue";
+import { isNoShowEarning, refundClawback, safeCommission } from "@/lib/barber-earnings";
 import type { Barber } from "@/lib/database.types";
 
 // Theme-aware (renders inside `.portal`, CSS vars resolve to the active theme).
@@ -104,7 +104,9 @@ export default function PayrollPage() {
       // COLLECTED money, and a booking paid today for a future day is included).
       supabase.from("appointments")
         .select("id, date, client_name, total_amount, tax_amount, balance_due, payment_status, status, barber_id, paid_at, created_at")
-        .eq("shop_id", shop.id).in("payment_status", ["paid", "captured"])
+        // Refunded too: the sale's cut stays in the period it was paid; the refund
+        // row takes it back in the period of the refund (lib/barber-earnings).
+        .eq("shop_id", shop.id).in("payment_status", ["paid", "captured", "refunded"])
         .order("created_at", { ascending: false }).limit(5000),
       supabase.from("staff_hours").select("*").eq("shop_id", shop.id).gte("date", from).lte("date", to),
       // Transactions for the period — POS commission + real card fees. Selecting
@@ -142,23 +144,31 @@ export default function PayrollPage() {
     // rows are dropped (the appointment already covers those), de-duped vs paid
     // appointments. SAME rule as the Dashboard, so nothing is double-counted.
     const countablePos = countablePosTxs(apptsInRange as unknown as RevAppt[], txsInRange as RevTx[])
-      .filter(t => !t.refunded && !!t.barber_id && !isNoShowTx(t) && t.source !== "completion");
+      .filter(t => !!t.barber_id && !isNoShowTx(t) && t.source !== "completion");
+    // Refunds in this period — each takes its service + commission back from the
+    // barber who did the visit (a refund of a sale paid in an earlier, already-paid
+    // period shows here as a deduction instead of silently vanishing).
+    const periodRefunds = (txsInRange as RevTx[]).filter(t => isRefundRow(t) && !!t.barber_id && !isNoShowEarning(t));
 
     const result: BarberPayroll[] = barberList.map(b => {
       const pct = b.commission_percent ?? 0;
       // Paid, non-no-show appointments this barber performed (money-moved basis).
-      const bAppts = apptsInRange.filter(a => a.barber_id === b.id && isPaid(a.payment_status) && a.status !== "no-show");
+      const bAppts = apptsInRange.filter(a => a.barber_id === b.id && isSale(a.payment_status) && a.status !== "no-show");
       const apptService = bAppts.reduce((s, a) => s + apptServiceCollected(a), 0);
       const apptCommission = (apptService * pct) / 100;
       // POS commission — prefer the stored cut (safeCommission guards a corrupt one).
       const bPos = countablePos.filter(t => t.barber_id === b.id);
       const posService = bPos.reduce((s, t) => s + Math.max(0, t.amount ?? 0), 0);
       const posCommission = bPos.reduce((s, t) => s + safeCommission(t.amount, t.commission_amount, pct), 0);
-      // Revenue base = collected service + POS product sales (matches the commission).
-      const serviceRevenue = apptService + posService;
+      const bRefunds = periodRefunds.filter(t => t.barber_id === b.id);
+      const refundedService = bRefunds.reduce((s, t) => s + Math.abs(t.amount ?? 0), 0);
+      const clawback = bRefunds.reduce((s, t) => s + refundClawback({ ...t, amount: t.amount ?? 0 }, pct), 0);
+      // Revenue base = collected service + POS product sales − service refunded this period.
+      const serviceRevenue = apptService + posService - refundedService;
       // Take-home = full commission (no card fee deducted — the shop bears Stripe
-      // processing entirely). Matches the barber's Earnings-page take-home.
-      const commissionEarned = Math.max(0, apptCommission + posCommission);
+      // processing entirely) minus commission taken back by refunds this period.
+      // Not clamped: a period with only a take-back is a real deduction.
+      const commissionEarned = apptCommission + posCommission - clawback;
       const bHours = hours.filter(h => h.barber_id === b.id);
       const hoursWorked = bHours.reduce((s, h) => s + (h.hours_worked ?? 0), 0);
       return { barber: b, appointments: bAppts, serviceRevenue, commissionEarned, hoursWorked };
