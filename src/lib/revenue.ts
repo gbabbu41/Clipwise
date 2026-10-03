@@ -130,8 +130,8 @@ export function paidAheadPis(txs: RevTx[]): Set<string> {
  * A no-show charged a fee from a held card is "captured" and the fee has its own
  * ledger row (source "no_show") — counted there, so the booking is skipped. A
  * booking PAID IN ADVANCE that then no-shows keeps its own payment: the shop
- * keeps that money (owner decision 2026-10-03), so it still counts here — the
- * barber earns no commission on it (lib/barber-earnings isNoShowEarning).
+ * keeps that money (owner decision 2026-10-03), so it still counts here — and,
+ * like any payment, it is split with the barber; only a refund takes it back.
  */
 export function noShowFeeVisit(a: Pick<RevAppt, "status" | "payment_status" | "payment_intent_id">, paidAhead?: Set<string>): boolean {
   if (a.status !== "no-show") return false;
@@ -175,7 +175,6 @@ export const isGiftRefundRow = (t: Pick<RevTx, "source" | "payment_method">) => 
 /** The service a refund row belongs to: "Refund — Skin Fade (back on gift card)" → "Skin Fade". */
 export const refundServiceKey = (name: string | null | undefined) => (name ?? "")
   .replace(/^Refund\s*—\s*/, "")
-  .replace(/\s*\(no-show\)$/i, "")
   .replace(/\s*\((?:back on gift card|cash|balance · (?:card|cash)|tip · card|no-show fee · card|refund date not recorded; dated at sale)\)$/i, "")
   .trim();
 /** What a refund row gave back (incl. tax + tip), as a positive number. */

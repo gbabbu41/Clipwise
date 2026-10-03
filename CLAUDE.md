@@ -125,7 +125,7 @@ never against a stale checkbox in TODO.md or a migration file header.
   gift-card value back; `transactions.payment_method` allows `gift_card`; `gift_refund_sale`)
   is **applied on prod** (2026-10-03). phase76 (barber earnings line for gift-card visits +
   its take-back on cancel/refund, written by the appointments trigger) is **applied on prod**
-  (2026-10-03; both existing gift visits backfilled). phase77 (no-show earnings tag trigger) — see PR.
+  (2026-10-03; both existing gift visits backfilled).
 - If a feature "silently does nothing," still capture the supabase `error` (don't only
   read `data`) — but the cause is far more likely code/config than a missing column now.
 
@@ -196,13 +196,12 @@ never against a stale checkbox in TODO.md or a migration file header.
   the barber's earnings ONLY — **never shop money** (the card's value counted when it was SOLD):
   `collectedTotals`, the Payments tip feed and admin GMV skip `payment_method='gift_card'` lines.
   Any new reader of completion rows must skip them too.
-- **No-shows: the shop keeps the money, the barber earns nothing (owner decision 2026-10-03).** A
-  booking PAID IN ADVANCE (card online, gift card, cash) that no-shows stays in Collected
-  (`noShowFeeVisit` in `lib/revenue.ts` — only a "captured" no-show FEE is counted via its own
-  fee line instead). The barber side: the DB tags that visit's earnings line "(no-show)" when it is
-  marked no-show (phase77 trigger; un-no-show removes the tag), and no-show refunds are tagged too —
-  `isNoShowEarning` (/no-show/i) keeps them out of every barber view and out of commission
-  take-backs.
+- **No-shows — split everything (owner decision 2026-10-03):** any money a customer paid is split
+  at the barber's % — a booking PAID IN ADVANCE that no-shows AND a no-show fee charged to a held
+  card — and only a refund takes it back. There is no special no-show case in barber pay. Shop
+  money: a prepaid no-show stays in Collected; only a "captured" no-show FEE is counted via its own
+  fee line instead (`noShowFeeVisit` in `lib/revenue.ts` — Dashboard/Analytics/Payroll commission use
+  it too).
 - **Stripe Connect:** charges run on each shop's **connected account** (shop = merchant
   of record, 0% platform fee). The Stripe **webhook must listen to connected-account
   events** or `payment_status` never flips to paid. The platform-charge fallback for

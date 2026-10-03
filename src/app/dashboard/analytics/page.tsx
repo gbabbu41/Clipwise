@@ -13,11 +13,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { effectivePlan, isPaidPlan } from "@/lib/validation";
 import { FeatureLock } from "@/components/dashboard/feature-lock";
-import { collectedTotals, countablePosTxs, isNoShowTx, isPaid, isRefundRow, isSale, refundServiceKey, type RevAppt, type RevTx, type ByPi } from "@/lib/revenue";
+import { collectedTotals, countablePosTxs, isNoShowTx, isPaid, isRefundRow, isSale, noShowFeeVisit, paidAheadPis, refundServiceKey, type RevAppt, type RevTx, type ByPi } from "@/lib/revenue";
 import { evidenceView, loadLinkedEvidence, type EvidenceSnapshot } from "@/lib/revenue-evidence";
 import { analyticsPeriod, analyticsRevenueBuckets, analyticsFeesKnown, timestampInPeriod, topServicesWithOther } from "@/lib/analytics-period";
 import { readAllRows } from "@/lib/read-all-rows";
-import { isNoShowEarning, refundClawback, safeCommission } from "@/lib/barber-earnings";
+import { refundClawback, safeCommission } from "@/lib/barber-earnings";
 import type { Transaction, Appointment, Barber } from "@/lib/database.types";
 
 // Theme-aware (recharts renders inside `.portal`, so the CSS vars resolve to the
@@ -202,8 +202,9 @@ export default function AnalyticsPage() {
     // Barber commission tallied over the SAME sales `collected` counts (same as the
     // Dashboard + Payroll), so Net reconciles: paid appointments → (total − tax) ×
     // that barber's rate; counted POS sales with a barber → the stored cut.
-    // Completion rows are taken from the appointment, and no-show fees never pay
-    // commission.
+    // Completion rows are taken from the appointment. No-show money is split like
+    // any payment (owner decision 2026-10-03): a prepaid visit via its appointment,
+    // a no-show fee via its own line.
     const pct: Record<string, number> = Object.fromEntries(barbers.map(b => [b.id, b.commission_percent ?? 0]));
     // Commission follows the money ACTUALLY collected: a price edited above the
     // held card captures less than total_amount, leaving a balance_due. Base the
@@ -212,12 +213,13 @@ export default function AnalyticsPage() {
     // Dashboard fix + collectedTotals.
     // Refunds: a refunded sale keeps its commission on its paid day; the refund
     // row takes it back on the refund's day (same rule as the barber portal).
+    const paidAhead = paidAheadPis(filteredTx as RevTx[]);
     const apptCommission = revenueApptsInRange.reduce((sum, a) => {
-      if (!isSale(a.payment_status) || a.status === "no-show" || !a.barber_id) return sum;
+      if (!isSale(a.payment_status) || noShowFeeVisit(a, paidAhead) || !a.barber_id) return sum;
       return sum + (apptServiceCollectedOf(a) * (pct[a.barber_id] ?? 0)) / 100;
     }, 0);
     const posCommission = countablePosTxs(revenueApptsInRange as RevAppt[], filteredTx as RevTx[]).reduce((sum, t2) => {
-      if (!t2.barber_id || isNoShowTx(t2) || t2.source === "completion") return sum;
+      if (!t2.barber_id || t2.source === "completion") return sum;
       const p = pct[t2.barber_id] ?? 0;
       return sum + safeCommission(t2.amount, t2.commission_amount, p);
     }, 0);
@@ -256,21 +258,23 @@ export default function AnalyticsPage() {
 
   // Revenue by barber — SAME basis as the money headline + the Dashboard's top
   // barbers: collected service on paid appointments (money-moved) + POS sales,
-  // de-duped (completion/no-show excluded). No longer the raw tx sum (which mixed
+  // de-duped (completion excluded; no-show money counts — it's split like any
+  // payment). No longer the raw tx sum (which mixed
   // date bases and could double-count completion rows against the appointment).
   const barberRevenue = useMemo(() => {
     const map: Record<string, number> = {};
+    const paidAhead = paidAheadPis(filteredTx as RevTx[]);
     for (const a of revenueApptsInRange) {
-      if (!isSale(a.payment_status) || a.status === "no-show" || !a.barber_id) continue;
+      if (!isSale(a.payment_status) || noShowFeeVisit(a, paidAhead) || !a.barber_id) continue;
       map[a.barber_id] = (map[a.barber_id] ?? 0) + apptServiceCollectedOf(a);
     }
     for (const t of countablePosTxs(revenueApptsInRange as RevAppt[], filteredTx as RevTx[])) {
-      if (!t.barber_id || isNoShowTx(t) || t.source === "completion") continue;
+      if (!t.barber_id || t.source === "completion") continue;
       map[t.barber_id] = (map[t.barber_id] ?? 0) + Math.max(0, t.amount ?? 0);
     }
     // Service handed back comes off that barber on the refund's day.
     for (const t of filteredTx as RevTx[]) {
-      if (!isRefundRow(t) || !t.barber_id || isNoShowEarning(t)) continue;
+      if (!isRefundRow(t) || !t.barber_id) continue;
       map[t.barber_id] = (map[t.barber_id] ?? 0) - Math.abs(t.amount ?? 0);
     }
     return barbers.map(b => ({ name: b.name, revenue: map[b.id] ?? 0 })).filter(b => b.revenue > 0);
@@ -281,8 +285,9 @@ export default function AnalyticsPage() {
   // counts against the appointment it belongs to.
   const serviceRevenue = useMemo(() => {
     const map: Record<string, number> = {};
+    const paidAhead = paidAheadPis(filteredTx as RevTx[]);
     for (const a of revenueApptsInRange) {
-      if (!isSale(a.payment_status) || a.status === "no-show") continue;
+      if (!isSale(a.payment_status) || noShowFeeVisit(a, paidAhead)) continue;
       const key = (a.service_id && serviceNames[a.service_id]) || "Service";
       map[key] = (map[key] ?? 0) + apptServiceCollectedOf(a);
     }
@@ -293,7 +298,7 @@ export default function AnalyticsPage() {
     }
     // A refund comes off its service on the refund's day ("Refund — Skin Fade" → "Skin Fade").
     for (const t of filteredTx as RevTx[]) {
-      if (!isRefundRow(t) || isNoShowEarning(t)) continue;
+      if (!isRefundRow(t) || refundServiceKey(t.service_name).startsWith("No-show fee")) continue;   // a fee isn't a service
       const key = refundServiceKey(t.service_name) || "Sale";
       map[key] = (map[key] ?? 0) - Math.abs(t.amount ?? 0);
     }
