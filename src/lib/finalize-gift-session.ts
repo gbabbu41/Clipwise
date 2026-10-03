@@ -63,6 +63,8 @@ export async function finalizeGiftFromSession(
     service_name: `Gift Card ${code}`,
     amount, tip: 0, commission_amount: null,
     payment_method: "card", type: "product", source: "gift_card_sale",
+    // The charge — so the sale can be refunded from Payments (refund-payment).
+    payment_intent_id: typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id ?? null,
   };
   let gtx = await supabaseAdmin.from("transactions").insert(giftTxRow);
   if (gtx.error) {
@@ -70,6 +72,7 @@ export async function finalizeGiftFromSession(
     if (/source/.test(msg)) delete giftTxRow.source;
     if (/\btype\b/.test(msg)) delete giftTxRow.type;
     if (/commission_amount/.test(msg)) delete giftTxRow.commission_amount;
+    if (/payment_intent_id/.test(msg)) delete giftTxRow.payment_intent_id;
     gtx = await supabaseAdmin.from("transactions").insert(giftTxRow);
   }
   if (gtx.error) console.warn("[gift] sale revenue row failed:", gtx.error.message);

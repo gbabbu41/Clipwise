@@ -9,6 +9,8 @@ import { logLedgerSaveFailure } from "@/lib/ledger-log";
  * charge rule deliberately excludes refund records; this is their own guard.)
  */
 export function refundRecordId(paymentIntentId: string): string {
+  // A part with no card charge (cash, gift card) passes its own stable key here
+  // instead ("cash:<booking id>", "gift:<booking id>", "cash:<sale id>").
   const h = createHash("sha256").update(`clipwise-refund-ledger:${paymentIntentId}`).digest("hex");
   const variant = ((parseInt(h[16], 16) & 0x3) | 0x8).toString(16);
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-5${h.slice(13, 16)}-${variant}${h.slice(17, 20)}-${h.slice(20, 32)}`;
@@ -27,6 +29,10 @@ export function refundRecordId(paymentIntentId: string): string {
  * payment_intent_id dedupes it (a refund can arrive from our route AND the
  * charge.refunded webhook); it is never used for fee math (Stripe keeps the
  * original fee, which stays on the sale).
+ *
+ * One record per PART of a refund (lib/refund-plan): card parts are keyed by
+ * their charge, cash / gift-card parts by `dedupeKey`. A gift-card part
+ * (method "gift_card") moves no money — revenue only reverses its tax / tip.
  *
  * Stored with refunded=true so per-barber earnings / rankings (which skip
  * refunded rows) never treat it as a sale, and it can never itself be
@@ -47,14 +53,25 @@ export async function recordRefundLedger(args: {
   tipCents?: number;              // tip portion returned
   appointmentId?: string | null;
   paymentIntentId?: string | null;
+  /** How the money went back: "card" (Stripe), "cash" (handed back in person) or
+   *  "gift_card" (value put back on the card — moves no money, see lib/revenue). */
+  method?: "card" | "cash" | "gift_card";
+  /** Stable key for a part with no card charge — one record per part, ever. */
+  dedupeKey?: string | null;
 }): Promise<"recorded" | "already" | "failed" | "skipped"> {
   const refunded = Math.max(0, Math.round(args.refundedCents));
   if (refunded <= 0 || !args.shopId) return "skipped";
+  const method = args.method ?? "card";
+  const key = args.paymentIntentId || args.dedupeKey || null;
 
-  // Dedupe by PaymentIntent — if a refund row for this charge already exists, stop.
+  // Dedupe — if this charge's (or part's) refund row already exists, stop.
   if (args.paymentIntentId) {
     const { data: existing } = await supabaseAdmin.from("transactions")
       .select("id").eq("source", "refund").eq("payment_intent_id", args.paymentIntentId).limit(1).maybeSingle();
+    if (existing) return "already";
+  } else if (key) {
+    const { data: existing } = await supabaseAdmin.from("transactions")
+      .select("id").eq("id", refundRecordId(key)).maybeSingle();
     if (existing) return "already";
   }
 
@@ -78,7 +95,7 @@ export async function recordRefundLedger(args: {
   const service = Math.max(0, refunded - tax - tip);
 
   const row: Record<string, unknown> = {
-    ...(args.paymentIntentId ? { id: refundRecordId(args.paymentIntentId) } : {}),
+    ...(key ? { id: refundRecordId(key) } : {}),
     shop_id: args.shopId,
     barber_id: args.barberId ?? null,
     client_name: args.clientName ?? null,
@@ -86,7 +103,7 @@ export async function recordRefundLedger(args: {
     amount: -(service / 100), tip: -(tip / 100), tax: -(tax / 100),
     // `type` is CHECK-constrained to service|product|tip; a refund record is
     // identified by source "refund" (every report excludes it by that).
-    payment_method: "card", type: "service", source: "refund",
+    payment_method: method, type: "service", source: "refund",
     appointment_id: args.appointmentId ?? null,
     payment_intent_id: args.paymentIntentId ?? null,
     refunded: true, stripe_fee: 0,
@@ -106,11 +123,11 @@ export async function recordRefundLedger(args: {
   // A concurrent save of this charge's refund record won the race (same id):
   // verified as that record, nothing is lost.
   const e = saveError as { code?: unknown; message?: unknown };
-  if (args.paymentIntentId && e.code === "23505" && /transactions_pkey/.test(String(e.message ?? ""))) {
+  if (key && e.code === "23505" && /transactions_pkey/.test(String(e.message ?? ""))) {
     const { data: winner } = await supabaseAdmin.from("transactions")
-      .select("id, shop_id, source, payment_intent_id").eq("id", refundRecordId(args.paymentIntentId)).maybeSingle()
+      .select("id, shop_id, source, payment_intent_id").eq("id", refundRecordId(key)).maybeSingle()
       .then(r => r, () => ({ data: null }));
-    if (winner && winner.source === "refund" && winner.payment_intent_id === args.paymentIntentId && winner.shop_id === args.shopId) return "already";
+    if (winner && winner.source === "refund" && (winner.payment_intent_id ?? null) === (args.paymentIntentId ?? null) && winner.shop_id === args.shopId) return "already";
   }
   await logLedgerSaveFailure("refund-ledger", { shopId: args.shopId, appointmentId: args.appointmentId, paymentIntentId: args.paymentIntentId }, saveError);
   return "failed";

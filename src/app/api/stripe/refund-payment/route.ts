@@ -3,199 +3,326 @@ import { sendAppEmail } from "@/lib/emailer";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { notifyRefundIssued } from "@/lib/payment-notify";
-import { recordRefundLedger } from "@/lib/refund-ledger";
+import { recordRefundLedger, refundRecordId } from "@/lib/refund-ledger";
+import { logLedgerSaveFailure } from "@/lib/ledger-log";
 import { isAlreadyRefunded, refundOrReleaseHold } from "@/lib/stripe-refund";
 import { notifyWaitlistForSlot } from "@/lib/waitlist-notify-server";
+import { giftSaleCode, planAppointmentRefund, planTransactionRefund, scaleSplit, type PlanTx, type RefundPart } from "@/lib/refund-plan";
 
 /**
- * Refund a *settled* card payment from the Payments page WITHOUT cancelling the
- * appointment (the service was still rendered). Handles both an appointment
- * payment and a POS/standalone transaction. Owner-only. The refund runs on the
- * shop's connected account; the row is flagged refunded and the customer emailed.
+ * Refund a payment from the Payments page — every part back the way it came in
+ * (lib/refund-plan): card parts through Stripe, cash parts recorded as handed
+ * back in person, gift-card value back on the gift card. Handles an appointment
+ * (incl. split payments: gift card + card/cash balance, a separately paid tip),
+ * a POS / standalone sale (card or cash), and a gift-card SALE (refunds the
+ * value still unused and voids the card). Owner-only.
+ *
+ * `preview: true` returns the parts without changing anything (the confirm modal).
+ *
+ * Every part writes its dated refund record (lib/refund-ledger) — money out on
+ * the refund's day; the sale stays on its own paid day. Marking a visit refunded
+ * gives back its loyalty points and gift-card value in the database itself
+ * (phase73 / phase75). Retries are safe: a part whose refund record exists is
+ * skipped, and Stripe refunds carry idempotency keys.
  */
+
+type Shop = { id: string; name: string | null; email: string | null; slug: string | null; owner_id: string; stripe_account_id: string | null };
+
+const dollars = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+const howLabel: Record<RefundPart["kind"], string> = { card: "Card", cash: "Cash", gift_card: "Gift card" };
+
+/** Keys (of `parts`) that already have their refund record. Refund records are
+ *  keyed by refundRecordId(key); older card ones are also found by charge id. */
+async function doneKeysFor(keys: string[], pis: string[]): Promise<Set<string>> {
+  const done = new Set<string>();
+  if (!keys.length) return done;
+  const byId = new Map(keys.map(k => [refundRecordId(k), k]));
+  const { data: rows } = await supabaseAdmin.from("transactions").select("id, payment_intent_id")
+    .eq("source", "refund").in("id", Array.from(byId.keys()));
+  for (const r of rows ?? []) { const k = byId.get(r.id as string); if (k) done.add(k); }
+  if (pis.length) {
+    const { data: legacy } = await supabaseAdmin.from("transactions").select("payment_intent_id")
+      .eq("source", "refund").in("payment_intent_id", pis);
+    for (const r of legacy ?? []) if (r.payment_intent_id) done.add(r.payment_intent_id as string);
+  }
+  return done;
+}
+
+/** Refund one card charge (whole, or `amountCents` of it). Returns the cents
+ *  Stripe actually returned (-1 = unknown, use the planned amount), or
+ *  "released" when the card was only HELD — the hold is released, $0 moves.
+ *  A charge Stripe already refunded counts as done. */
+async function refundCard(pi: string, acct: string, idempotencyKey: string, amountCents?: number): Promise<number | "released"> {
+  if (amountCents == null) {
+    const r = await refundOrReleaseHold(pi, acct, idempotencyKey);
+    if (r.released) return "released";
+    if (r.refundedCents != null) return r.refundedCents;
+  } else {
+    try {
+      const refund = await stripe.refunds.create({ payment_intent: pi, amount: amountCents }, { stripeAccount: acct, idempotencyKey });
+      if (typeof refund.amount === "number") return refund.amount;
+    } catch (err) {
+      if (!isAlreadyRefunded(err)) throw err;
+    }
+  }
+  // Already refunded on Stripe — read what it returned off the charge.
+  try {
+    const p = await stripe.paymentIntents.retrieve(pi, { expand: ["latest_charge"] }, { stripeAccount: acct });
+    const ch = p.latest_charge as { amount_refunded?: number } | string | null;
+    if (ch && typeof ch === "object" && typeof ch.amount_refunded === "number" && ch.amount_refunded > 0) return ch.amount_refunded;
+    if (typeof p.amount_received === "number" && p.amount_received > 0) return p.amount_received;
+  } catch { /* fall back to the planned amount */ }
+  return amountCents ?? -1;
+}
+
+const partView = (p: RefundPart) => ({ key: p.key, kind: p.kind, label: p.label, cents: p.cents, done: p.done, blocked: p.blocked ?? null });
+
 export async function POST(request: NextRequest) {
   const token = request.headers.get("Authorization")?.replace("Bearer ", "");
   if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
   if (authError || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { appointment_id, transaction_id } = await request.json() as {
-    appointment_id?: string;
-    transaction_id?: string;
+  const { appointment_id, transaction_id, preview } = await request.json().catch(() => ({})) as {
+    appointment_id?: string; transaction_id?: string; preview?: boolean;
   };
   if (!appointment_id && !transaction_id) {
     return NextResponse.json({ error: "Missing appointment_id or transaction_id" }, { status: 400 });
   }
+  const shopCols = "id, name, email, slug, owner_id, stripe_account_id";
 
   // ── Appointment refund ──────────────────────────────────────────────────────
   if (appointment_id) {
     const { data: appt } = await supabaseAdmin
       .from("appointments").select("*, services(name)").eq("id", appointment_id).single();
     if (!appt) return NextResponse.json({ error: "Appointment not found" }, { status: 404 });
-
-    const { data: shop } = await supabaseAdmin
-      .from("shops").select("id, name, email, slug, owner_id, stripe_account_id").eq("id", appt.shop_id).single();
+    const { data: shopRow } = await supabaseAdmin.from("shops").select(shopCols).eq("id", appt.shop_id).single();
+    const shop = shopRow as Shop | null;
     if (!shop || shop.owner_id !== user.id) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    if (appt.payment_status === "refunded") return NextResponse.json({ error: "Already refunded." }, { status: 400 });
-    if (!appt.payment_intent_id || !shop.stripe_account_id) {
-      return NextResponse.json({ error: "No card charge to refund (e.g. cash). Refund it in person." }, { status: 400 });
-    }
-
-    // Report the amount ACTUALLY refunded, not the full booked total. A no-show
-    // fee refund only returns the fee (e.g. $10 on a $60 booking) — telling the
-    // customer "$60.00 refunded" is wrong and pollutes the audit trail.
-    // Fallback = what was collected: total_amount is service + tax, tip is separate.
-    let refundedCents = Math.round((appt.total_amount ?? 0) * 100) + Math.round((appt.tip_amount ?? 0) * 100);
-    // A card that was only HELD (uncaptured) has no charge to refund — release the
-    // hold instead of erroring, and skip the $-refund side effects below.
-    let releasedHold = false;
-    try {
-      const r = await refundOrReleaseHold(appt.payment_intent_id, shop.stripe_account_id, `refund-appt-${appt.payment_intent_id}`);
-      releasedHold = r.released;
-      if (r.released) {
-        refundedCents = 0;
-      } else if (r.alreadyRefunded) {
-        // Already refunded on Stripe — read the true captured amount off the PI so
-        // we still report the right figure rather than the full total.
-        try {
-          const pi = await stripe.paymentIntents.retrieve(appt.payment_intent_id, undefined, { stripeAccount: shop.stripe_account_id });
-          if (typeof pi.amount_received === "number" && pi.amount_received > 0) refundedCents = pi.amount_received;
-        } catch { /* keep the total_amount fallback */ }
-      } else if (r.refundedCents != null) {
-        refundedCents = r.refundedCents;
-      }
-    } catch (err) {
-      return NextResponse.json({ error: err instanceof Error ? err.message : "Refund failed" }, { status: 500 });
-    }
-
-    // Free the chair only when the service HASN'T happened yet: an upcoming
-    // (pending/confirmed) booking is cancelled so its slot re-opens (and the
-    // waitlist is pinged); a completed/no-show booking keeps its record — the
-    // slot was already used — and we just flag the money refunded (or voided,
-    // for a released hold).
+    const serviceName = (appt.services as { name: string } | null)?.name ?? null;
     const served = appt.status === "completed" || appt.status === "no-show";
-    const moneyStatus = releasedHold ? "voided" : "refunded";
-    await supabaseAdmin.from("appointments")
-      .update(served ? { payment_status: moneyStatus } : { status: "cancelled", payment_status: moneyStatus })
-      .eq("id", appointment_id);
 
-    // Money-side effects only apply when money actually moved — a released hold
-    // ($0) skips the revenue flag, the refund ledger, the owner alert, and the
-    // customer email, but still frees the slot + pings the waitlist below.
-    if (!releasedHold) {
-      // Flag the completion/no-show ledger row too, so barber earnings + analytics
-      // correct immediately instead of relying on the charge.refunded webhook.
-      if (appt.payment_intent_id) {
-        const { error: txErr } = await supabaseAdmin.from("transactions")
-          .update({ refunded: true }).eq("payment_intent_id", appt.payment_intent_id).neq("source", "refund");
-        // A silent failure here (e.g. a lagging `refunded` column) means the money
-        // is refunded on Stripe but the row keeps counting as revenue/commission —
-        // log it so the drift is visible instead of vanishing.
-        if (txErr) console.warn("[refund-payment] failed to flag transaction refunded:", txErr.message);
+    // A card that was only HELD (never charged): release the hold — $0 moves.
+    if (appt.payment_status === "held") {
+      if (preview) return NextResponse.json({ ok: true, held: true, parts: [] });
+      if (!appt.payment_intent_id || !shop.stripe_account_id) return NextResponse.json({ error: "No card hold to release." }, { status: 400 });
+      try {
+        const r = await refundOrReleaseHold(appt.payment_intent_id, shop.stripe_account_id, `refund-appt-${appt.payment_intent_id}`);
+        if (!r.released) return NextResponse.json({ error: "This card was already charged — reload and refund it again." }, { status: 409 });
+      } catch (err) {
+        return NextResponse.json({ error: err instanceof Error ? err.message : "Couldn't release the hold" }, { status: 500 });
       }
-
-      // Dated refund record for the audit trail + GST/HST claim-back (M6).
-      {
-        const chargeCents = Math.round((appt.total_amount ?? 0) * 100) + Math.round((appt.tip_amount ?? 0) * 100);
-        const taxPart = chargeCents > 0 ? Math.round(refundedCents * (Math.round((appt.tax_amount ?? 0) * 100) / chargeCents)) : 0;
-        const tipPart = chargeCents > 0 ? Math.round(refundedCents * (Math.round((appt.tip_amount ?? 0) * 100) / chargeCents)) : 0;
-        await recordRefundLedger({
-          shopId: appt.shop_id, barberId: appt.barber_id, clientName: appt.client_name,
-          serviceName: (appt.services as { name: string } | null)?.name ?? null,
-          refundedCents, taxCents: taxPart, tipCents: tipPart,
-          appointmentId: appt.id, paymentIntentId: appt.payment_intent_id,
-        });
-      }
-    }
-    if (!served) {
-      await notifyWaitlistForSlot({ shop_id: appt.shop_id, date: appt.date, barber_id: appt.barber_id }).catch(() => null);
+      await supabaseAdmin.from("appointments")
+        .update(served ? { payment_status: "voided" } : { status: "cancelled", payment_status: "voided" }).eq("id", appt.id);
+      if (!served) await notifyWaitlistForSlot({ shop_id: appt.shop_id, date: appt.date, barber_id: appt.barber_id }).catch(() => null);
+      return NextResponse.json({ ok: true, released: true });
     }
 
-    if (!releasedHold) {
-      // In-app alert to owner + barber (realtime pop-up + chime).
-      notifyRefundIssued({
-        ownerId: shop.owner_id,
-        barberId: appt.barber_id,
-        shopId: appt.shop_id,
-        clientName: appt.client_name,
-        amountCents: refundedCents,
-        date: appt.date,
+    if (!["paid", "captured", "refunded"].includes(appt.payment_status ?? "")) {
+      return NextResponse.json({ error: "This booking has no payment to refund." }, { status: 400 });
+    }
+
+    // Every ledger row of this visit: its own charge, balances, a separate tip.
+    const txCols = "id, source, payment_method, payment_intent_id, amount, tax, tip, refunded, appointment_id, service_name";
+    const [{ data: byAppt }, { data: byPi }] = await Promise.all([
+      supabaseAdmin.from("transactions").select(txCols).eq("shop_id", appt.shop_id).eq("appointment_id", appt.id),
+      appt.payment_intent_id
+        ? supabaseAdmin.from("transactions").select(txCols).eq("shop_id", appt.shop_id).eq("payment_intent_id", appt.payment_intent_id)
+        : Promise.resolve({ data: [] as PlanTx[] }),
+    ]);
+    const txs = Array.from(new Map([...(byAppt ?? []), ...(byPi ?? [])].map(t => [(t as PlanTx).id, t as PlanTx])).values());
+    const draft = planAppointmentRefund(appt, txs);
+    const done = await doneKeysFor(draft.map(p => p.key), draft.flatMap(p => p.paymentIntentId ? [p.paymentIntentId] : []));
+    const parts = planAppointmentRefund(appt, txs, done);
+    const pending = parts.filter(p => !p.done && p.cents > 0);
+
+    if (preview) {
+      return NextResponse.json({ ok: true, parts: parts.map(partView), served, alreadyRefunded: appt.payment_status === "refunded" && !pending.some(p => p.kind !== "gift_card") });
+    }
+    // A refunded visit can only be continued for a card/cash part that didn't go through.
+    if (appt.payment_status === "refunded" && !pending.some(p => p.kind !== "gift_card")) {
+      return NextResponse.json({ error: "Already refunded." }, { status: 400 });
+    }
+    if (!pending.length) return NextResponse.json({ error: "Nothing to refund on this booking." }, { status: 400 });
+    const blocked = pending.find(p => p.blocked);
+    if (blocked) return NextResponse.json({ error: blocked.blocked }, { status: 400 });
+    if (pending.some(p => p.kind === "card") && !shop.stripe_account_id) {
+      return NextResponse.json({ error: "This shop's Stripe account isn't connected — can't refund the card part." }, { status: 400 });
+    }
+
+    const recordPart = async (p: RefundPart, cents: number) => {
+      const split = scaleSplit(p, cents);
+      const res = await recordRefundLedger({
+        shopId: appt.shop_id, barberId: appt.barber_id, clientName: appt.client_name,
+        serviceName: p.kind === "gift_card" ? `${serviceName ?? "Payment"} (back on gift card)` : p.label.startsWith("Card") ? serviceName : `${serviceName ?? "Payment"} (${p.label.toLowerCase()})`,
+        refundedCents: cents, taxCents: split.taxCents, tipCents: split.tipCents,
+        appointmentId: appt.id, paymentIntentId: p.paymentIntentId, method: p.kind, dedupeKey: p.paymentIntentId ? null : p.key,
       });
+      if (p.txIds.length) {
+        const { error } = await supabaseAdmin.from("transactions").update({ refunded: true }).in("id", p.txIds).neq("source", "refund");
+        if (error) await logLedgerSaveFailure("refund-flag", { shopId: appt.shop_id, appointmentId: appt.id, paymentIntentId: p.paymentIntentId }, error);
+      }
+      return res;
+    };
 
+    // 1. Card parts first — the only ones that can fail. Each records itself the
+    //    moment Stripe confirms, so a later failure never loses an earlier refund.
+    const back: { kind: RefundPart["kind"]; cents: number }[] = [];
+    let failure: string | null = null;
+    let releasedHold = false;
+    for (const p of pending.filter(x => x.kind === "card")) {
+      try {
+        const main = p.paymentIntentId === appt.payment_intent_id;
+        const got = await refundCard(p.paymentIntentId!, shop.stripe_account_id!, `${main ? "refund-appt" : "refund-tx"}-${p.paymentIntentId}`);
+        if (got === "released") { releasedHold = true; continue; }
+        const cents = got < 0 ? p.cents : got;
+        if (cents > 0) { await recordPart(p, cents); back.push({ kind: "card", cents }); }
+      } catch (err) {
+        failure = `${p.label} ${dollars(p.cents)}: ${err instanceof Error ? err.message : "refund failed"}`;
+        break;
+      }
+    }
+    if (failure && !back.length) return NextResponse.json({ error: failure }, { status: 500 });
+    // The card was only held after all (never charged): release, not a refund.
+    if (releasedHold && !back.length && pending.every(p => p.kind === "card")) {
+      await supabaseAdmin.from("appointments")
+        .update(served ? { payment_status: "voided" } : { status: "cancelled", payment_status: "voided" }).eq("id", appt.id);
+      if (!served) await notifyWaitlistForSlot({ shop_id: appt.shop_id, date: appt.date, barber_id: appt.barber_id }).catch(() => null);
+      return NextResponse.json({ ok: true, released: true });
+    }
+
+    // 2. Mark the visit refunded (an upcoming booking is also cancelled so its slot
+    //    re-opens). The database gives back its gift-card value + loyalty points.
+    await supabaseAdmin.from("appointments")
+      .update(served ? { payment_status: "refunded" } : { status: "cancelled", payment_status: "refunded" })
+      .eq("id", appt.id).in("payment_status", ["paid", "captured"]);
+
+    // 3. Cash handed back + gift value put back: their dated records.
+    for (const p of pending.filter(x => x.kind !== "card")) {
+      const res = await recordPart(p, p.cents);
+      if (res === "recorded") back.push({ kind: p.kind, cents: p.cents });
+    }
+
+    if (!served) await notifyWaitlistForSlot({ shop_id: appt.shop_id, date: appt.date, barber_id: appt.barber_id }).catch(() => null);
+
+    const moneyCents = back.filter(b => b.kind !== "gift_card").reduce((s, b) => s + b.cents, 0);
+    const totalCents = back.reduce((s, b) => s + b.cents, 0);
+    const how = (["card", "cash", "gift_card"] as const)
+      .map(k => ({ k, cents: back.filter(b => b.kind === k).reduce((s, b) => s + b.cents, 0) }))
+      .filter(x => x.cents > 0);
+    if (totalCents > 0) {
+      notifyRefundIssued({
+        ownerId: shop.owner_id, barberId: appt.barber_id, shopId: appt.shop_id, clientName: appt.client_name,
+        amountCents: totalCents, date: appt.date, returnedTo: how.map(x => `${dollars(x.cents)} ${x.k === "card" ? "to their card" : x.k === "cash" ? "in cash" : "on their gift card"}`).join(", "),
+      });
       if (appt.client_email) {
-        // Await delivery attempt, but never retry the refund because email failed.
         await sendAppEmail("refund_issued", {
           clientName: appt.client_name, clientEmail: appt.client_email,
-          shopName: shop.name, shopEmail: shop.email ?? "", shopSlug: shop.slug,
-          serviceName: (appt.services as { name: string } | null)?.name ?? "Your service",
-          date: appt.date, total: `$${(refundedCents / 100).toFixed(2)}`,
+          shopName: shop.name ?? "", shopEmail: shop.email ?? "", shopSlug: shop.slug ?? "",
+          serviceName: serviceName ?? "Your service", date: appt.date, total: dollars(totalCents),
+          cancelled: served ? "" : "1",
+          breakdown: how.length > 1 || how[0]?.k !== "card" ? how.map(x => `${howLabel[x.k]} ${dollars(x.cents)}`).join(" · ") : "",
+          cardBack: how.some(x => x.k === "card") ? "1" : "",
         }).catch(() => null);
       }
     }
-    return NextResponse.json({ ok: true, released: releasedHold });
+    return NextResponse.json({ ok: true, refundedCents: moneyCents, parts: back, ...(failure ? { partial: true, error: `Part of this refund didn't go through — ${failure}. Refund that part from your Stripe dashboard; the app records it automatically.` } : {}) });
   }
 
-  // ── POS / standalone transaction refund ─────────────────────────────────────
-  const { data: tx } = await supabaseAdmin
-    .from("transactions").select("id, shop_id, payment_intent_id, refunded, amount, tax, tip, service_name, client_name, barber_id, created_at").eq("id", transaction_id!).single();
-  if (!tx) return NextResponse.json({ error: "Transaction not found" }, { status: 404 });
-
-  const { data: shop } = await supabaseAdmin
-    .from("shops").select("id, owner_id, stripe_account_id").eq("id", tx.shop_id).single();
+  // ── POS / standalone sale, cash sale, or gift-card sale ─────────────────────
+  const { data: txRow } = await supabaseAdmin.from("transactions")
+    .select("id, shop_id, source, payment_method, payment_intent_id, refunded, amount, tax, tip, service_name, client_name, barber_id, created_at, appointment_id")
+    .eq("id", transaction_id!).single();
+  if (!txRow) return NextResponse.json({ error: "Transaction not found" }, { status: 404 });
+  const tx = txRow as PlanTx & { shop_id: string; client_name: string | null; barber_id: string | null; created_at: string | null };
+  const { data: shopRow } = await supabaseAdmin.from("shops").select(shopCols).eq("id", tx.shop_id).single();
+  const shop = shopRow as Shop | null;
   if (!shop || shop.owner_id !== user.id) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  if (tx.refunded) return NextResponse.json({ error: "Already refunded." }, { status: 400 });
-  if (!tx.payment_intent_id || !shop.stripe_account_id) {
-    return NextResponse.json({ error: "No card charge to refund (e.g. cash). Refund it in person." }, { status: 400 });
+  if (tx.source === "refund") return NextResponse.json({ error: "That's a refund record." }, { status: 400 });
+
+  // A gift-card sale refunds only the value still unused on the card, then voids it.
+  const giftSale = tx.source === "gift_card_sale";
+  type GiftCardRow = { id: string; code: string; remaining_value: number | null; initial_value: number | null };
+  let card: GiftCardRow | null = null;
+  if (giftSale) {
+    const code = giftSaleCode(tx);
+    if (code) {
+      const { data } = await supabaseAdmin.from("gift_cards").select("id, code, remaining_value, initial_value")
+        .eq("shop_id", tx.shop_id).eq("code", code).maybeSingle();
+      card = (data as GiftCardRow | null) ?? null;
+    }
+    if (!card) return NextResponse.json({ error: "Couldn't find the gift card this sale sold." }, { status: 404 });
+  }
+  const remainingCents = card ? Math.round(Number(card.remaining_value ?? 0) * 100) : undefined;
+  const draft = planTransactionRefund(tx, new Set(), remainingCents);
+  const done = await doneKeysFor([draft.key], draft.paymentIntentId ? [draft.paymentIntentId] : []);
+  const part = planTransactionRefund(tx, done, remainingCents);
+
+  if (preview) {
+    return NextResponse.json({ ok: true, parts: [partView(part)], giftCard: card ? { code: card.code, remainingCents, initialCents: Math.round(Number(card.initial_value ?? 0) * 100) } : null, alreadyRefunded: part.done });
+  }
+  if (part.done) return NextResponse.json({ error: "Already refunded." }, { status: 400 });
+  if (part.blocked) return NextResponse.json({ error: part.blocked }, { status: 400 });
+  if (part.kind === "card" && !shop.stripe_account_id) return NextResponse.json({ error: "This shop's Stripe account isn't connected." }, { status: 400 });
+
+  let cents = part.cents;
+  if (giftSale) {
+    // Lock the card at $0 + void it FIRST (one step) — so the balance can't be
+    // spent or refunded twice while the money goes back.
+    const { data: r, error } = await supabaseAdmin.rpc("gift_refund_sale", {
+      p_shop_id: tx.shop_id, p_gift_card_id: card!.id, p_note: "Gift card sale refunded", p_user_id: user.id,
+    });
+    if (error) return NextResponse.json({ error: "Couldn't update the gift card." }, { status: 500 });
+    const row = (Array.isArray(r) ? r[0] : r) as { refunded?: number; status?: string } | null;
+    cents = Math.round(Number(row?.refunded ?? 0) * 100);
+    if (cents <= 0) return NextResponse.json({ error: "Nothing left on this gift card to refund — it's been used." }, { status: 400 });
+  } else if (part.kind === "cash") {
+    // Claim the sale (one winner) so a double tap records one cash refund.
+    const { data: claimed } = await supabaseAdmin.from("transactions").update({ refunded: true })
+      .eq("id", tx.id).eq("refunded", false).select("id");
+    if (!claimed?.length) return NextResponse.json({ error: "Already refunded." }, { status: 400 });
   }
 
-  // Fallback = what was collected (amount + tax + tip), same as the split below.
-  let refundedCents = Math.round((tx.amount ?? 0) * 100) + Math.round((tx.tax ?? 0) * 100) + Math.round((tx.tip ?? 0) * 100);
-  try {
-    const refund = await stripe.refunds.create(
-      { payment_intent: tx.payment_intent_id },
-      { stripeAccount: shop.stripe_account_id, idempotencyKey: `refund-tx-${tx.payment_intent_id}` },
-    );
-    if (typeof refund.amount === "number") refundedCents = refund.amount;
-  } catch (err) {
-    if (!isAlreadyRefunded(err)) {
+  if (part.kind === "card") {
+    try {
+      // A gift card never used refunds its whole charge; a part-used one only what's left.
+      const saleCents = Math.round(((tx.amount ?? 0) + (tx.tax ?? 0) + (tx.tip ?? 0)) * 100);
+      const full = !giftSale || cents >= saleCents;
+      const got = await refundCard(part.paymentIntentId!, shop.stripe_account_id!, giftSale ? `refund-gift-${part.paymentIntentId}-${cents}` : `refund-tx-${part.paymentIntentId}`, full ? undefined : cents);
+      if (got === "released") throw new Error("This sale was never charged — nothing to refund.");
+      if (got > 0) cents = got;
+    } catch (err) {
+      // Nothing went back — put the gift card's balance back as it was.
+      if (giftSale) {
+        await supabaseAdmin.rpc("gift_adjust_manual", {
+          p_shop_id: tx.shop_id, p_gift_card_id: card!.id, p_delta: cents / 100, p_note: "Refund failed — balance put back", p_user_id: user.id,
+        }).then(null, () => null);
+      }
       return NextResponse.json({ error: err instanceof Error ? err.message : "Refund failed" }, { status: 500 });
     }
+    await supabaseAdmin.from("transactions").update({ refunded: true }).eq("id", tx.id);
   }
-  await supabaseAdmin.from("transactions").update({ refunded: true }).eq("id", tx.id);
+  if (giftSale && part.kind === "cash") await supabaseAdmin.from("transactions").update({ refunded: true }).eq("id", tx.id);
 
-  // If this tx is a no-show fee (or any charge) tied to an appointment via its
-  // PaymentIntent, flip that appointment's payment_status to "refunded" too — the
-  // tx-only flag left served/no-show appointments reading "captured", so anything
-  // that reads the appointment directly still looked collected. Served rows keep
-  // their status (the slot was used); only the money state changes.
-  await supabaseAdmin.from("appointments")
-    .update({ payment_status: "refunded" })
-    .eq("payment_intent_id", tx.payment_intent_id)
-    .neq("payment_status", "refunded")
-    .in("status", ["completed", "no-show"])
-    .then(null, () => null);
-
-  // Dated refund record for the audit trail + GST/HST claim-back (M6). Split by the
-  // POS row's own service / tax / tip.
-  {
-    const chargeCents = Math.round((tx.amount ?? 0) * 100) + Math.round((tx.tax ?? 0) * 100) + Math.round((tx.tip ?? 0) * 100);
-    const taxPart = chargeCents > 0 ? Math.round(refundedCents * (Math.round((tx.tax ?? 0) * 100) / chargeCents)) : 0;
-    const tipPart = chargeCents > 0 ? Math.round(refundedCents * (Math.round((tx.tip ?? 0) * 100) / chargeCents)) : 0;
-    await recordRefundLedger({
-      shopId: tx.shop_id, barberId: tx.barber_id, clientName: tx.client_name,
-      serviceName: (tx.service_name as string | null) ?? null,
-      refundedCents, taxCents: taxPart, tipCents: tipPart,
-      paymentIntentId: tx.payment_intent_id,
-    });
+  // A no-show fee (or any charge) on a booking: the booking's money is refunded too.
+  if (part.paymentIntentId) {
+    await supabaseAdmin.from("appointments").update({ payment_status: "refunded" })
+      .eq("payment_intent_id", part.paymentIntentId).neq("payment_status", "refunded").in("status", ["completed", "no-show"])
+      .then(null, () => null);
   }
+
+  const split = scaleSplit(part, cents);
+  await recordRefundLedger({
+    shopId: tx.shop_id, barberId: tx.barber_id, clientName: tx.client_name, serviceName: tx.service_name ?? null,
+    refundedCents: cents, taxCents: split.taxCents, tipCents: split.tipCents,
+    appointmentId: tx.appointment_id ?? null, paymentIntentId: part.paymentIntentId, method: part.kind,
+    dedupeKey: part.paymentIntentId ? null : part.key,
+  });
 
   notifyRefundIssued({
-    ownerId: shop.owner_id,
-    barberId: tx.barber_id,
-    shopId: tx.shop_id,
-    clientName: tx.client_name,
-    amountCents: refundedCents,
-    date: typeof tx.created_at === "string" ? tx.created_at.slice(0, 10) : null,
+    ownerId: shop.owner_id, barberId: tx.barber_id, shopId: tx.shop_id, clientName: tx.client_name,
+    amountCents: cents, date: typeof tx.created_at === "string" ? tx.created_at.slice(0, 10) : null,
+    returnedTo: part.kind === "cash" ? "in cash" : "to their card",
   });
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, refundedCents: cents, giftCardVoided: giftSale || undefined });
 }

@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { effectivePlan, isPaidPlan } from "@/lib/validation";
 import { FeatureLock } from "@/components/dashboard/feature-lock";
-import { collectedTotals, countablePosTxs, isNoShowTx, isPaid, isRefundRow, isSale, type RevAppt, type RevTx, type ByPi } from "@/lib/revenue";
+import { collectedTotals, countablePosTxs, isNoShowTx, isPaid, isRefundRow, isSale, refundServiceKey, type RevAppt, type RevTx, type ByPi } from "@/lib/revenue";
 import { evidenceView, loadLinkedEvidence, type EvidenceSnapshot } from "@/lib/revenue-evidence";
 import { analyticsPeriod, analyticsRevenueBuckets, analyticsFeesKnown, timestampInPeriod, topServicesWithOther } from "@/lib/analytics-period";
 import { readAllRows } from "@/lib/read-all-rows";
@@ -294,7 +294,7 @@ export default function AnalyticsPage() {
     // A refund comes off its service on the refund's day ("Refund — Skin Fade" → "Skin Fade").
     for (const t of filteredTx as RevTx[]) {
       if (!isRefundRow(t) || isNoShowEarning(t)) continue;
-      const key = (t.service_name ?? "").replace(/^Refund\s*—\s*/, "").replace(/\s*\(refund date not recorded; dated at sale\)$/, "") || "Sale";
+      const key = refundServiceKey(t.service_name) || "Sale";
       map[key] = (map[key] ?? 0) - Math.abs(t.amount ?? 0);
     }
     // A refund-heavy period can leave a service ≤ 0 — the mix chart shows what sold.
