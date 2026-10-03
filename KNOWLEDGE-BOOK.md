@@ -401,7 +401,9 @@ require Connect unconditionally** (even in test).
   voids the card; balance put back if Stripe fails). Each part writes its own refund record
   (`recordRefundLedger` with `method` card|cash|gift_card + a `dedupeKey` for non-card parts);
   a `gift_card` refund record moves no money — it only reverses its tax/tip share
-  (`isGiftRefundRow`), and the barber's own ledger skips it (`isBarberLedgerRow`).
+  (`isGiftRefundRow`). Since phase76 a gift-paid visit has a barber earnings line
+  (`completion` / `gift_card`, written by the DB trigger) and the gift refund record takes
+  that cut back in the barber's own ledger too; neither line is ever shop money.
 - **Connect/onboarding**: `connect` (create/resume Express account), `connect/status`
   (`active = charges_enabled && payouts_enabled`, self-heals `stripe_connected`),
   `dashboard-link` (Express login link).

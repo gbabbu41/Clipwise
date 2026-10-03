@@ -364,10 +364,10 @@ export async function POST(request: NextRequest) {
       await supabaseAdmin.from("appointments").delete().eq("id", inserted.data.id);
       return NextResponse.json({ error: "Your gift card no longer covers this booking. Please check its balance and try again." }, { status: 409 });
     }
-    // Paid status + WHEN it was paid go together (must stick, so reports date it
-    // today); the rest are best-effort follow-ups for lagging columns.
-    await supabaseAdmin.from("appointments")
-      .update({ total_amount: gross, payment_status: "paid", paid_at: new Date().toISOString() }).eq("id", inserted.data.id);
+    // Best-effort follow-ups for lagging columns FIRST, then paid status + WHEN it
+    // was paid together (must stick, so reports date it today). Paid goes last:
+    // the database writes the barber's gift-card earnings line the moment the
+    // booking turns paid (phase76), and it splits tax / tip from these columns.
     await supabaseAdmin.from("appointments")
       .update({ tax_amount: taxAmt }).eq("id", inserted.data.id).then(null, () => null);
     await supabaseAdmin.from("appointments")
@@ -375,6 +375,8 @@ export async function POST(request: NextRequest) {
     // How much gift value paid for it, so revenue counts it once (at sale), not again here.
     await supabaseAdmin.from("appointments")
       .update({ gift_applied: gift.applied }).eq("id", inserted.data.id).then(null, () => null);
+    await supabaseAdmin.from("appointments")
+      .update({ total_amount: gross, payment_status: "paid", paid_at: new Date().toISOString() }).eq("id", inserted.data.id);
     giftPaid = { applied: gift.applied, remaining: gift.balance, gross };
   }
 

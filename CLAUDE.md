@@ -123,7 +123,8 @@ never against a stale checkbox in TODO.md or a migration file header.
   trigger also fires on `payment_status`) and phase74 (refund rows for legacy refunds, dated at the
   sale) are **applied on prod** (2026-10-02). phase75 (refund engine: a refunded visit puts its
   gift-card value back; `transactions.payment_method` allows `gift_card`; `gift_refund_sale`)
-  is **applied on prod** (2026-10-03).
+  is **applied on prod** (2026-10-03). phase76 (barber earnings line for gift-card visits +
+  its take-back on cancel/refund, written by the appointments trigger) — see status in the PR.
 - If a feature "silently does nothing," still capture the supabase `error` (don't only
   read `data`) — but the cause is far more likely code/config than a missing column now.
 
@@ -187,6 +188,13 @@ never against a stale checkbox in TODO.md or a migration file header.
   `re_…` id, `stripeRefundId` in `recordRefundLedger`): refunds made in the Stripe dashboard —
   including PARTIAL ones — are imported one by one with their own date (`lib/refund-import.ts`).
   A partial refund keeps the visit "paid"; only a full refund flips it to refunded.
+- **Gift-card visits pay the barber (owner decision 2026-10-03):** when a visit is paid by gift
+  card, the DATABASE writes the barber's earnings line (`source='completion'`,
+  `payment_method='gift_card'`, the gift part's service/tax/tip — phase76 `gift_earning_sync`) and,
+  on cancel/refund, its take-back line (same id as the refund engine's gift part). These lines are
+  the barber's earnings ONLY — **never shop money** (the card's value counted when it was SOLD):
+  `collectedTotals`, the Payments tip feed and admin GMV skip `payment_method='gift_card'` lines.
+  Any new reader of completion rows must skip them too.
 - **Stripe Connect:** charges run on each shop's **connected account** (shop = merchant
   of record, 0% platform fee). The Stripe **webhook must listen to connected-account
   events** or `payment_status` never flips to paid. The platform-charge fallback for

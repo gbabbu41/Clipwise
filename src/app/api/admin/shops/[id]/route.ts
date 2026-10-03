@@ -19,19 +19,21 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
   const [{ data: barbers }, { data: txAll }, { count: apptCount }, { data: recentTx }, { data: meta }, plans] = await Promise.all([
     supabaseAdmin.from("barbers").select("id, name, is_active, rating, total_reviews").eq("shop_id", id).order("created_at", { ascending: true }),
-    supabaseAdmin.from("transactions").select("amount").eq("shop_id", id).or("source.is.null,source.neq.refund"), // refund records are audit-only, never GMV
+    supabaseAdmin.from("transactions").select("amount, payment_method").eq("shop_id", id).or("source.is.null,source.neq.refund"), // refund records are audit-only, never GMV
     supabaseAdmin.from("appointments").select("id", { count: "exact", head: true }).eq("shop_id", id),
     supabaseAdmin.from("transactions").select("id, amount, tip, payment_method, type, client_name, service_name, created_at").eq("shop_id", id).order("created_at", { ascending: false }).limit(10),
     supabaseAdmin.from("shop_admin_meta").select("note, updated_at").eq("shop_id", id).maybeSingle(),
     getPlans(),
   ]);
 
-  const gmv = (txAll ?? []).reduce((s: number, t: { amount: number }) => s + (Number(t.amount) || 0), 0);
+  // Gift-card earnings lines aren't new money — the card's value was counted when it was sold.
+  const gmvTx = (txAll ?? []).filter(t => t.payment_method !== "gift_card");
+  const gmv = gmvTx.reduce((s: number, t: { amount: number }) => s + (Number(t.amount) || 0), 0);
 
   return NextResponse.json({
     shop,
     barbers: barbers ?? [],
-    stats: { gmv, txCount: (txAll ?? []).length, apptCount: apptCount ?? 0 },
+    stats: { gmv, txCount: gmvTx.length, apptCount: apptCount ?? 0 },
     recentTransactions: recentTx ?? [],
     adminNote: meta?.note ?? "",
     plans: (plans ?? []).map(p => ({ id: p.id, name: p.name, price_cents: p.price_cents, is_active: p.is_active })),

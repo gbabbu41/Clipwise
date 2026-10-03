@@ -310,6 +310,7 @@ export function collectedTotals(appts: RevAppt[], txs: RevTx[], byPi?: ByPi, own
   // appointment's net, so we skip it here to avoid double-counting.
   for (const t of txs) {
     if (t.source !== "completion") continue;
+    if (t.payment_method === "gift_card") continue;   // a gift-card visit's earnings line — its value was counted when the card was sold
     const tip = t.tip ?? 0;
     if (tip <= 0) continue;
     const pi = t.payment_intent_id ?? null;
