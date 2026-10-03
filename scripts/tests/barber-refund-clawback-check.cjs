@@ -31,15 +31,14 @@ assert.equal(refundClawback(nsRefund, 50), 0);
 assert.equal(computeBarberEarnings([nsRefund], 50).youKeep, 0);
 // A sale is never mistaken for a refund.
 assert.equal(refundClawback(sale, 50), 0);
-// Split refund (phase75): a gift-paid visit wrote no earnings row in the barber's
-// own ledger, so its gift-card refund part takes nothing back THERE (the card part
-// still does). Shop-wide commission counts gift visits from the appointment, so it
-// takes every part back (refundClawback stays on for any refund row).
+// Split refund: since phase76 a gift-paid visit HAS its earnings line in the
+// barber's own ledger, so its gift-card refund part takes that cut back there too
+// (like the card part). Shop-wide commission takes every part back as well.
 const giftPart = { amount: -20, tip: 0, source: 'refund', payment_method: 'gift_card', service_name: 'Refund — Skin Fade (back on gift card)' };
 const cardPart = { amount: -15, tip: -5, source: 'refund', payment_method: 'card', service_name: 'Refund — Skin Fade (balance · card)' };
-assert.equal(isBarberLedgerRow(giftPart), false); assert.equal(isBarberLedgerRow(cardPart), true); assert.equal(isBarberLedgerRow(sale), true);
+assert.equal(isBarberLedgerRow(giftPart), true); assert.equal(isBarberLedgerRow(cardPart), true); assert.equal(isBarberLedgerRow(sale), true);
 assert.equal(isBarberLedgerRow(nsRefund), false, 'no-show fees stay out too');
-assert.equal(c(computeBarberEarnings([giftPart, cardPart], 50).youKeep), -12.5, 'portal: only the card part comes back');
+assert.equal(c(computeBarberEarnings([giftPart, cardPart], 50).youKeep), -22.5, 'portal: both parts come back (gift $10 cut + card $7.50 cut + $5 tip)');
 assert.equal(refundClawback(giftPart, 50), 10, 'shop-wide: the gift part comes back too');
 
 // Every screen uses the same take-back.

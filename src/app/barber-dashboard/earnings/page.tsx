@@ -238,7 +238,7 @@ export default function BarberPaymentsPage() {
   const inWindow = (t: Tx) => { const ms = new Date(t.created_at).getTime(); return ms >= activePeriod.from && ms <= activePeriod.to; };
   const windowTxs = [...txs].filter(inWindow).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   const feedTxs = windowTxs.filter(t =>
-    txFilter === "all" ? true : txFilter === "card" ? t.payment_method !== "cash" : txFilter === "cash" ? t.payment_method === "cash" : false);
+    txFilter === "all" ? true : txFilter === "card" ? t.payment_method !== "cash" && t.payment_method !== "gift_card" : txFilter === "cash" ? t.payment_method === "cash" : false);
 
   const dayStart = (ts: number) => { const d = new Date(ts); d.setHours(0, 0, 0, 0); return d.getTime(); };
   const todayStart = (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); })();
@@ -427,7 +427,7 @@ export default function BarberPaymentsPage() {
                     <div className="cwp-rright">
                       <div className={cn("cwp-a", isRefundTx(t) ? "" : "cwp-apos")}>{isRefundTx(t) ? `−${formatCurrency(Math.abs(earnedOf(t)))}` : formatCurrency(earnedOf(t))}</div>
                       <div className="cwp-m">
-                        <span className="cwp-method">{isRefundTx(t) ? "Refund" : cash ? "Cash" : "Card"}</span>
+                        <span className="cwp-method">{isRefundTx(t) ? "Refund" : cash ? "Cash" : t.payment_method === "gift_card" ? "Gift card" : "Card"}</span>
                         {/* No card-fee line in the barber portal — the shop bears
                             the fee (it shows on the shop's Payments layer). */}
                       </div>

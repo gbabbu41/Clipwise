@@ -11,12 +11,15 @@ export async function GET(req: NextRequest) {
 
   const [{ data: shops }, { data: transactions }, { data: appointments }, { count: userCount }] = await Promise.all([
     supabaseAdmin.from("shops").select("*, users(name, email)").order("created_at", { ascending: false }),
-    supabaseAdmin.from("transactions").select("amount").or("source.is.null,source.neq.refund"), // refund records are audit-only, never GMV
+    supabaseAdmin.from("transactions").select("amount, payment_method").or("source.is.null,source.neq.refund"), // refund records are audit-only, never GMV
     supabaseAdmin.from("appointments").select("id"),
     supabaseAdmin.from("users").select("id", { count: "exact", head: true }),
   ]);
 
-  return NextResponse.json({ shops: shops ?? [], transactions: transactions ?? [], appointments: appointments ?? [], userCount: userCount ?? 0 });
+  // Gift-card earnings lines aren't new money — the card's value was counted when it was sold.
+  const gmvTx = (transactions ?? []).filter(t => t.payment_method !== "gift_card");
+
+  return NextResponse.json({ shops: shops ?? [], transactions: gmvTx, appointments: appointments ?? [], userCount: userCount ?? 0 });
 }
 
 export async function PATCH(req: NextRequest) {

@@ -485,7 +485,7 @@ export default function PaymentsPage() {
     // Stripe on its OWN intent — surface it as its own line so the owner sees it.
     // Skip booking tips (pi shares a paid appointment's intent → already counted).
     ...txs
-      .filter(t => t.source === "completion" && (t.tip ?? 0) > 0
+      .filter(t => t.source === "completion" && (t.tip ?? 0) > 0 && t.payment_method !== "gift_card"
         && !(t.payment_intent_id && apptPiSet.has(t.payment_intent_id)))
       .map((t): FeedItem => ({
         key: `tip${t.id}`, name: t.client_name || "Client",
@@ -653,7 +653,7 @@ export default function PaymentsPage() {
     key: `be${t.id}`, name: t.client_name || "Client",
     sub: t.service_name || "Service",
     amount: barberRowCut(t, selPct, selIsOwner), tax: 0,
-    statusLabel: isRefundTx(t) ? "Refund · cut taken back" : t.payment_method === "cash" ? "Paid · Cash" : "Paid · Card",
+    statusLabel: isRefundTx(t) ? "Refund · cut taken back" : t.payment_method === "cash" ? "Paid · Cash" : t.payment_method === "gift_card" ? "Paid · Gift card" : "Paid · Card",
     tone: isRefundTx(t) ? "muted" : "good", settled: true, tsIso: t.created_at, ts: t.ts,
     pi: t.payment_intent_id ?? null, method: t.payment_method, refunded: isRefundTx(t), earn: true,
   }));

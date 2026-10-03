@@ -221,10 +221,13 @@ export async function POST(request: NextRequest) {
       .update(served ? { payment_status: "refunded" } : { status: "cancelled", payment_status: "refunded" })
       .eq("id", appt.id).in("payment_status", ["paid", "captured"]);
 
-    // 3. Cash handed back + gift value put back: their dated records.
+    // 3. Cash handed back + gift value put back: their dated records. The gift
+    //    part's record is normally written by the database the moment the visit
+    //    turned refunded (phase76, same id — it also takes the barber's gift-card
+    //    cut back), so "already" is the expected answer there; this is the backstop.
     for (const p of pending.filter(x => x.kind !== "card")) {
       const res = await recordPart(p, p.cents);
-      if (res === "recorded") back.push({ kind: p.kind, cents: p.cents });
+      if (res === "recorded" || (p.kind === "gift_card" && res === "already")) back.push({ kind: p.kind, cents: p.cents });
     }
 
     if (!served) await notifyWaitlistForSlot({ shop_id: appt.shop_id, date: appt.date, barber_id: appt.barber_id }).catch(() => null);

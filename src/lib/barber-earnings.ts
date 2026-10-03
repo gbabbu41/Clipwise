@@ -39,13 +39,13 @@ export const isRefundTx = (t: { source?: string | null }) => t.source === "refun
 /** No-show penalty fees (and their refunds) are shop income, never a barber's cut. */
 export const isNoShowEarning = (t: { source?: string | null; service_name?: string | null }) =>
   t.source === "no_show" || /no-show fee/i.test(t.service_name ?? "");
-/** Rows that never belong in a barber's OWN earnings ledger (portal + Payments
- *  filtered to a barber): no-show fees, and the gift-card part of a refund — a
- *  gift-paid visit writes no earnings row there, so its refund takes nothing back
- *  there either. (Shop-wide commission counts gift visits from the appointment
- *  and so DOES take the gift part back — see Dashboard / Analytics / Payroll.) */
+/** Rows that belong in a barber's OWN earnings ledger (portal + Payments filtered
+ *  to a barber): everything but no-show fees. A gift-card visit has its earnings
+ *  line (payment_method "gift_card", written by the database — phase76) and its
+ *  refund takes that cut back, exactly like a card visit. Those lines are the
+ *  barber's earnings only — never shop money (lib/revenue skips them). */
 export const isBarberLedgerRow = (t: { source?: string | null; service_name?: string | null; payment_method?: string | null }) =>
-  !isNoShowEarning(t) && !(isRefundTx(t) && t.payment_method === "gift_card");
+  !isNoShowEarning(t);
 
 /** Commission taken BACK by a refund row (a positive number to subtract). Same rule
  *  as the sale's cut: the stored cut when sane, else amount × pct; the owner's own
