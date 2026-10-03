@@ -7,7 +7,8 @@ import { recordRefundLedger, refundRecordId } from "@/lib/refund-ledger";
 import { logLedgerSaveFailure } from "@/lib/ledger-log";
 import { isAlreadyRefunded, refundOrReleaseHold } from "@/lib/stripe-refund";
 import { notifyWaitlistForSlot } from "@/lib/waitlist-notify-server";
-import { giftSaleCode, planAppointmentRefund, planTransactionRefund, scaleSplit, type PlanTx, type RefundPart } from "@/lib/refund-plan";
+import { giftSaleCode, planAppointmentRefund, planTransactionRefund, remainingPart, scaleSplit, type PlanTx, type RefundPart } from "@/lib/refund-plan";
+import { importChargeRefunds } from "@/lib/refund-import";
 
 /**
  * Refund a payment from the Payments page — every part back the way it came in
@@ -31,48 +32,66 @@ type Shop = { id: string; name: string | null; email: string | null; slug: strin
 const dollars = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 const howLabel: Record<RefundPart["kind"], string> = { card: "Card", cash: "Cash", gift_card: "Gift card" };
 
-/** Keys (of `parts`) that already have their refund record. Refund records are
- *  keyed by refundRecordId(key); older card ones are also found by charge id. */
-async function doneKeysFor(keys: string[], pis: string[]): Promise<Set<string>> {
-  const done = new Set<string>();
-  if (!keys.length) return done;
-  const byId = new Map(keys.map(k => [refundRecordId(k), k]));
-  const { data: rows } = await supabaseAdmin.from("transactions").select("id, payment_intent_id")
-    .eq("source", "refund").in("id", Array.from(byId.keys()));
-  for (const r of rows ?? []) { const k = byId.get(r.id as string); if (k) done.add(k); }
-  if (pis.length) {
-    const { data: legacy } = await supabaseAdmin.from("transactions").select("payment_intent_id")
-      .eq("source", "refund").in("payment_intent_id", pis);
-    for (const r of legacy ?? []) if (r.payment_intent_id) done.add(r.payment_intent_id as string);
+/** What's already refunded: non-card parts (cash / gift) by their record's id,
+ *  card charges by the sum of their refund records — a charge can be refunded in
+ *  several parts (some straight in Stripe), so only a FULL sum makes it done.
+ *  Chargeback records are not refunds. */
+async function refundedSoFar(keys: string[], pis: string[]): Promise<{ done: Set<string>; byPi: Map<string, number> }> {
+  const done = new Set<string>(), byPi = new Map<string, number>();
+  const plain = keys.filter(k => !pis.includes(k));
+  if (plain.length) {
+    const byId = new Map(plain.map(k => [refundRecordId(k), k]));
+    const { data: rows } = await supabaseAdmin.from("transactions").select("id")
+      .eq("source", "refund").in("id", Array.from(byId.keys()));
+    for (const r of rows ?? []) { const k = byId.get(r.id as string); if (k) done.add(k); }
   }
-  return done;
+  if (pis.length) {
+    const { data: rows } = await supabaseAdmin.from("transactions").select("payment_intent_id, amount, tax, tip, service_name")
+      .eq("source", "refund").in("payment_intent_id", pis);
+    for (const r of (rows ?? []) as { payment_intent_id: string | null; amount: unknown; tax: unknown; tip: unknown; service_name: unknown }[]) {
+      if (!r.payment_intent_id || /chargeback/i.test(String(r.service_name ?? ""))) continue;
+      const c = Math.abs(Math.round((Number(r.amount) || 0) * 100) + Math.round((Number(r.tax) || 0) * 100) + Math.round((Number(r.tip) || 0) * 100));
+      byPi.set(r.payment_intent_id, (byPi.get(r.payment_intent_id) ?? 0) + c);
+    }
+  }
+  return { done, byPi };
 }
+const applySoFar = (parts: RefundPart[], so: { done: Set<string>; byPi: Map<string, number> }) =>
+  parts.map(p => p.paymentIntentId ? remainingPart(p, so.byPi.get(p.paymentIntentId) ?? 0) : { ...p, done: p.done || so.done.has(p.key) });
 
-/** Refund one card charge (whole, or `amountCents` of it). Returns the cents
- *  Stripe actually returned (-1 = unknown, use the planned amount), or
- *  "released" when the card was only HELD — the hold is released, $0 moves.
- *  A charge Stripe already refunded counts as done. */
-async function refundCard(pi: string, acct: string, idempotencyKey: string, amountCents?: number): Promise<number | "released"> {
+type CardResult = { kind: "refunded"; cents: number; refundId: string | null } | { kind: "released" } | { kind: "synced"; cents: number };
+
+/** Refund one card charge (what's left of it, or `amountCents` of it). Returns
+ *  what Stripe returned + its refund id; "released" when the card was only HELD
+ *  (the hold is released, $0 moves); "synced" when Stripe had already refunded it
+ *  (e.g. in its dashboard) — then its refunds are imported one by one, by id, and
+ *  nothing more is recorded here. */
+async function refundCard(pi: string, acct: string, idempotencyKey: string, amountCents?: number): Promise<CardResult> {
   if (amountCents == null) {
     const r = await refundOrReleaseHold(pi, acct, idempotencyKey);
-    if (r.released) return "released";
-    if (r.refundedCents != null) return r.refundedCents;
+    if (r.released) return { kind: "released" };
+    if (r.refundedCents != null) return { kind: "refunded", cents: r.refundedCents, refundId: r.refundId ?? null };
   } else {
     try {
       const refund = await stripe.refunds.create({ payment_intent: pi, amount: amountCents }, { stripeAccount: acct, idempotencyKey });
-      if (typeof refund.amount === "number") return refund.amount;
+      if (typeof refund.amount === "number") return { kind: "refunded", cents: refund.amount, refundId: refund.id ?? null };
     } catch (err) {
       if (!isAlreadyRefunded(err)) throw err;
     }
   }
-  // Already refunded on Stripe — read what it returned off the charge.
+  // Already refunded on Stripe — bring its refunds in exactly (amounts + dates).
   try {
     const p = await stripe.paymentIntents.retrieve(pi, { expand: ["latest_charge"] }, { stripeAccount: acct });
-    const ch = p.latest_charge as { amount_refunded?: number } | string | null;
-    if (ch && typeof ch === "object" && typeof ch.amount_refunded === "number" && ch.amount_refunded > 0) return ch.amount_refunded;
-    if (typeof p.amount_received === "number" && p.amount_received > 0) return p.amount_received;
-  } catch { /* fall back to the planned amount */ }
-  return amountCents ?? -1;
+    const ch = p.latest_charge as { id?: string; amount_refunded?: number; refunded?: boolean } | string | null;
+    if (ch && typeof ch === "object" && ch.id) {
+      const res = await importChargeRefunds({
+        chargeId: ch.id, paymentIntentId: pi, account: acct, fullyRefunded: !!ch.refunded,
+        amountRefunded: ch.amount_refunded ?? 0, eventCreated: Math.floor(Date.now() / 1000),
+      });
+      return { kind: "synced", cents: res.recorded.reduce((s, r) => s + r.cents, 0) };
+    }
+  } catch { /* the charge.refunded webhook brings them in */ }
+  return { kind: "synced", cents: 0 };
 }
 
 const partView = (p: RefundPart) => ({ key: p.key, kind: p.kind, label: p.label, cents: p.cents, done: p.done, blocked: p.blocked ?? null });
@@ -132,8 +151,7 @@ export async function POST(request: NextRequest) {
     ]);
     const txs = Array.from(new Map([...(byAppt ?? []), ...(byPi ?? [])].map(t => [(t as PlanTx).id, t as PlanTx])).values());
     const draft = planAppointmentRefund(appt, txs);
-    const done = await doneKeysFor(draft.map(p => p.key), draft.flatMap(p => p.paymentIntentId ? [p.paymentIntentId] : []));
-    const parts = planAppointmentRefund(appt, txs, done);
+    const parts = applySoFar(draft, await refundedSoFar(draft.map(p => p.key), draft.flatMap(p => p.paymentIntentId ? [p.paymentIntentId] : [])));
     const pending = parts.filter(p => !p.done && p.cents > 0);
 
     if (preview) {
@@ -150,13 +168,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "This shop's Stripe account isn't connected — can't refund the card part." }, { status: 400 });
     }
 
-    const recordPart = async (p: RefundPart, cents: number) => {
+    const recordPart = async (p: RefundPart, cents: number, stripeRefundId: string | null = null) => {
       const split = scaleSplit(p, cents);
       const res = await recordRefundLedger({
         shopId: appt.shop_id, barberId: appt.barber_id, clientName: appt.client_name,
         serviceName: p.kind === "gift_card" ? `${serviceName ?? "Payment"} (back on gift card)` : p.label.startsWith("Card") ? serviceName : `${serviceName ?? "Payment"} (${p.label.toLowerCase()})`,
         refundedCents: cents, taxCents: split.taxCents, tipCents: split.tipCents,
         appointmentId: appt.id, paymentIntentId: p.paymentIntentId, method: p.kind, dedupeKey: p.paymentIntentId ? null : p.key,
+        stripeRefundId,
       });
       if (p.txIds.length) {
         const { error } = await supabaseAdmin.from("transactions").update({ refunded: true }).in("id", p.txIds).neq("source", "refund");
@@ -174,9 +193,14 @@ export async function POST(request: NextRequest) {
       try {
         const main = p.paymentIntentId === appt.payment_intent_id;
         const got = await refundCard(p.paymentIntentId!, shop.stripe_account_id!, `${main ? "refund-appt" : "refund-tx"}-${p.paymentIntentId}`);
-        if (got === "released") { releasedHold = true; continue; }
-        const cents = got < 0 ? p.cents : got;
-        if (cents > 0) { await recordPart(p, cents); back.push({ kind: "card", cents }); }
+        if (got.kind === "released") { releasedHold = true; continue; }
+        if (got.kind === "synced") {
+          // Stripe had already refunded it — its refunds were imported by id.
+          if (p.txIds.length) await supabaseAdmin.from("transactions").update({ refunded: true }).in("id", p.txIds).neq("source", "refund");
+          if (got.cents > 0) back.push({ kind: "card", cents: got.cents });
+          continue;
+        }
+        if (got.cents > 0) { await recordPart(p, got.cents, got.refundId); back.push({ kind: "card", cents: got.cents }); }
       } catch (err) {
         failure = `${p.label} ${dollars(p.cents)}: ${err instanceof Error ? err.message : "refund failed"}`;
         break;
@@ -255,8 +279,10 @@ export async function POST(request: NextRequest) {
   }
   const remainingCents = card ? Math.round(Number(card.remaining_value ?? 0) * 100) : undefined;
   const draft = planTransactionRefund(tx, new Set(), remainingCents);
-  const done = await doneKeysFor([draft.key], draft.paymentIntentId ? [draft.paymentIntentId] : []);
-  const part = planTransactionRefund(tx, done, remainingCents);
+  // A gift-card sale refunds what's unused on the card (locked below); any other
+  // sale refunds what's left of its charge (part may already be refunded in Stripe).
+  const part = giftSale ? draft
+    : applySoFar([draft], await refundedSoFar([draft.key], draft.paymentIntentId ? [draft.paymentIntentId] : []))[0];
 
   if (preview) {
     return NextResponse.json({ ok: true, parts: [partView(part)], giftCard: card ? { code: card.code, remainingCents, initialCents: Math.round(Number(card.initial_value ?? 0) * 100) } : null, alreadyRefunded: part.done });
@@ -266,6 +292,8 @@ export async function POST(request: NextRequest) {
   if (part.kind === "card" && !shop.stripe_account_id) return NextResponse.json({ error: "This shop's Stripe account isn't connected." }, { status: 400 });
 
   let cents = part.cents;
+  let stripeRefundId: string | null = null;
+  let synced = false;
   if (giftSale) {
     // Lock the card at $0 + void it FIRST (one step) — so the balance can't be
     // spent or refunded twice while the money goes back.
@@ -289,8 +317,9 @@ export async function POST(request: NextRequest) {
       const saleCents = Math.round(((tx.amount ?? 0) + (tx.tax ?? 0) + (tx.tip ?? 0)) * 100);
       const full = !giftSale || cents >= saleCents;
       const got = await refundCard(part.paymentIntentId!, shop.stripe_account_id!, giftSale ? `refund-gift-${part.paymentIntentId}-${cents}` : `refund-tx-${part.paymentIntentId}`, full ? undefined : cents);
-      if (got === "released") throw new Error("This sale was never charged — nothing to refund.");
-      if (got > 0) cents = got;
+      if (got.kind === "released") throw new Error("This sale was never charged — nothing to refund.");
+      if (got.kind === "synced") { synced = true; cents = got.cents; }
+      else if (got.cents > 0) { cents = got.cents; stripeRefundId = got.refundId; }
     } catch (err) {
       // Nothing went back — put the gift card's balance back as it was.
       if (giftSale) {
@@ -311,13 +340,16 @@ export async function POST(request: NextRequest) {
       .then(null, () => null);
   }
 
-  const split = scaleSplit(part, cents);
-  await recordRefundLedger({
-    shopId: tx.shop_id, barberId: tx.barber_id, clientName: tx.client_name, serviceName: tx.service_name ?? null,
-    refundedCents: cents, taxCents: split.taxCents, tipCents: split.tipCents,
-    appointmentId: tx.appointment_id ?? null, paymentIntentId: part.paymentIntentId, method: part.kind,
-    dedupeKey: part.paymentIntentId ? null : part.key,
-  });
+  // (Already refunded in Stripe → its refunds were imported by id; nothing more to record.)
+  if (!synced) {
+    const split = scaleSplit(part, cents);
+    await recordRefundLedger({
+      shopId: tx.shop_id, barberId: tx.barber_id, clientName: tx.client_name, serviceName: tx.service_name ?? null,
+      refundedCents: cents, taxCents: split.taxCents, tipCents: split.tipCents,
+      appointmentId: tx.appointment_id ?? null, paymentIntentId: part.paymentIntentId, method: part.kind,
+      dedupeKey: part.paymentIntentId ? null : part.key, stripeRefundId,
+    });
+  }
 
   notifyRefundIssued({
     ownerId: shop.owner_id, barberId: tx.barber_id, shopId: tx.shop_id, clientName: tx.client_name,

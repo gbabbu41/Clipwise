@@ -353,7 +353,7 @@ const post = body => new NextRequest('https://clipwise.ca/api', { method: 'POST'
     assert.equal(await recordRefundLedger({ ...refundArgs('pi_route'), clientName: 'C' }), 'already', 'webhook re-save');
     assert.equal((await refundRows('pi_route')).length, 1); assert.equal(refunds.length, 1);
     const hookSrc = fs.readFileSync(path.join(root, 'src/app/api/webhooks/stripe/route.ts'), 'utf8');
-    assert(/\.eq\("payment_intent_id", pi\)\.neq\("source", "refund"\)\.limit\(1\)\.maybeSingle\(\);\s*if \(rtx\?\.shop_id\)[\s\S]{0,900}recordRefundLedger\(/.test(hookSrc), 'charge.refunded re-saves from the sale row');
+    assert(/case "charge\.refunded": \{[\s\S]{0,600}importChargeRefunds\(/.test(hookSrc), 'charge.refunded re-saves each refund from the sale (refund-import-check proves it)');
 
     // Reports (owner rule 2026-10-02): the refunded sale still counts on its own day,
     // and its refund record is money out on the refund's day — together, zero.

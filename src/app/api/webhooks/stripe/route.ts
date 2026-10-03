@@ -10,6 +10,7 @@ import { recordTipFromCheckout } from "@/lib/finalize-tip";
 import { finalizeBookingFromSession } from "@/lib/finalize-booking-session";
 import { insertNotifications } from "@/lib/notify-server";
 import { recordRefundLedger } from "@/lib/refund-ledger";
+import { importChargeRefunds } from "@/lib/refund-import";
 import { ensurePlansHydrated } from "@/lib/plans-server";
 import { runServerCompletionEffects } from "@/lib/completion-server";
 import { getLocationLimit } from "@/lib/validation";
@@ -629,72 +630,35 @@ export async function POST(request: NextRequest) {
         break;
       }
       // ── Charge refunded (in-app Refund OR straight in the Stripe dashboard) ──
-      // Sync our records so the row greys out + drops from Collected, keeping us
-      // in step with Stripe's payout balance. Connect refunds arrive here too
-      // (same endpoint that gets account.updated). Full refunds only — a partial
-      // refund leaves the row as-is so we don't mislabel it.
+      // Fires for FULL and PARTIAL refunds. Every Stripe refund on the charge is
+      // recorded once (keyed by its id), with its own amount and its own date —
+      // lib/refund-import. Only a full refund marks the booking / sale refunded.
+      // Refunds made in-app already have their record, so they import nothing and
+      // alert nobody twice; refunds made in the Stripe dashboard alert here.
       case "charge.refunded": {
         const ch = event.data.object as Stripe.Charge;
         const pi = typeof ch.payment_intent === "string"
           ? ch.payment_intent
           : (ch.payment_intent?.id ?? null);
-        if (pi && ch.refunded) {
-          // Only rows this event actually flips (were not already refunded) get
-          // notified — so an in-app refund (which already set refunded + notified
-          // in the route) doesn't double-notify; only dashboard-initiated refunds
-          // land here fresh.
-          const { data: flipped } = await supabaseAdmin.from("appointments")
-            .update({ payment_status: "refunded" })
-            .eq("payment_intent_id", pi)
-            .neq("payment_status", "refunded")
-            .select("id, shop_id, barber_id, client_name, total_amount, tax_amount, tip_amount, date, services(name)")
-            .maybeSingle();
-          await supabaseAdmin.from("transactions")
-            .update({ refunded: true })
-            .eq("payment_intent_id", pi)
-            .neq("source", "refund")   // never flag the audit rows themselves
-            .then(null, () => null);
-          // The real amount handed back (partial or full) straight from Stripe.
-          const refundedCents = ch.amount_refunded ?? ch.amount ?? 0;
-          if (flipped) {
-            const { data: refShop } = await supabaseAdmin.from("shops").select("owner_id").eq("id", flipped.shop_id).maybeSingle();
+        if (pi) {
+          const res = await importChargeRefunds({
+            chargeId: ch.id, paymentIntentId: pi,
+            account: (event.account as string | undefined) ?? null,
+            fullyRefunded: !!ch.refunded, amountRefunded: ch.amount_refunded ?? 0,
+            eventCreated: event.created,
+          });
+          const newCents = res.recorded.reduce((s, r) => s + r.cents, 0);
+          const who = res.appointment ?? res.sale;
+          if (newCents > 0 && who?.shop_id) {
+            const { data: refShop } = await supabaseAdmin.from("shops").select("owner_id").eq("id", who.shop_id).maybeSingle();
             notifyRefundIssued({
               ownerId: refShop?.owner_id ?? null,
-              barberId: flipped.barber_id ?? null,
-              shopId: flipped.shop_id ?? null,
-              clientName: flipped.client_name,
-              amountCents: refundedCents,
-              date: flipped.date,
+              barberId: who.barber_id ?? null,
+              shopId: who.shop_id,
+              clientName: who.client_name,
+              amountCents: newCents,
+              date: res.appointment?.date ?? null,
             });
-            // Dated refund record (deduped in the helper, so an in-app refund that
-            // already wrote it is a no-op here).
-            const chargeCents = Math.round((flipped.total_amount ?? 0) * 100) + Math.round((flipped.tip_amount ?? 0) * 100);
-            const svcName = Array.isArray(flipped.services) ? (flipped.services[0]?.name ?? null) : ((flipped.services as { name?: string } | null)?.name ?? null);
-            await recordRefundLedger({
-              shopId: flipped.shop_id, barberId: flipped.barber_id, clientName: flipped.client_name,
-              serviceName: svcName,
-              refundedCents,
-              taxCents: chargeCents > 0 ? Math.round(refundedCents * (Math.round((flipped.tax_amount ?? 0) * 100) / chargeCents)) : 0,
-              tipCents: chargeCents > 0 ? Math.round(refundedCents * (Math.round((flipped.tip_amount ?? 0) * 100) / chargeCents)) : 0,
-              appointmentId: flipped.id, paymentIntentId: pi,
-            });
-          } else {
-            // POS / standalone charge refunded from the Stripe dashboard — record it
-            // from the matching transaction row (deduped by PI in the helper).
-            const { data: rtx } = await supabaseAdmin.from("transactions")
-              .select("shop_id, barber_id, client_name, service_name, amount, tax, tip")
-              .eq("payment_intent_id", pi).neq("source", "refund").limit(1).maybeSingle();
-            if (rtx?.shop_id) {
-              const chargeCents = Math.round((rtx.amount ?? 0) * 100) + Math.round((rtx.tax ?? 0) * 100) + Math.round((rtx.tip ?? 0) * 100);
-              await recordRefundLedger({
-                shopId: rtx.shop_id, barberId: rtx.barber_id, clientName: rtx.client_name,
-                serviceName: (rtx.service_name as string | null) ?? null,
-                refundedCents,
-                taxCents: chargeCents > 0 ? Math.round(refundedCents * (Math.round((rtx.tax ?? 0) * 100) / chargeCents)) : 0,
-                tipCents: chargeCents > 0 ? Math.round(refundedCents * (Math.round((rtx.tip ?? 0) * 100) / chargeCents)) : 0,
-                paymentIntentId: pi,
-              });
-            }
           }
         }
         break;
@@ -740,7 +704,7 @@ export async function POST(request: NextRequest) {
         // Reverse it the SAME way a refund does — flag the charge refunded (revenue +
         // commission drop, consistent with a refund) and write the dated refund /
         // GST-claim-back ledger row. An OPENED dispute (money only held) or a WON one
-        // (money returned) changes nothing. Deduped by the ledger's PI check.
+        // (money returned) changes nothing. One record per dispute (keyed by its id).
         if (status === "lost" && pi) {
           const lostCents = dispute.amount ?? 0;
           await supabaseAdmin.from("appointments")
@@ -761,7 +725,7 @@ export async function POST(request: NextRequest) {
               refundedCents: lostCents,
               taxCents: chargeCents > 0 ? Math.round(lostCents * (Math.round((dA.tax_amount ?? 0) * 100) / chargeCents)) : 0,
               tipCents: chargeCents > 0 ? Math.round(lostCents * (Math.round((dA.tip_amount ?? 0) * 100) / chargeCents)) : 0,
-              appointmentId: dA.id, paymentIntentId: pi,
+              appointmentId: dA.id, paymentIntentId: pi, dedupeKey: `dispute:${dispute.id}`,
             });
           } else {
             const { data: dTx } = await supabaseAdmin.from("transactions")
@@ -775,7 +739,7 @@ export async function POST(request: NextRequest) {
                 refundedCents: lostCents,
                 taxCents: chargeCents > 0 ? Math.round(lostCents * (Math.round((dTx.tax ?? 0) * 100) / chargeCents)) : 0,
                 tipCents: chargeCents > 0 ? Math.round(lostCents * (Math.round((dTx.tip ?? 0) * 100) / chargeCents)) : 0,
-                paymentIntentId: pi,
+                paymentIntentId: pi, dedupeKey: `dispute:${dispute.id}`,
               });
             }
           }

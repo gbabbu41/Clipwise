@@ -183,7 +183,10 @@ never against a stale checkbox in TODO.md or a migration file header.
   refund", gift card → back on the card, split payments part by part, gift-card sales refund the
   unused value and void the card. Store credit is NOT built (deferred). A `gift_card` refund
   record moves no money (only its tax/tip share comes back). Any new payment method must add its
-  part to the plan, or it can't be refunded.
+  part to the plan, or it can't be refunded. **One refund record per Stripe refund** (keyed by its
+  `re_…` id, `stripeRefundId` in `recordRefundLedger`): refunds made in the Stripe dashboard —
+  including PARTIAL ones — are imported one by one with their own date (`lib/refund-import.ts`).
+  A partial refund keeps the visit "paid"; only a full refund flips it to refunded.
 - **Stripe Connect:** charges run on each shop's **connected account** (shop = merchant
   of record, 0% platform fee). The Stripe **webhook must listen to connected-account
   events** or `payment_status` never flips to paid. The platform-charge fallback for

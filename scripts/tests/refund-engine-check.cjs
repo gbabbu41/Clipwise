@@ -61,6 +61,12 @@ const brief = ps => ps.map(p => `${p.kind}:${p.cents}`);
   assert.deepEqual([gs.cents, gs.taxCents, gs.label], [3000, 0, 'Gift card sale · Card']);
   assert.equal(plan.giftSaleCode({ service_name: 'Gift Card AB12-CD34' }), 'AB12-CD34');
   assert.equal(plan.giftSaleCode({ service_name: 'Skin Fade' }), null);
+  // Already partly refunded in Stripe ($10 of $45.25): only the rest is left, with its share of tax/tip.
+  const cardPart = plan.planAppointmentRefund({ id: 'a', payment_method: 'card', payment_intent_id: 'pi_a', total_amount: 40.25, tax_amount: 5.25, tip_amount: 5 }, [])[0];
+  const left = plan.remainingPart(cardPart, 1000);
+  assert.deepEqual([left.cents, left.done], [3525, false]); assert.deepEqual([left.taxCents, left.tipCents], [409, 390], 'tax + tip scaled to what is left');
+  assert.equal(plan.remainingPart(cardPart, 4525).done, true, 'fully refunded in Stripe → done');
+  assert.equal(plan.remainingPart(cardPart, 0), cardPart);
   // Stripe returned less than planned → tax/tip scale down with it.
   assert.deepEqual(plan.scaleSplit({ cents: 4525, taxCents: 525, tipCents: 500 }, 2000), { taxCents: 232, tipCents: 221 });
   assert.deepEqual(plan.scaleSplit({ cents: 4525, taxCents: 525, tipCents: 500 }, 4525), { taxCents: 525, tipCents: 500 });
@@ -141,7 +147,7 @@ const mocks = {
       return { released: false, refundedCents: await stripeRefund(pi, charged, key), alreadyRefunded: false };
     },
   },
-  '@/lib/refund-ledger': { refundRecordId: k => `rid:${k}`, recordRefundLedger: async a => { calls.ledger.push(a); const id = `rid:${a.paymentIntentId || a.dedupeKey}`; if (rows('transactions').some(r => r.id === id)) return 'already'; rows('transactions').push({ id, source: 'refund', payment_intent_id: a.paymentIntentId ?? null }); return 'recorded'; } },
+  '@/lib/refund-ledger': { refundRecordId: k => `rid:${k}`, recordRefundLedger: async a => { calls.ledger.push(a); const id = `rid:${a.stripeRefundId || a.dedupeKey || a.paymentIntentId}`; if (rows('transactions').some(r => r.id === id)) return 'already'; rows('transactions').push({ id, source: 'refund', payment_intent_id: a.paymentIntentId ?? null, amount: -a.refundedCents / 100, tax: 0, tip: 0 }); return 'recorded'; } },
   '@/lib/ledger-log': { logLedgerSaveFailure: async () => {} },
   '@/lib/payment-notify': { notifyRefundIssued: n => calls.notes.push(n) },
   '@/lib/waitlist-notify-server': { notifyWaitlistForSlot: async () => {} },
@@ -188,6 +194,10 @@ function seed() {
   assert.match(calls.notes[0].returnedTo, /\$20\.25 to their card, \$25\.00 on their gift card/);
   // Again → nothing left; no second Stripe call.
   r = await call({ appointment_id: 'split' }); assert.equal(r.status, 400); assert.equal(calls.stripe.length, 1);
+  // Balance charge already partly refunded in Stripe ($5): the app offers (and refunds) only the rest.
+  seed(); tables.transactions.push({ id: 'rid:re_dash', source: 'refund', payment_intent_id: 'pi_bal', amount: -5, tax: 0, tip: 0 });
+  r = await call({ appointment_id: 'split', preview: true });
+  assert.deepEqual(r.j.parts.map(p => `${p.label}:${p.cents}`), ['Balance · Card:1525', 'Gift card:2500']);
   // Card part fails → nothing changes (visit stays paid, no records, no gift restore).
   seed(); failStripe = 'pi_bal'; r = await call({ appointment_id: 'split' });
   assert.equal(r.status, 500); assert.equal(tables.appointments[0].payment_status, 'paid'); assert.equal(calls.ledger.length, 0);

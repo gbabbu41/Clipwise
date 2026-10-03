@@ -166,3 +166,14 @@ export function scaleSplit(part: Pick<RefundPart, "cents" | "taxCents" | "tipCen
   const taxCents = share(actualCents, part.cents, part.taxCents);
   return { taxCents, tipCents: Math.min(actualCents - taxCents, share(actualCents, part.cents, part.tipCents)) };
 }
+
+/** A card part already partly refunded (e.g. $10 of $40 refunded in the Stripe
+ *  dashboard): only the rest is left to refund, with its tax / tip share; fully
+ *  refunded → done. `soFarCents` = what this charge's refund records add up to. */
+export function remainingPart(part: RefundPart, soFarCents: number): RefundPart {
+  if (part.kind !== "card" || !part.paymentIntentId || soFarCents <= 0 || part.done) return part;
+  const left = part.cents - soFarCents;
+  if (left <= 0) return { ...part, done: true };
+  const split = scaleSplit(part, left);
+  return { ...part, cents: left, taxCents: split.taxCents, tipCents: split.tipCents };
+}
