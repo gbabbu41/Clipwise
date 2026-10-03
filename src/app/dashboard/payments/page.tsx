@@ -696,7 +696,10 @@ export default function PaymentsPage() {
     const count = cuts.length;
     const cutValue = cuts.reduce((s, i) => s + (i.method === "cash" ? counted(i) : lineGross(i)), 0);
     const data = earningsBuckets([...cardIn, ...cashIn].map(i => ({ ...i, created_at: new Date(i.ts).toISOString() })), from, to, monthly, netOf).map(d => ({ label: d.label, net: d.val }));
-    return { net, cash, gross, fees, feesKnown, tax, count, data, avg: count ? cutValue / count : 0 };
+    // Money handed back in this window (refund lines are already negative inside net/gross).
+    const refundsIn = [...cardIn, ...cashIn].filter(i => i.refundOut);
+    const refunds = refundsIn.reduce((s, i) => s + i.amount, 0);
+    return { net, cash, gross, fees, feesKnown, tax, count, data, avg: count ? cutValue / count : 0, refunds, refundCount: refundsIn.length };
   };
   // The extra window picked from the dropdown (overrides the shown card). null = pure swipe.
   const nowTs = Date.now();
@@ -727,14 +730,17 @@ export default function PaymentsPage() {
     commission: number; tips: number;        // barber-mode ledger
     fees: number; tax: number; cash: number; // shop-mode ledger
     count: number; avg: number; data: { label: string; net: number }[];
+    // Shop mode: `headline` = money that CAME IN (never pulled below zero by a
+    // refund); refunds are their own line and `net` = headline − refunds.
+    refunds: number; refundCount: number; net: number;
   };
   const mkCard = (from: number, to: number, monthly: boolean, label: string, range: string): PeriodCard => {
     if (barberMode) {
       const e = earnScope(from, to, monthly);
-      return { mode: "barber", label, range, headline: e.take, feesKnown: true, gross: e.take, commission: e.commission, tips: e.tips, fees: 0, tax: 0, cash: 0, count: e.count, avg: e.avg, data: e.data };
+      return { mode: "barber", label, range, headline: e.take, feesKnown: true, gross: e.take, commission: e.commission, tips: e.tips, fees: 0, tax: 0, cash: 0, count: e.count, avg: e.avg, data: e.data, refunds: 0, refundCount: 0, net: e.take };
     }
     const s = computeScope(from, to, monthly);
-    return { mode: "shop", label, range, headline: s.net + s.cash, feesKnown: s.feesKnown, gross: s.gross + s.cash, commission: 0, tips: 0, fees: s.fees, tax: s.tax, cash: s.cash, count: s.count, avg: s.avg, data: s.data };
+    return { mode: "shop", label, range, headline: s.net + s.cash + s.refunds, feesKnown: s.feesKnown, gross: s.gross + s.cash + s.refunds, commission: 0, tips: 0, fees: s.fees, tax: s.tax, cash: s.cash, count: s.count, avg: s.avg, data: s.data, refunds: s.refunds, refundCount: s.refundCount, net: s.net + s.cash };
   };
   const carouselWindows = [
     { label: "Today", range: fmtDay(nowTs), from: startOf("today"), to: nowTs, monthly: false },
@@ -957,6 +963,10 @@ export default function PaymentsPage() {
           {stripeRow}
           <div className="cwp-lrow cwp-ltotal"><span className="cwp-lk">Collected</span><span className="cwp-lv">{p.feesKnown ? "" : "≈ "}{formatCurrency(p.headline)}</span></div>
           {p.cash > 0 && <div className="cwp-lrow cwp-lsub"><span className="cwp-lk">incl. cash</span><span className="cwp-lv">{formatCurrency(p.cash)}</span></div>}
+          {p.refunds > 0 && <>
+            <div className="cwp-lrow"><span className="cwp-lk">− Refunds</span><span className="cwp-lv">−{formatCurrency(p.refunds)}</span></div>
+            <div className="cwp-lrow cwp-ltotal"><span className="cwp-lk">Net after refunds</span><span className="cwp-lv">{p.feesKnown ? "" : "≈ "}{formatCurrency(p.net)}</span></div>
+          </>}
         </> : null}
         <button type="button" className="cwp-more" aria-expanded={showDetails} onClick={() => setShowDetails(v => !v)}>
           {showDetails ? "Less" : "More"} <ChevronDown size={12} className={cn("transition-transform", showDetails && "rotate-180")} />
@@ -1019,10 +1029,11 @@ export default function PaymentsPage() {
             </div>
             <div className="cwp-caplbl">{cardCapLabel}</div>
             <div className="cwp-amt">{p.feesKnown ? "" : "≈ "}{formatCurrency(p.headline)}</div>
-            <div className={cn("cwp-sub", p.count === 0 && "cwp-flat")}>
+            <div className={cn("cwp-sub", p.count === 0 && p.refundCount === 0 && "cwp-flat")}>
               {p.count > 0 ? `${p.count} cut${p.count !== 1 ? "s" : ""}` : "No cuts in this period"}
+              {p.refundCount > 0 && ` · ${p.refundCount} refund${p.refundCount !== 1 ? "s" : ""} (−${formatCurrency(p.refunds)})`}
             </div>
-            {p.count > 0 && renderLedger(p)}
+            {(p.count > 0 || p.refundCount > 0) && renderLedger(p)}
           </div>
         ))}
         {/* Custom range card — last in the rail */}
@@ -1039,7 +1050,7 @@ export default function PaymentsPage() {
                 ? `${customLabel} · ${customCard.count} cut${customCard.count !== 1 ? "s" : ""}`
                 : customLabel}
             </div>
-            {customCard.count > 0 && renderLedger(customCard)}
+            {(customCard.count > 0 || customCard.refundCount > 0) && renderLedger(customCard)}
           </div>
         ) : (
           <div className="cwp-ecard cwp-ghost">

@@ -227,9 +227,11 @@ export default function AnalyticsPage() {
     // Not clamped: a refund window gives tips back (negative), which must offset.
     const paidOutTips = t.tips - t.ownerTips;
     const netRevenue = t.net - t.tax - paidOutTips - commission;
-    return { gross: t.gross, fees: t.fees, collected: t.net, tax: t.tax, tips: paidOutTips, totalTips: t.tips, commission, netRevenue };
+    // `sales` / `collected` = money that CAME IN (before refunds); refunds are their
+    // own line; `gross` / `net` stay after refunds (the statement totals).
+    return { gross: t.gross, sales: t.gross + t.refunds, fees: t.fees, collected: t.net + t.refunds, refunds: t.refunds, netAfterRefunds: t.net, tax: t.tax, tips: paidOutTips, totalTips: t.tips, commission, netRevenue };
   }, [revenueApptsInRange, filteredTx, byPi, barbers, shop?.owner_id, linkedEvidence]);
-  const totalRevenue = money.gross;
+  const totalRevenue = money.sales;   // gross sales that came in (refunds shown separately)
   const totalAppts = filteredAppts.length;
   const completedAppts = filteredAppts.filter(a => a.status === "completed").length;
   const noShows = filteredAppts.filter(a => a.status === "no-show").length;
@@ -303,7 +305,7 @@ export default function AnalyticsPage() {
   const topService = serviceRevenue[0];
 
   const kpis = [
-    { label: "Gross sales", value: formatCurrency(totalRevenue), sub: `before Stripe fees`, color: "text-foreground" },
+    { label: "Gross sales", value: formatCurrency(totalRevenue), sub: money.refunds > 0 ? `before fees · −${formatCurrency(money.refunds)} refunded` : `before Stripe fees`, color: "text-foreground" },
     { label: "Total Appointments", value: String(totalAppts), sub: `${completedAppts} completed`, color: "text-foreground" },
     { label: "Avg Ticket Size", value: formatCurrency(avgTicket), sub: "Per completed appt", color: "text-foreground" },
     { label: "No-Show Rate", value: `${noShowRate}%`, sub: "Excludes cancelled appointments", color: "text-orange-400" },
@@ -396,18 +398,22 @@ export default function AnalyticsPage() {
 
       {/* Money waterfall — Gross → fees → tax → tips → barber → what the shop keeps.
           Uses the same numbers as the Dashboard/Payments (Collected = gross − fees). */}
-      {dataReady && money.gross > 0 && (
+      {dataReady && (money.sales > 0 || money.refunds > 0) && (
         <Card>
           <CardHeader><CardTitle>Where the money goes</CardTitle></CardHeader>
           <CardContent>
             <div className="space-y-2 text-sm">
-              <div className="flex justify-between"><span className="text-grey">Gross sales</span><span className="font-mono tabular-nums text-foreground">{formatCurrency(money.gross)}</span></div>
+              <div className="flex justify-between"><span className="text-grey">Gross sales</span><span className="font-mono tabular-nums text-foreground">{formatCurrency(money.sales)}</span></div>
               <div className="flex justify-between"><span className="text-grey">− Stripe fees</span><span className="font-mono tabular-nums text-foreground">{feesKnown ? `−${formatCurrency(money.fees)}` : "Unavailable"}</span></div>
               <div className="flex justify-between border-t border-dashed border-border pt-2"><span className="text-grey">Collected <span className="text-grey-muted">(after Stripe fees)</span></span><span className="font-mono tabular-nums text-foreground">{feesKnown ? formatCurrency(money.collected) : "Unavailable"}</span></div>
-              <div className="flex justify-between"><span className="text-grey">− Sales tax <span className="text-grey-muted">(owed to gov&apos;t)</span></span><span className="font-mono tabular-nums text-foreground">−{formatCurrency(money.tax)}</span></div>
-              <div className="flex justify-between"><span className="text-grey">− Staff tips <span className="text-grey-muted">(excludes owner tips)</span></span><span className="font-mono tabular-nums text-foreground">−{formatCurrency(money.tips)}</span></div>
+              {money.refunds > 0 && <>
+                <div className="flex justify-between"><span className="text-grey">− Refunds</span><span className="font-mono tabular-nums text-foreground">−{formatCurrency(money.refunds)}</span></div>
+                <div className="flex justify-between border-t border-dashed border-border pt-2"><span className="text-grey">Net after refunds</span><span className="font-mono tabular-nums text-foreground">{feesKnown ? formatCurrency(money.netAfterRefunds) : "Unavailable"}</span></div>
+              </>}
+              <div className="flex justify-between"><span className="text-grey">{money.tax >= 0 ? "− Sales tax" : "+ Sales tax refunded"} <span className="text-grey-muted">(owed to gov&apos;t)</span></span><span className="font-mono tabular-nums text-foreground">{money.tax >= 0 ? "−" : "+"}{formatCurrency(Math.abs(money.tax))}</span></div>
+              <div className="flex justify-between"><span className="text-grey">− Staff tips <span className="text-grey-muted">(excludes owner tips)</span></span><span className="font-mono tabular-nums text-foreground">{money.tips >= 0 ? "−" : "+"}{formatCurrency(Math.abs(money.tips))}</span></div>
               <div className="flex justify-between"><span className="text-grey">− Barber commission</span><span className="font-mono tabular-nums text-foreground">−{formatCurrency(money.commission)}</span></div>
-              <div className="flex justify-between border-t border-border pt-2"><span className="text-foreground font-semibold">Net revenue <span className="text-grey-muted font-normal">(you keep)</span></span><span className="font-mono tabular-nums font-bold text-emerald-400 text-base">{feesKnown ? formatCurrency(money.netRevenue) : "Unavailable"}</span></div>
+              <div className="flex justify-between border-t border-border pt-2"><span className="text-foreground font-semibold">Net revenue <span className="text-grey-muted font-normal">(you keep)</span></span><span className={`font-mono tabular-nums font-bold text-base ${money.netRevenue < 0 ? "text-red-400" : "text-emerald-400"}`}>{feesKnown ? formatCurrency(money.netRevenue) : "Unavailable"}</span></div>
             </div>
             {!feesKnown && <p role="status" className="text-xs text-grey mt-3">Stripe fee details are still missing for some payments. Fees and net totals will appear when available. <button className="underline" onClick={() => void loadData()}>Retry</button></p>}
             <p className="text-[11px] text-grey mt-3 leading-relaxed">
@@ -422,7 +428,7 @@ export default function AnalyticsPage() {
         <Card>
           <CardHeader><CardTitle>Gross Sales Over Time</CardTitle></CardHeader>
           <CardContent>
-            <p className="text-xs text-grey mb-3">{formatCurrency(money.gross)} CAD collected in this period, including tax and tips. Payment dates use your browser&apos;s local time; bookings without a payment timestamp use their creation time.</p>
+            <p className="text-xs text-grey mb-3">{formatCurrency(money.sales)} CAD collected in this period, including tax and tips{money.refunds > 0 ? `, and ${formatCurrency(money.refunds)} refunded (shown as negative on the day it went back)` : ""}. Payment dates use your browser&apos;s local time; bookings without a payment timestamp use their creation time.</p>
             <ResponsiveContainer width="100%" height={220}>
               <LineChart accessibilityLayer data={revenueByDay} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
@@ -437,7 +443,7 @@ export default function AnalyticsPage() {
         </Card>
       )}
 
-      {dataReady && money.gross === 0 && (
+      {dataReady && money.sales === 0 && money.refunds === 0 && (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
             <div className="w-12 h-12 rounded-full bg-card-raised flex items-center justify-center mx-auto mb-3 text-grey"><BarChart3 size={22} /></div>
@@ -446,7 +452,7 @@ export default function AnalyticsPage() {
         </Card>
       )}
 
-      {dataReady && (barberRevenue.length > 0 || serviceRevenue.length > 0 || totalAppts > 0 || money.gross > 0) && (
+      {dataReady && (barberRevenue.length > 0 || serviceRevenue.length > 0 || totalAppts > 0 || money.sales > 0 || money.refunds > 0) && (
         <div className="grid md:grid-cols-2 gap-6">
           {barberRevenue.length > 0 && (
             <Card>
@@ -512,7 +518,7 @@ export default function AnalyticsPage() {
             </Card>
           )}
 
-          {money.gross > 0 && (
+          {(money.sales > 0 || money.refunds > 0) && (
             <Card>
               <CardHeader><CardTitle>Gross Sales by Payment Hour</CardTitle></CardHeader>
               <CardContent><p className="text-xs text-grey mb-3">CAD collected across each hour in browser-local time; includes tax and tips.</p>

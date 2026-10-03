@@ -47,6 +47,8 @@ export function StatsCarousel({
 }) {
   // Fall back to computing net revenue locally if the parent didn't pass it. NOT
   // floored — a real loss shows as a red negative (see the Net row below).
+  // Money that came in this period (after card fees), before any refunds.
+  const collectedIn = revenue + refunds;
   const netRev = netRevenue ?? (revenue - taxCollected - tips - commission);
   const [idx, setIdxState] = useState(initialSlide);
   const setIdx = (v: number | ((prev: number) => number)) => {
@@ -133,15 +135,22 @@ export function StatsCarousel({
       {/* pr keeps the right side clear for the Today ▾ filter the parent overlays
           at the card's top-right corner. */}
       <p className="text-[10.5px] uppercase tracking-[0.16em] text-grey">{feesUnavailable ? "Gross collected" : "Collected"}</p>
+      {/* Collected = money that CAME IN (after card fees) — never pulled below zero
+          by a refund. Money handed back is its own line, then the net. */}
       <p className="text-[34px] font-bold text-foreground font-mono tracking-[-0.02em] mt-1.5 leading-none">
-        {formatCurrency(revenue)}
+        {formatCurrency(collectedIn)}
       </p>
       {/* Count is on the SAME money-moved basis as Collected (paid this period), so
           the two lines describe the same window. */}
       <span className="mt-1.5 block text-[12px] font-medium text-grey">
         {paidVisits > 0 ? `${paidVisits} paid` : refundCount > 0 ? "No new sales" : "Nothing paid yet"}
-        {refundCount > 0 && ` · ${refundCount} refund${refundCount === 1 ? "" : "s"} (−${formatCurrency(refunds)})`}
       </span>
+      {refunds > 0 && (
+        <span className="mt-1 block text-[12px] text-grey">
+          Refunded <span className="font-mono tabular-nums text-foreground">−{formatCurrency(refunds)}</span>
+          {" · "}Net <span className={cn("font-mono tabular-nums font-semibold", revenue < 0 ? "text-red-400" : "text-foreground")}>{formatCurrency(revenue)}</span>
+        </span>
+      )}
       {/* Spacer so the receipt ledger settles toward the bottom of the card and
           the empty state ($0) isn't top-heavy. (The old placeholder bar graph —
           which drew dummy bars with no data — was removed here.) */}
@@ -164,15 +173,18 @@ export function StatsCarousel({
                   <div className="flex justify-between text-[12px]"><span className="text-grey">Gross</span><span className="inline-block h-3 w-16 rounded bg-card-raised animate-pulse" /></div>
                   <div className="flex justify-between text-[12px]"><span className="text-grey">− Stripe fees</span><span className="inline-block h-3 w-12 rounded bg-card-raised animate-pulse" /></div>
                 </>
-              ) : (feesPaid > 0 || refunds > 0) ? (
+              ) : feesPaid > 0 ? (
                 <>
-                  {/* A refund day reads like a statement: sales, money handed back, fees. */}
-                  <div className="flex justify-between text-[12px]"><span className="text-grey">{refunds > 0 ? "Sales" : "Gross"}</span><span className="font-mono tabular-nums text-foreground">{formatCurrency(revenue + feesPaid + refunds)}</span></div>
-                  {refunds > 0 && <div className="flex justify-between text-[12px]"><span className="text-grey">− Refunds</span><span className="font-mono tabular-nums text-foreground">−{formatCurrency(refunds)}</span></div>}
+                  <div className="flex justify-between text-[12px]"><span className="text-grey">Gross</span><span className="font-mono tabular-nums text-foreground">{formatCurrency(collectedIn + feesPaid)}</span></div>
                   {feesPaid > 0 && <div className="flex justify-between text-[12px]"><span className="text-grey">− Stripe fees</span><span className="font-mono tabular-nums text-foreground">−{formatCurrency(feesPaid)}</span></div>}
                 </>
               ) : null}
-              <div className={cn("flex justify-between text-[12px]", (feesLoading || feesPaid > 0 || refunds > 0) && "border-t border-dashed border-border pt-2")}><span className="text-foreground">Collected</span><span className="font-mono tabular-nums text-foreground">{formatCurrency(revenue)}</span></div>
+              <div className={cn("flex justify-between text-[12px]", (feesLoading || feesPaid > 0) && "border-t border-dashed border-border pt-2")}><span className="text-foreground">Collected</span><span className="font-mono tabular-nums text-foreground">{formatCurrency(collectedIn)}</span></div>
+              {/* Money handed back, then what's left — a statement, not a rewrite. */}
+              {refunds > 0 && <>
+                <div className="flex justify-between text-[12px]"><span className="text-grey">− Refunds</span><span className="font-mono tabular-nums text-foreground">−{formatCurrency(refunds)}</span></div>
+                <div className="flex justify-between text-[12px] border-t border-dashed border-border pt-2"><span className="text-foreground">Net after refunds</span><span className={cn("font-mono tabular-nums", revenue < 0 ? "text-red-400" : "text-foreground")}>{formatCurrency(revenue)}</span></div>
+              </>}
               {cashIncluded > 0 && <div className="flex justify-between text-[11px] text-grey"><span>incl. cash</span><span className="font-mono tabular-nums">{formatCurrency(cashIncluded)}</span></div>}
               {Math.abs(taxCollected) >= 0.005 && <div className="flex justify-between text-[12px]"><span className="text-grey">{taxCollected > 0 ? "− Sales tax" : "+ Sales tax refunded"}</span><span className="font-mono tabular-nums text-foreground">{taxCollected > 0 ? "−" : "+"}{formatCurrency(Math.abs(taxCollected))}</span></div>}
               {Math.abs(tips) >= 0.005 && <div className="flex justify-between text-[12px]"><span className="text-grey">{tips > 0 ? "− Tips" : "+ Tips refunded"}</span><span className="font-mono tabular-nums text-foreground">{tips > 0 ? "−" : "+"}{formatCurrency(Math.abs(tips))}</span></div>}
