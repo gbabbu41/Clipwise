@@ -170,7 +170,12 @@ never against a stale checkbox in TODO.md or a migration file header.
   (Stripe keeps the original fee, which stays a cost). Past days never change. So **every refund
   must write its refund row** (`recordRefundLedger`); legacy refunds got one dated at the sale
   (phase74). Revenue queries load `refunded` appointments too; never filter refund rows out of a
-  money set. Barber pay/commission still excludes refunded visits (unchanged).
+  money set. **Barber commission follows the same rule (owner decision 2026-10-03):** the sale keeps
+  its cut on its paid day and the refund row takes the cut + tip back on the refund's day
+  (`refundClawback` / `barberRowCut` in `lib/barber-earnings.ts`) — barber portal, Payments
+  per-barber, Payroll, Dashboard/Analytics commission all use it. Refund rows carry the sale's
+  stored POS cut negated. No-show fee refunds take nothing back. Client lifetime spend = money
+  kept (`apptSpend`: refunded/unpaid visits add $0).
 - **Stripe Connect:** charges run on each shop's **connected account** (shop = merchant
   of record, 0% platform fee). The Stripe **webhook must listen to connected-account
   events** or `payment_status` never flips to paid. The platform-charge fallback for

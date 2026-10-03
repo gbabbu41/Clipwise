@@ -13,11 +13,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { effectivePlan, isPaidPlan } from "@/lib/validation";
 import { FeatureLock } from "@/components/dashboard/feature-lock";
-import { collectedTotals, countablePosTxs, isNoShowTx, isPaid, type RevAppt, type RevTx, type ByPi } from "@/lib/revenue";
+import { collectedTotals, countablePosTxs, isNoShowTx, isPaid, isRefundRow, isSale, type RevAppt, type RevTx, type ByPi } from "@/lib/revenue";
 import { evidenceView, loadLinkedEvidence, type EvidenceSnapshot } from "@/lib/revenue-evidence";
 import { analyticsPeriod, analyticsRevenueBuckets, analyticsFeesKnown, timestampInPeriod, topServicesWithOther } from "@/lib/analytics-period";
 import { readAllRows } from "@/lib/read-all-rows";
-import { safeCommission } from "@/lib/barber-earnings";
+import { isNoShowEarning, refundClawback, safeCommission } from "@/lib/barber-earnings";
 import type { Transaction, Appointment, Barber } from "@/lib/database.types";
 
 // Theme-aware (recharts renders inside `.portal`, so the CSS vars resolve to the
@@ -210,16 +210,20 @@ export default function AnalyticsPage() {
     // cut on (total − balance_due) − the tax on that collected part; it rises to
     // the full amount once the balance is collected (balance_due → 0). Matches the
     // Dashboard fix + collectedTotals.
+    // Refunds: a refunded sale keeps its commission on its paid day; the refund
+    // row takes it back on the refund's day (same rule as the barber portal).
     const apptCommission = revenueApptsInRange.reduce((sum, a) => {
-      if (!isPaid(a.payment_status) || a.status === "no-show" || !a.barber_id) return sum;
+      if (!isSale(a.payment_status) || a.status === "no-show" || !a.barber_id) return sum;
       return sum + (apptServiceCollectedOf(a) * (pct[a.barber_id] ?? 0)) / 100;
     }, 0);
     const posCommission = countablePosTxs(revenueApptsInRange as RevAppt[], filteredTx as RevTx[]).reduce((sum, t2) => {
-      if (t2.refunded || !t2.barber_id || isNoShowTx(t2) || t2.source === "completion") return sum;
+      if (!t2.barber_id || isNoShowTx(t2) || t2.source === "completion") return sum;
       const p = pct[t2.barber_id] ?? 0;
       return sum + safeCommission(t2.amount, t2.commission_amount, p);
     }, 0);
-    const commission = apptCommission + posCommission;
+    const clawback = (filteredTx as RevTx[]).reduce((sum, t2) =>
+      isRefundRow(t2) && t2.barber_id ? sum + refundClawback({ ...t2, amount: t2.amount ?? 0 }, pct[t2.barber_id] ?? 0) : sum, 0);
+    const commission = apptCommission + posCommission - clawback;
     // Net revenue = what the shop actually keeps: after Stripe fees (that's `net`),
     // then minus tax (govt), tips (barber), and barber commission (barber/owner).
     // NOT floored at 0 — mirrors the Dashboard, which shows a real negative (e.g. a
@@ -257,12 +261,17 @@ export default function AnalyticsPage() {
   const barberRevenue = useMemo(() => {
     const map: Record<string, number> = {};
     for (const a of revenueApptsInRange) {
-      if (!isPaid(a.payment_status) || a.status === "no-show" || !a.barber_id) continue;
+      if (!isSale(a.payment_status) || a.status === "no-show" || !a.barber_id) continue;
       map[a.barber_id] = (map[a.barber_id] ?? 0) + apptServiceCollectedOf(a);
     }
     for (const t of countablePosTxs(revenueApptsInRange as RevAppt[], filteredTx as RevTx[])) {
-      if (t.refunded || !t.barber_id || isNoShowTx(t) || t.source === "completion") continue;
+      if (!t.barber_id || isNoShowTx(t) || t.source === "completion") continue;
       map[t.barber_id] = (map[t.barber_id] ?? 0) + Math.max(0, t.amount ?? 0);
+    }
+    // Service handed back comes off that barber on the refund's day.
+    for (const t of filteredTx as RevTx[]) {
+      if (!isRefundRow(t) || !t.barber_id || isNoShowEarning(t)) continue;
+      map[t.barber_id] = (map[t.barber_id] ?? 0) - Math.abs(t.amount ?? 0);
     }
     return barbers.map(b => ({ name: b.name, revenue: map[b.id] ?? 0 })).filter(b => b.revenue > 0);
   }, [revenueApptsInRange, filteredTx, barbers]);
@@ -273,16 +282,23 @@ export default function AnalyticsPage() {
   const serviceRevenue = useMemo(() => {
     const map: Record<string, number> = {};
     for (const a of revenueApptsInRange) {
-      if (!isPaid(a.payment_status) || a.status === "no-show") continue;
+      if (!isSale(a.payment_status) || a.status === "no-show") continue;
       const key = (a.service_id && serviceNames[a.service_id]) || "Service";
       map[key] = (map[key] ?? 0) + apptServiceCollectedOf(a);
     }
     for (const t of countablePosTxs(revenueApptsInRange as RevAppt[], filteredTx as RevTx[])) {
-      if (t.refunded || isNoShowTx(t) || t.source === "completion") continue;
+      if (isNoShowTx(t) || t.source === "completion") continue;
       const key = t.service_name || "Sale";
       map[key] = (map[key] ?? 0) + Math.max(0, t.amount ?? 0);
     }
-    return topServicesWithOther(map)
+    // A refund comes off its service on the refund's day ("Refund — Skin Fade" → "Skin Fade").
+    for (const t of filteredTx as RevTx[]) {
+      if (!isRefundRow(t) || isNoShowEarning(t)) continue;
+      const key = (t.service_name ?? "").replace(/^Refund\s*—\s*/, "").replace(/\s*\(refund date not recorded; dated at sale\)$/, "") || "Sale";
+      map[key] = (map[key] ?? 0) - Math.abs(t.amount ?? 0);
+    }
+    // A refund-heavy period can leave a service ≤ 0 — the mix chart shows what sold.
+    return topServicesWithOther(Object.fromEntries(Object.entries(map).filter(([, v]) => v > 0)))
       .map(({ name, value }, i) => ({ name, value, color: GOLD_PALETTE[i] ?? "#666" }));
   }, [revenueApptsInRange, filteredTx, serviceNames]);
 

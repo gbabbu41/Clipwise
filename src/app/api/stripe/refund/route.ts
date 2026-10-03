@@ -32,10 +32,18 @@ export async function POST(request: NextRequest) {
   // than Stripe's own ~180-day window). Stripe enforces its real limit and returns
   // an error we surface; that's the one source of truth for "too old to refund".
   if (appt.payment_status === "refunded") return NextResponse.json({ error: "This appointment was already refunded." }, { status: 400 });
+  // Only a card payment can be refunded here: a settled charge (paid/captured) or a
+  // legacy HELD auth (released below). Cash / unpaid / voided bookings have no card
+  // money to return — refuse rather than mark them "refunded" and write a phantom
+  // refund row into the ledger.
+  if (!appt.payment_intent_id || !["paid", "captured", "held"].includes(appt.payment_status ?? "")) {
+    return NextResponse.json({ error: "No card payment to refund on this appointment (e.g. cash or unpaid)." }, { status: 400 });
+  }
 
   // Report the amount actually refunded (a no-show fee refund returns only the
   // fee, not the full booked total).
-  let refundedCents = Math.round((appt.total_amount ?? 0) * 100);
+  // Fallback = what was collected: total_amount is service + tax, tip is separate.
+  let refundedCents = Math.round((appt.total_amount ?? 0) * 100) + Math.round((appt.tip_amount ?? 0) * 100);
   // A card that was only HELD (no-show protection, never captured) can't be
   // refunded — there's no settled charge — so we release the hold instead. Track
   // it so we skip the $-refund side effects (ledger row, "you were refunded"

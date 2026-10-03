@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { computeBarberEarnings } from "@/lib/barber-earnings";
+import { computeBarberEarnings, isNoShowEarning } from "@/lib/barber-earnings";
 import type { Transaction } from "@/lib/database.types";
 import { readAllRows } from "@/lib/read-all-rows";
 
@@ -68,15 +68,14 @@ export async function GET(request: NextRequest) {
 
   // Earnings math lives in ONE place (src/lib/barber-earnings) so the owner's
   // Payments page — when filtered to this barber — shows the identical numbers.
-  // computeBarberEarnings excludes refunded rows. Take-home is commission + tips
+  // A refunded sale stays on its own day; its refund row (source "refund") takes
+  // the cut + tip back on the refund's day (computeBarberEarnings). Take-home is commission + tips
   // with NO card fee deducted: the shop bears Stripe processing entirely, so the
   // barber portal never touches the fee (it shows on the shop's Payments layer).
   // No-show penalty fees aren't a service the barber performed — they're a shop
   // penalty charge — so they don't pay commission or count as the barber's
   // earnings. Exclude them from both the totals and the returned list.
-  const isNoShowFee = (t: { source?: string | null; service_name?: string | null }) =>
-    t.source === "no_show" || (t.service_name ?? "").startsWith("No-show fee");
-  const list = (transactions ?? []).filter(t => !t.refunded && !isNoShowFee(t));
+  const list = (transactions ?? []).filter(t => !isNoShowEarning(t));
 
   // Owner on their own chair keeps 100% (their cuts are shop profit, so their
   // stored commission is 0 — see barber-earnings header). Everyone else uses

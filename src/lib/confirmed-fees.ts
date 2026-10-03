@@ -13,13 +13,15 @@ export type FeeRow = {
 };
 
 /** A positive recorded fee is confirmed. The legacy schema defaults card fees
- * to 0, so 0 cannot prove Stripe charged nothing and must remain unresolved. */
+ * to 0, so 0 cannot prove Stripe charged nothing and must remain unresolved.
+ * A refunded ORIGINAL sale keeps its fee (Stripe keeps it on a refund) — only the
+ * negative refund row itself carries no fee. */
 export function confirmedFeesFromRows(rows: FeeRow[]): ByPi {
   const byPi: ByPi = {};
   for (const row of rows) {
     const pi = row.payment_intent_id;
     const fee = Number(row.stripe_fee);
-    if (!pi || row.payment_method !== "card" || row.refunded || row.source === "refund" ||
+    if (!pi || row.payment_method !== "card" || row.source === "refund" ||
         !Number.isFinite(fee) || fee <= 0 || byPi[pi]) continue;
     const gross = Number(row.amount ?? 0) + Number(row.tax ?? 0) + Number(row.tip ?? 0);
     if (!Number.isFinite(gross) || gross <= 0) continue;
@@ -41,7 +43,7 @@ export function missingFeeIntents(
     seen.add(pi); result.push(pi);
   };
   for (const row of rows) {
-    if (row.payment_method === "card" && !row.refunded && row.source !== "refund" &&
+    if (row.payment_method === "card" && row.source !== "refund" &&
         !(Number.isFinite(row.stripe_fee) && (row.stripe_fee as number) > 0)) add(row.payment_intent_id);
   }
   for (const pi of appointmentIntents) add(pi);

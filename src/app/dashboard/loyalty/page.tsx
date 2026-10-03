@@ -190,7 +190,7 @@ export default function LoyaltyPage() {
       supabase.from("promo_codes").select("*").eq("shop_id", shop.id).order("is_active", { ascending: false }).order("code", { ascending: true }),
       // Source rows so the visits count reflects reality (the stored total_visits
       // counter drifts — it's maintained by best-effort increments). Best-effort.
-      supabase.from("appointments").select("client_id, client_name, client_email, client_phone, date, status, total_amount").eq("shop_id", shop.id),
+      supabase.from("appointments").select("client_id, client_name, client_email, client_phone, date, status, total_amount, payment_status").eq("shop_id", shop.id),
       supabase.from("transactions").select("client_name, client_email, created_at, amount, source, refunded, appointment_id").eq("shop_id", shop.id),
     ]);
     if (!isCurrent()) return;

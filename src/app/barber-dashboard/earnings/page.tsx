@@ -8,7 +8,7 @@ import { cn, formatCurrency } from "@/lib/utils";
 import { ApptDetail, Portal, makeApptActions } from "@/components/calendar-view";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import type { AppointmentWithDetails } from "@/lib/database.types";
-import { safeCommission } from "@/lib/barber-earnings";
+import { barberRowCut, isRefundTx } from "@/lib/barber-earnings";
 import { earningsBuckets } from "@/lib/earnings-chart";
 import { cacheGet, cacheSet } from "@/lib/view-cache";
 
@@ -22,6 +22,7 @@ interface Tx {
   payment_method?: string | null;
   payment_intent_id?: string | null;
   stripe_fee?: number | null;
+  source?: string | null;     // "refund" = money handed back (negative amounts)
   created_at: string;
 }
 
@@ -91,15 +92,12 @@ export default function BarberPaymentsPage() {
 
   useEffect(() => { setTxs([]); loadEarnings(); return () => { earningsRequest.current++; }; }, [loadEarnings]);
 
-  const earnedOf = useCallback((t: Tx) => {
-    const tipAmt = t.tip ?? 0;
-    // Take-home = commission on the service + all tips. The card fee is NOT
-    // deducted here — the shop bears processing entirely (it shows on the shop's
-    // Payments layer, never in the barber portal). An owner on their own chair
-    // keeps 100% of the service (they own the shop), so they take the full amount.
-    const commission = isOwner ? Math.max(0, t.amount) : safeCommission(t.amount, t.commission_amount, pct);
-    return commission + tipAmt;
-  }, [pct, isOwner]);
+  // Take-home = commission on the service + all tips. The card fee is NOT
+  // deducted here — the shop bears processing entirely (it shows on the shop's
+  // Payments layer, never in the barber portal). An owner on their own chair keeps
+  // 100% of the service. A refund row takes its cut + tip back (negative) on the
+  // day of the refund — the shared rule in lib/barber-earnings.
+  const earnedOf = useCallback((t: Tx) => barberRowCut(t, pct, isOwner), [pct, isOwner]);
 
   const startOf = (kind: "today" | "week" | "biweekly" | "month") => {
     const d = new Date(); d.setHours(0, 0, 0, 0);
@@ -125,7 +123,7 @@ export default function BarberPaymentsPage() {
     // Cash is collected in hand; shown separately from the card/Stripe figure.
     const cash = inP.filter(t => t.payment_method === "cash").reduce((s, t) => s + earnedOf(t), 0);
     const cardEarned = earned - cash;
-    const count = inP.length;
+    const count = inP.filter(t => !isRefundTx(t)).length;   // cuts — a refund isn't one
     // Sparkline buckets = COLLECTED per day (card + cash), so the chart reflects
     // the same take-home the headline shows (a cash-only week still draws bars).
     const data = earningsBuckets(inP, from, to, monthly, earnedOf);
@@ -415,7 +413,7 @@ export default function BarberPaymentsPage() {
             <div key={g.key} className="cwp-daygroup">
               <div className="cwp-day">
                 <span className="cwp-dlabel">{g.label}</span>
-                {g.total > 0 && <span className="cwp-dtot">+{formatCurrency(g.total)}</span>}
+                {Math.abs(g.total) >= 0.005 && <span className="cwp-dtot">{g.total > 0 ? "+" : "−"}{formatCurrency(Math.abs(g.total))}</span>}
               </div>
               {g.items.map(t => {
                 const cash = t.payment_method === "cash";
@@ -427,9 +425,9 @@ export default function BarberPaymentsPage() {
                       <div className="cwp-svc">{t.service_name ?? "Service"}</div>
                     </div>
                     <div className="cwp-rright">
-                      <div className="cwp-a cwp-apos">{formatCurrency(earnedOf(t))}</div>
+                      <div className={cn("cwp-a", isRefundTx(t) ? "" : "cwp-apos")}>{isRefundTx(t) ? `−${formatCurrency(Math.abs(earnedOf(t)))}` : formatCurrency(earnedOf(t))}</div>
                       <div className="cwp-m">
-                        <span className="cwp-method">{cash ? "Cash" : "Card"}</span>
+                        <span className="cwp-method">{isRefundTx(t) ? "Refund" : cash ? "Cash" : "Card"}</span>
                         {/* No card-fee line in the barber portal — the shop bears
                             the fee (it shows on the shop's Payments layer). */}
                       </div>

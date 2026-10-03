@@ -18,7 +18,9 @@ function load(file, mocks = {}) {
 
 const { confirmedFeesFromRows, confirmedFeesFromAppts, missingFeeIntents } = load('src/lib/confirmed-fees.ts');
 const row = (id, pi, fee = 0) => ({ id, payment_intent_id: pi, stripe_fee: fee, amount: 100, tax: 15, tip: 0, payment_method: 'card', refunded: false, source: 'pos' });
-assert.deepEqual(confirmedFeesFromRows([row('a', 'pi_saved', 3), row('b', 'pi_saved', 3), row('c', 'pi_zero'), { ...row('d', 'pi_refund', 2), refunded: true }]), { pi_saved: { gross: 115, fee: 3, net: 112 } });
+// A refunded ORIGINAL sale keeps its fee (Stripe keeps it on a refund); only the negative refund row carries none.
+assert.deepEqual(confirmedFeesFromRows([row('a', 'pi_saved', 3), row('b', 'pi_saved', 3), row('c', 'pi_zero'), { ...row('d', 'pi_refund', 2), refunded: true }, { ...row('e', 'pi_refundrow', 2), refunded: true, source: 'refund', amount: -100 }]), { pi_saved: { gross: 115, fee: 3, net: 112 }, pi_refund: { gross: 115, fee: 2, net: 113 } });
+assert.deepEqual(missingFeeIntents([{ ...row('r1', 'pi_refunded_orig'), refunded: true }, { ...row('r2', 'pi_refund_row'), refunded: true, source: 'refund' }], [], {}, 8), ['pi_refunded_orig'], 'a refunded sale still needs its fee looked up; the refund row does not');
 assert.deepEqual(missingFeeIntents([row('a', 'pi_missing'), row('b', 'pi_missing')], ['pi_missing', 'pi_appt'], { pi_saved: { gross: 115, fee: 3, net: 112 } }, 8), ['pi_missing', 'pi_appt']);
 
 let saved = [row('saved', 'pi_saved', 3)];

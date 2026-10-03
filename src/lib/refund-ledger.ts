@@ -58,6 +58,21 @@ export async function recordRefundLedger(args: {
     if (existing) return "already";
   }
 
+  // The sale's stored commission cut (POS sales store one), so the take-back on
+  // the refund's day is exactly what the barber was credited — not re-derived.
+  // Best-effort: without it the take-back is derived from the barber's rate.
+  let saleCut: number | null = null;
+  if (args.paymentIntentId) {
+    try {
+      const { data: sales } = await supabaseAdmin.from("transactions")
+        .select("commission_amount").eq("payment_intent_id", args.paymentIntentId).neq("source", "refund").limit(5);
+      for (const r of (sales ?? []) as { commission_amount?: unknown }[]) {
+        const c = Number(r.commission_amount);
+        if (r.commission_amount != null && Number.isFinite(c) && c > 0) { saleCut = c; break; }
+      }
+    } catch { /* derived from the rate instead */ }
+  }
+
   const tax = Math.min(refunded, Math.max(0, Math.round(args.taxCents ?? 0)));
   const tip = Math.min(refunded - tax, Math.max(0, Math.round(args.tipCents ?? 0)));
   const service = Math.max(0, refunded - tax - tip);
@@ -75,6 +90,7 @@ export async function recordRefundLedger(args: {
     appointment_id: args.appointmentId ?? null,
     payment_intent_id: args.paymentIntentId ?? null,
     refunded: true, stripe_fee: 0,
+    ...(saleCut != null ? { commission_amount: -saleCut } : {}),
   };
   let saveError: unknown = null;
   try {

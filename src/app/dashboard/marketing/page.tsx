@@ -108,7 +108,7 @@ export default function MarketingPage() {
     if (!shop) return;
     const [clientRes, apptRes, txRes, campaignRes] = await Promise.all([
       supabase.from("clients").select("*").eq("shop_id", shop.id),
-      supabase.from("appointments").select("client_id, client_name, client_email, client_phone, date, status, total_amount").eq("shop_id", shop.id),
+      supabase.from("appointments").select("client_id, client_name, client_email, client_phone, date, status, total_amount, payment_status").eq("shop_id", shop.id),
       supabase.from("transactions").select("client_name, client_email, created_at, amount, source, refunded, appointment_id").eq("shop_id", shop.id),
       supabase.from("campaigns").select("*").eq("shop_id", shop.id).order("sent_at", { ascending: false }),
     ]);

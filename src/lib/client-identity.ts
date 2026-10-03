@@ -47,7 +47,12 @@ export function sameIdentity(a: IdRecord, b: IdRecord): boolean {
   return false;
 }
 
-type ApptRow = { shop_id?: string | null; client_id?: string | null; client_name?: string | null; client_email?: string | null; client_phone?: string | null; date?: string | null; status?: string | null; total_amount?: number | null };
+type ApptRow = { shop_id?: string | null; client_id?: string | null; client_name?: string | null; client_email?: string | null; client_phone?: string | null; date?: string | null; status?: string | null; total_amount?: number | null; payment_status?: string | null };
+// Lifetime spend counts money actually kept: a refunded visit nets to $0 (sale −
+// refund), and an unpaid / failed / released one was never collected. The VISIT
+// still counts (the service happened). Rows without a payment_status keep counting.
+const NOT_SPENT = new Set(["refunded", "unpaid", "failed", "voided", "pending"]);
+export const apptSpend = (a: ApptRow): number => NOT_SPENT.has(a.payment_status ?? "") ? 0 : (a.total_amount ?? 0);
 
 /** Appointments store contact info as client_* fields — map to the common shape. */
 export const apptToId = (a: ApptRow): IdRecord => ({ clientId: a.client_id, email: a.client_email, phone: a.client_phone, name: a.client_name });
@@ -63,8 +68,10 @@ export const txToId = (t: TxRow): IdRecord => ({ email: t.client_email, name: t.
 // Attributing by name alone is unreliable (two different same-named walk-ins would
 // merge and over-count), so name-only POS sales are left unattributed rather than
 // inflate someone's visits/spend.
+// A refunded POS sale nets to $0 lifetime spend (sale − refund), and a refund row
+// is money handed back, never a visit — both are left out.
 const countableTx = (t: TxRow): boolean =>
-  !t.refunded && !t.appointment_id && t.source !== "completion" && t.source !== "no_show"
+  !t.refunded && t.source !== "refund" && !t.appointment_id && t.source !== "completion" && t.source !== "no_show"
   && !!normEmail(t.client_email);
 const txDate = (t: TxRow): string => (t.created_at ?? "").slice(0, 10);
 
@@ -109,7 +116,7 @@ export function groupClients(opts: { shopId: string; clientRows: Client[]; apptR
     // happened. A future/confirmed booking is NOT a past visit (it was showing up
     // as a "last visit" date in the future).
     if (a.status === "completed") {
-      g.visits++; g.spent += a.total_amount ?? 0;
+      g.visits++; g.spent += apptSpend(a);
       if ((a.date ?? "") <= today && (a.date ?? "") > g.last) g.last = a.date ?? "";
     }
     stats.set(key, g);

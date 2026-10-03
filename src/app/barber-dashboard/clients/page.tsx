@@ -4,6 +4,7 @@ import { Search, Users, Phone, Calendar } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useBarber } from "@/lib/barber-context";
 import { clientMatchesQuery } from "@/lib/client-search";
+import { apptSpend } from "@/lib/client-identity";
 import { cacheGet, cacheSet } from "@/lib/view-cache";
 import { useLiveRefresh } from "@/lib/use-live-refresh";
 
@@ -42,18 +43,24 @@ export default function BarberClientsPage() {
         for (const a of appointments ?? []) {
           const key = a.client_name;
           const existing = map.get(key);
+          // Same rule as the owner's Clients page: a visit is a COMPLETED
+          // appointment, and spend is money actually kept (a refunded / unpaid
+          // visit adds $0). Upcoming or cancelled bookings still list the client.
+          const done = a.status === "completed";
+          const visit = done ? 1 : 0;
+          const spent = done ? apptSpend(a) : 0;
           if (!existing) {
             map.set(key, {
               client_name: a.client_name,
               client_phone: a.client_phone ?? "",
-              visits: 1,
+              visits: visit,
               last_date: a.date,
               last_service: a.services?.name ?? "Service",
-              total_spent: a.total_amount ?? 0,
+              total_spent: spent,
             });
           } else {
-            existing.visits += 1;
-            existing.total_spent += a.total_amount ?? 0;
+            existing.visits += visit;
+            existing.total_spent += spent;
             if (a.date > existing.last_date) {
               existing.last_date = a.date;
               existing.last_service = a.services?.name ?? existing.last_service;
