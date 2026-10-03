@@ -9,7 +9,7 @@ import { DashboardHeader } from "@/components/dashboard/page-header";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { supabase } from "@/lib/supabase";
 import { formatCurrency, cn, timeToMinutes, timeAgo } from "@/lib/utils";
-import { countablePosTxs, estimateStripeFee, isGiftRefundRow, isNoShowTx, isPaid, isRefundRow, noShowFeeVisit, paidAheadPis, isSale, lineNetFee, refundedAmount, savedChargeGross, separatelyTippedAppts, transactionCollectedAmount, type CardFeeEstimate, type RevAppt } from "@/lib/revenue";
+import { countablePosTxs, estimateStripeFee, freeGiftShare, isGiftRefundRow, isNoShowTx, isPaid, isRefundRow, noShowFeeVisit, paidAheadPis, isSale, lineNetFee, refundedAmount, savedChargeGross, separatelyTippedAppts, transactionCollectedAmount, type CardFeeEstimate, type RevAppt } from "@/lib/revenue";
 import { computeBarberEarnings, barberRowCut, isRefundTx } from "@/lib/barber-earnings";
 import { readAllRows } from "@/lib/read-all-rows";
 import { cacheGet, cacheSet } from "@/lib/view-cache";
@@ -356,6 +356,7 @@ export default function PaymentsPage() {
   type FeedItem = {
     key: string; name: string; sub: string; amount: number; tax: number;
     giftApplied?: number;   // gift-card value on this line — already counted at sale
+    giftFree?: number;      // the part a FREE gift card covered — a promo, never income
     priceBreakdown?: unknown; // promo / loyalty points behind a discounted total (phase72)
     giftSale?: boolean;     // selling a gift card: money in, but not a cut
     tipExtra?: number;      // booking tip NOT already inside `amount` (POS tips already are)
@@ -451,8 +452,9 @@ export default function PaymentsPage() {
           key: `a${a.id}`, name: a.client_name,
           sub: `${a.services?.name ?? "Service"}${a.barbers?.name ? ` · ${a.barbers.name}` : ""}${discountSummary((a as { price_breakdown?: unknown }).price_breakdown) ? ` · ${discountSummary((a as { price_breakdown?: unknown }).price_breakdown)}` : ""}`,
           priceBreakdown: (a as { price_breakdown?: unknown }).price_breakdown,
-          amount: a.total_amount ?? 0, tax: a.tax_amount ?? 0,
+          amount: a.total_amount ?? 0, tax: (a.tax_amount ?? 0) - freeGiftShare(a as RevAppt).tax,
           giftApplied: (a as { gift_applied?: number }).gift_applied ?? 0,
+          giftFree: (a as { gift_free?: number }).gift_free ?? 0,
           tipExtra: sepTipped.has(a.id) ? 0 : (a as { tip_amount?: number }).tip_amount ?? 0, // a separately-paid tip is its own line
           statusLabel: noCharge ? "No charge" : info.label,
           tone: noCharge ? "muted" : info.tone,
@@ -605,7 +607,7 @@ export default function PaymentsPage() {
   // A booking paid entirely by gift card: its money came in when the card was
   // SOLD, so it adds $0 to totals — but the row shows the value redeemed.
   const isGiftPaid = (i: FeedItem) => i.method === "gift_card";
-  const methodLabel = (i: FeedItem) => i.method === "cash" ? "Cash" : isGiftPaid(i) ? "Gift card" : "Card";
+  const methodLabel = (i: FeedItem) => i.method === "cash" ? "Cash" : isGiftPaid(i) ? ((i.giftFree ?? 0) > 0 ? "Free gift card" : "Gift card") : "Card";
 
   // Barber name — used to scope the appointment-based bits still shown in barber
   // mode (the Outstanding / On-file tiles). The earnings cards + statement below
@@ -1199,7 +1201,7 @@ export default function PaymentsPage() {
                     </div>
                     <div className="cwp-rright">
                       <div className={cn("cwp-a", unpaid ? "cwp-adue" : "cwp-apos")}>{giftPaid
-                        ? formatCurrency(i.giftApplied ?? 0)
+                        ? formatCurrency((i.giftFree ?? 0) > 0 ? 0 : i.giftApplied ?? 0)
                         : <>{i.refundOut && !i.giftBack ? "−" : i.settled && !i.refundOut && !feeExact(i) ? "≈" : ""}{formatCurrency(statementAmount(i))}</>}</div>
                       <div className="cwp-m">
                         {refunded ? <span className="cwp-tag cwp-tref">{i.giftBack ? "To gift card" : i.refundOut ? "Refund" : "Refunded"}</span>
@@ -1207,6 +1209,7 @@ export default function PaymentsPage() {
                           : <>
                               <span className="cwp-method">{methodLabel(i)}</span>
                               {ago ? ` · ${ago}` : ""}
+                              {giftPaid && (i.giftFree ?? 0) > 0 ? ` · ${formatCurrency(i.giftFree ?? 0)} promo` : ""}
                               {!i.earn && i.method !== "cash" && feeOf(i) > 0 ? ` · ${formatCurrency(feeOf(i))} fee` : ""}
                             </>}
                       </div>
@@ -1271,6 +1274,9 @@ export default function PaymentsPage() {
                   {/* Money breakdown. For a card payment with a known fee, spell out
                       gross → fee → net so "after fee" is never ambiguous (the old
                       single "Amount" row actually showed the net, which read unclear). */}
+                  {!i.giftBack && !i.refundOut && !i.earn && !isGiftPaid(i) && (i.giftApplied ?? 0) > 0 && (
+                    <div className="flex justify-between"><span className="text-grey">{(i.giftFree ?? 0) > 0 ? "Free gift card used (promo)" : "Gift card used"}</span><span className="text-foreground">{formatCurrency(i.giftApplied ?? 0)}</span></div>
+                  )}
                   {i.giftBack ? (
                     <>
                       <div className="flex justify-between"><span className="text-grey">Put back on gift card</span><span className="text-foreground font-semibold">{formatCurrency(i.amount)}</span></div>
@@ -1281,6 +1287,14 @@ export default function PaymentsPage() {
                   ) : i.earn ? (
                     <div className="flex justify-between"><span className="text-grey">Earned</span><span className="text-foreground font-semibold">{formatCurrency(i.amount)}</span></div>
                   ) : isGiftPaid(i) && i.settled && !i.refunded ? (
+                    (i.giftFree ?? 0) > 0 ? (
+                    <>
+                      <div className="flex justify-between"><span className="text-grey">Paid with free gift card</span><span className="text-foreground font-semibold">{formatCurrency(i.giftFree ?? 0)}</span></div>
+                      <div className="flex justify-between"><span className="text-grey">Tax / tip</span><span className="text-foreground">{formatCurrency(0)}</span></div>
+                      <div className="flex justify-between"><span className="text-grey">New money collected</span><span className="text-foreground">{formatCurrency(0)}</span></div>
+                      <p className="text-[11px] text-grey-muted">A free gift card is a promo — not income, no tax, no commission.</p>
+                    </>
+                    ) : (
                     <>
                       {/* Paid by gift card: the value was redeemed here, but the money came in
                           when the card was SOLD — so this adds $0 to today's collected. */}
@@ -1289,6 +1303,7 @@ export default function PaymentsPage() {
                       <div className="flex justify-between"><span className="text-grey">New money collected</span><span className="text-foreground">{formatCurrency(0)}</span></div>
                       <p className="text-[11px] text-grey-muted">Already counted when the gift card was sold.</p>
                     </>
+                    )
                   ) : i.settled && i.method !== "cash" && feeOf(i) > 0 ? (
                     <>
                       <div className="flex justify-between"><span className="text-grey">Gross (paid)</span><span className="text-foreground">{formatCurrency(lineGross(i))}</span></div>

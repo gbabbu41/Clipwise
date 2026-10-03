@@ -6,6 +6,7 @@ import { effectivePlan, planHasFeature } from "@/lib/validation";
 import { ensurePlansHydrated } from "@/lib/plans-server";
 import { sendSmsBestEffort } from "@/lib/twilio";
 import { authorizeAppointment } from "@/lib/api-auth";
+import { balanceShare } from "@/lib/revenue";
 
 /**
  * Send a Stripe Checkout link for the leftover `balance_due` on an appointment
@@ -28,6 +29,7 @@ export async function POST(request: NextRequest) {
     client_name: string | null; client_email: string | null; client_phone: string | null;
     date: string | null; time_slot: string | null;
     total_amount: number | null; tax_amount: number | null; balance_due: number | null;
+    tip_amount?: number | null; gift_applied?: number | null;
   };
 
   const balance = Math.max(0, Math.round(Number(appt.balance_due ?? 0) * 100)) / 100;
@@ -54,13 +56,12 @@ export async function POST(request: NextRequest) {
     : { data: null as { name: string } | null };
   const serviceName = svc?.name ?? "Service";
 
-  // Split the balance into pre-tax service + tax by the appointment's own ratio so
-  // the ledger row (written by the webhook) matches the rest of the sale.
-  const total = Math.max(0, Number(appt.total_amount ?? 0));
-  const taxFull = Math.max(0, Number(appt.tax_amount ?? 0));
-  const taxRatio = total > 0 ? Math.min(1, taxFull / total) : 0;
-  const balTax = Math.round(balance * taxRatio * 100) / 100;
-  const balService = Math.max(0, Math.round((balance - balTax) * 100) / 100);
+  // Split the balance like the rest of the sale (lib/revenue balanceShare) so the
+  // ledger row (written by the webhook) matches it — after a gift card the balance
+  // carries its tip share too (the barber keeps 100% of a tip).
+  const share = balanceShare(appt, balance);
+  const balTax = share.tax, balTip = share.tip;
+  const balService = share.service;
 
   try {
     const session = await stripe.checkout.sessions.create(
@@ -69,6 +70,7 @@ export async function POST(request: NextRequest) {
         line_items: [
           { price_data: { currency: "cad", product_data: { name: `${serviceName} (balance) — ${shop.name}` }, unit_amount: Math.round(balService * 100) }, quantity: 1 },
           ...(balTax > 0 ? [{ price_data: { currency: "cad" as const, product_data: { name: "Tax" }, unit_amount: Math.round(balTax * 100) }, quantity: 1 }] : []),
+          ...(balTip > 0 ? [{ price_data: { currency: "cad" as const, product_data: { name: "Tip" }, unit_amount: Math.round(balTip * 100) }, quantity: 1 }] : []),
         ],
         customer_email: appt.client_email ?? undefined,
         metadata: {
@@ -78,6 +80,7 @@ export async function POST(request: NextRequest) {
           barber_id: appt.barber_id ?? "",
           bal_service: String(balService),
           bal_tax: String(balTax),
+          bal_tip: String(balTip),
         },
         success_url: `${BASE_URL}/book/${shop.slug}?balance_paid=${appt.id}&session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${BASE_URL}/book/${shop.slug}?cancelled=1`,

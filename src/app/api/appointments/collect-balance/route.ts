@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { logLedgerSaveFailure } from "@/lib/ledger-log";
 import { resolveDuplicateCharge } from "@/lib/ledger-insert";
 import { authorizeAppointment } from "@/lib/api-auth";
+import { balanceShare } from "@/lib/revenue";
 
 /**
  * Collect the leftover `balance_due` on an appointment — the part of a raised
@@ -27,6 +28,7 @@ export async function POST(request: NextRequest) {
   const appt = auth.appointment as {
     id: string; shop_id: string; barber_id: string | null; service_id: string | null;
     client_name: string | null; total_amount: number | null; tax_amount: number | null;
+    tip_amount?: number | null; gift_applied?: number | null;
     balance_due: number | null; stripe_customer_id: string | null; stripe_payment_method_id: string | null;
   };
   const shop = auth.shop as { stripe_account_id?: string | null; stripe_connected?: boolean | null };
@@ -34,13 +36,11 @@ export async function POST(request: NextRequest) {
   const balance = Math.max(0, Math.round(Number(appt.balance_due ?? 0) * 100)) / 100;
   if (balance <= 0) return NextResponse.json({ ok: true, nothing: true });
 
-  // Split the balance into pre-tax service + tax by the appointment's own ratio,
-  // so the ledger row matches how the rest of the sale was recorded.
-  const total = Math.max(0, Number(appt.total_amount ?? 0));
-  const taxFull = Math.max(0, Number(appt.tax_amount ?? 0));
-  const taxRatio = total > 0 ? Math.min(1, taxFull / total) : 0;
-  const balTax = Math.round(balance * taxRatio * 100) / 100;
-  const balService = Math.max(0, Math.round((balance - balTax) * 100) / 100);
+  // Split the balance like the rest of the sale (lib/revenue balanceShare): after a
+  // gift card it is the rest of service + tax + tip, so it carries its tip share.
+  const share = balanceShare(appt, balance);
+  const balTax = share.tax, balTip = share.tip;
+  const balService = share.service;
 
   const { data: svc } = appt.service_id
     ? await supabaseAdmin.from("services").select("name").eq("id", appt.service_id).maybeSingle()
@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
     barber_id: appt.barber_id || null,
     client_name: appt.client_name || null,
     service_name: serviceName,
-    amount: balService, tip: 0, tax: balTax,
+    amount: balService, tip: balTip, tax: balTax,
     payment_method: paymentMethod, type: "service",
     appointment_id: appt.id,
     payment_intent_id: piId,
@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
     if (res.error && /column|does not exist|schema cache/i.test(res.error.message)) {
       const { stripe_fee: _f, tax: _t, ...base } = row;
       void _f; void _t;
-      saveError = (await supabaseAdmin.from("transactions").insert({ ...base, amount: balService + balTax })).error;
+      saveError = (await supabaseAdmin.from("transactions").insert({ ...base, amount: balService + balTax })).error;   // (tip kept in base)
     }
   } catch (e) { saveError = e; }
   // A double tap charges once (same idempotency key → same payment); the save that

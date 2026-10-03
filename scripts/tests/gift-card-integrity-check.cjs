@@ -185,7 +185,7 @@ const { psql, stop } = startPg();
     assert(/redeemGiftForBooking\(\{ shopId: m\.shop_id, code: m\.gift_code, amount: want, appointmentId: appt\.id \}\)/.test(src('src/lib/finalize-booking-session.ts')), 'online partial gift linked to the booking');
     assert(src('src/app/api/pos/cash-sale/route.ts').includes('redeemGiftCard({'), 'POS uses the atomic step');
     const payments = src('src/app/dashboard/payments/page.tsx');
-    assert(payments.includes('isGiftPaid(i) ? "Gift card"') && payments.includes('!i.giftSale') && payments.includes('Paid with gift card'), 'Payments labels gift payments, explains them in the detail sheet, and does not count gift-card sales as cuts');
+    assert(payments.includes('isGiftPaid(i) ? ((i.giftFree ?? 0) > 0 ? "Free gift card" : "Gift card")') && payments.includes('!i.giftSale') && payments.includes('Paid with gift card'), 'Payments labels gift payments, explains them in the detail sheet, and does not count gift-card sales as cuts');
     for (const f of ['src/app/api/book/in-person/route.ts', 'src/lib/finalize-booking-session.ts', 'src/app/api/pos/cash-sale/route.ts']) {
       assert(!/from\("gift_cards"\)\.update\(\{[^}]*remaining_value/.test(src(f)), `${f}: no read-modify-write of a card balance`);
     }

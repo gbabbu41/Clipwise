@@ -23,6 +23,7 @@ interface GiftCard {
   recipient_name?: string;
   recipient_email?: string;
   note?: string;
+  complimentary?: boolean | null;
   is_active: boolean;
   created_at: string;
   redeemed_at?: string;
@@ -138,8 +139,11 @@ export default function GiftCardsPage() {
   });
 
   const totalIssued = cards.reduce((s, c) => s + c.initial_value, 0);
-  const totalOutstanding = cards.filter(c => c.is_active).reduce((s, c) => s + c.remaining_value, 0);
-  const totalRedeemed = totalIssued - totalOutstanding - cards.filter(c => !c.is_active).reduce((s, c) => s + c.remaining_value, 0);
+  // A FREE (complimentary) card is a promo, not money owed — kept apart from what's outstanding on paid cards.
+  const isFreeCard = (c: GiftCard) => !!c.complimentary || /^complimentary/i.test(c.note ?? "");
+  const totalOutstanding = cards.filter(c => c.is_active && !isFreeCard(c)).reduce((s, c) => s + c.remaining_value, 0);
+  const totalFreeOutstanding = cards.filter(c => c.is_active && isFreeCard(c)).reduce((s, c) => s + c.remaining_value, 0);
+  const totalRedeemed = totalIssued - totalOutstanding - totalFreeOutstanding - cards.filter(c => !c.is_active).reduce((s, c) => s + c.remaining_value, 0);
 
   const authHeaders = () => ({ "Content-Type": "application/json", ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) });
 
@@ -315,8 +319,9 @@ export default function GiftCardsPage() {
           <p className="text-2xl font-bold text-foreground mt-1">{formatCurrency(totalIssued)}</p>
         </Card>
         <Card className="p-4">
-          <p className="text-xs text-grey">Outstanding Balance</p>
+          <p className="text-xs text-grey">Outstanding (paid)</p>
           <p className="text-2xl font-bold text-orange-400 mt-1">{formatCurrency(totalOutstanding)}</p>
+          {totalFreeOutstanding > 0 && <p className="text-xs text-grey mt-1">Free cards {formatCurrency(totalFreeOutstanding)}</p>}
         </Card>
         <Card className="p-4">
           <p className="text-xs text-grey">Total Redeemed</p>
@@ -375,6 +380,7 @@ export default function GiftCardsPage() {
                         <td className="px-3 py-3">
                           <div className="flex items-center gap-2">
                             <code className="text-sm font-mono text-foreground bg-card-raised px-2 py-0.5 rounded">{card.code}</code>
+                            {isFreeCard(card) && <Badge variant="outline" className="text-[10px]">Free</Badge>}
                             <button onClick={() => copyCode(card.code)} className="text-grey hover:text-foreground transition-colors">
                               <Copy size={13} />
                             </button>

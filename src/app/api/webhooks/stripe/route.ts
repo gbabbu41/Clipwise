@@ -89,6 +89,8 @@ export async function POST(request: NextRequest) {
           const acct = (event.account as string | undefined) ?? null;
           const balService = Math.max(0, Number(session.metadata.bal_service ?? 0));
           const balTax = Math.max(0, Number(session.metadata.bal_tax ?? 0));
+          // After a gift card the balance carries its tip share (lib/revenue balanceShare).
+          const balTip = Math.max(0, Number(session.metadata.bal_tip ?? 0));
           const { data: existingBal } = balPi
             ? await supabaseAdmin.from("transactions").select("id").eq("payment_intent_id", balPi).limit(1).maybeSingle()
             : { data: null };
@@ -103,7 +105,7 @@ export async function POST(request: NextRequest) {
               barber_id: bAppt?.barber_id ?? (session.metadata.barber_id || null),
               client_name: bAppt?.client_name ?? null,
               service_name: "Balance",
-              amount: balService, tip: 0, tax: balTax,
+              amount: balService, tip: balTip, tax: balTax,
               payment_method: "card", type: "service",
               appointment_id: apptId, payment_intent_id: balPi,
               source: "balance", stripe_fee: fee,
@@ -132,7 +134,7 @@ export async function POST(request: NextRequest) {
             // email). Fire the SAME three alerts the post-booking-payment path does
             // — in-app pop-up (owner + barber), customer receipt, owner email —
             // inside the dedup guard so a webhook retry never double-sends.
-            const balTotal = Math.round((balService + balTax) * 100) / 100;
+            const balTotal = Math.round((balService + balTax + balTip) * 100) / 100;
             const { data: balShop } = await supabaseAdmin
               .from("shops").select("name, email, owner_id, booking_settings, timezone")
               .eq("id", session.metadata.shop_id).maybeSingle();

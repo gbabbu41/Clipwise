@@ -226,6 +226,9 @@ export async function POST(request: NextRequest) {
     //    turned refunded (phase76, same id — it also takes the barber's gift-card
     //    cut back), so "already" is the expected answer there; this is the backstop.
     for (const p of pending.filter(x => x.kind !== "card")) {
+      // A FREE gift card's part: the database already put the value back on the card;
+      // a promo has nothing to record (no money, tax or tip was ever counted).
+      if (p.free) { back.push({ kind: p.kind, cents: p.cents }); continue; }
       const res = await recordPart(p, p.cents);
       if (res === "recorded" || (p.kind === "gift_card" && res === "already")) back.push({ kind: p.kind, cents: p.cents });
     }

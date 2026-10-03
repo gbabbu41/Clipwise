@@ -125,7 +125,12 @@ never against a stale checkbox in TODO.md or a migration file header.
   gift-card value back; `transactions.payment_method` allows `gift_card`; `gift_refund_sale`)
   is **applied on prod** (2026-10-03). phase76 (barber earnings line for gift-card visits +
   its take-back on cancel/refund, written by the appointments trigger) is **applied on prod**
-  (2026-10-03; both existing gift visits backfilled).
+  (2026-10-03; both existing gift visits backfilled). phase77 (free gift cards:
+  `gift_cards.complimentary`, `appointments.gift_free`, no barber line for a free card, a
+  `gift_card_ledger` trigger so ONLINE gift + card bookings get their line) is **applied on prod**
+  (2026-10-03) — except its one cleanup `delete` (the 3 barber lines phase76 wrote for the 2
+  free-card visits), which the MCP tool holds for owner confirmation: the owner runs it in the
+  Supabase SQL editor (it's the "Cleanup" block of the migration file).
 - If a feature "silently does nothing," still capture the supabase `error` (don't only
   read `data`) — but the cause is far more likely code/config than a missing column now.
 
@@ -196,6 +201,19 @@ never against a stale checkbox in TODO.md or a migration file header.
   the barber's earnings ONLY — **never shop money** (the card's value counted when it was SOLD):
   `collectedTotals`, the Payments tip feed and admin GMV skip `payment_method='gift_card'` lines.
   Any new reader of completion rows must skip them too.
+- **FREE (complimentary) gift card = a 100% promo (owner decision 2026-10-03):** a card the shop
+  gave away brought in no money, so the part of a visit it covers counts **$0 income, $0 tax,
+  $0 tip and no barber commission** — Payments shows "$0.00 · Free gift card" + "$X promo", and
+  reports show a "Free gift cards used (promo)" line. A PAID card is unchanged. The DB records the
+  covered part in `appointments.gift_free` (phase77); the app takes its share off everywhere via
+  `freeGiftShare` / `apptServiceCollected` in `lib/revenue.ts` (Dashboard, Analytics, Payroll all
+  use that ONE commission basis).
+- **One split for every piece of a visit (2026-10-03):** a gift part, the online card charge beside
+  it, and a balance collected later each carry their OWN share of service / tax / **tip**, in
+  proportion (`proportionalShare` / `restShare` / `balanceShare` in `lib/revenue.ts` — same
+  rounding as the SQL `gift_earning_sync`), so the pieces add up to exactly one visit and a tip is
+  never turned into service or counted twice. Proven on real Postgres for paid/free × 10/50/100% ×
+  cash / card-on-file / online in `scripts/tests/gift-scenarios-check.cjs`.
 - **No-shows — split everything (owner decision 2026-10-03):** any money a customer paid is split
   at the barber's % — a booking PAID IN ADVANCE that no-shows AND a no-show fee charged to a held
   card — and only a refund takes it back. There is no special no-show case in barber pay. Shop

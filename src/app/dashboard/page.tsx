@@ -33,7 +33,7 @@ import { UnreadBadge } from "@/components/notification-badge";
 import { useShopUnreadCount } from "@/hooks/use-unread-count";
 import { useAuth } from "@/lib/auth-context";
 import { isNativeApp } from "@/lib/native-app";
-import { collectedTotals, countablePosTxs, isGiftRefundRow, isPaid, isRefundRow, isSale, noShowFeeVisit, paidAheadPis, type RevTx, type RevAppt, type ByPi } from "@/lib/revenue";
+import { apptServiceCollected as apptServiceCollectedRule, collectedTotals, countablePosTxs, isGiftRefundRow, isPaid, isRefundRow, isSale, noShowFeeVisit, paidAheadPis, type RevTx, type RevAppt, type ByPi } from "@/lib/revenue";
 import { evidenceView, loadLinkedEvidence, type EvidenceSnapshot } from "@/lib/revenue-evidence";
 import { refundClawback, safeCommission } from "@/lib/barber-earnings";
 import type { AppointmentWithDetails, Barber, Notification } from "@/lib/database.types";
@@ -334,7 +334,7 @@ export default function DashboardPage() {
     // it to the period by paid_at at compute time. Barber sees only their own.
     let revQ = supabase
       .from("appointments")
-      .select("id, client_name, total_amount, tax_amount, tip_amount, gift_applied, balance_due, payment_status, payment_method, payment_intent_id, status, barber_id, paid_at, created_at")
+      .select("id, client_name, total_amount, tax_amount, tip_amount, gift_applied, gift_free, balance_due, payment_status, payment_method, payment_intent_id, status, barber_id, paid_at, created_at")
       .eq("shop_id", shop.id)
       // Refunded too: a sale counts on its paid day even if refunded later; its
       // refund row (in txns) subtracts on the refund's day (lib/revenue).
@@ -603,13 +603,8 @@ export default function DashboardPage() {
   // over-pays on money that hasn't come in, and rises to the full amount once the
   // balance is collected (balance_due → 0). Matches collectedTotals + the barber
   // portal (which sums the completion + balance ledger rows).
-  const apptServiceCollected = (a: RevApptRow) => {
-    const total = Math.max(0, a.total_amount ?? 0);
-    const bal = Math.min(Math.max(0, (a as { balance_due?: number | null }).balance_due ?? 0), total);
-    const collectedTotal = Math.max(0, total - bal);
-    const collectedTax = total > 0 ? (a.tax_amount ?? 0) * (collectedTotal / total) : (a.tax_amount ?? 0);
-    return Math.max(0, collectedTotal - collectedTax);
-  };
+  // (One shared rule — lib/revenue apptServiceCollected; a FREE gift card's part pays no commission.)
+  const apptServiceCollected = (a: RevApptRow) => apptServiceCollectedRule(a as RevAppt);
   // Refunds (owner rule 2026-10-03): a refunded sale keeps its commission on the
   // day it was paid; its refund row takes the commission back on the refund's day
   // (refundClawback — the same rule the barber portal and Payroll use).
@@ -909,7 +904,7 @@ export default function DashboardPage() {
 
             {((repFromCache && loadingAppts) || evidence.updating) && <p className="text-xs text-grey mb-2" role="status">Updating…</p>}
             {/* Revenue hero (swipeable — revenue, bookings, top barbers, status) */}
-            <StatsCarousel revenue={feesUnavailable ? collected.gross : collected.net} taxCollected={collected.tax} cashIncluded={collected.cash} feesPaid={collected.fees} tips={paidOutTips} commission={commission} netRevenue={netRevenue} feesLoading={feesLoading} feesUnavailable={feesUnavailable} paidVisits={paidVisits} refunds={collected.refunds} refundCount={txnsInRange.filter(t => isRefundRow(t) && !isGiftRefundRow(t)).length} appointments={appointments} completed={completed} topBarbers={topBarbers} periodLabel={DATE_FILTER_LABELS[dateFilter]} rangeStart={rangeStart} rangeEnd={rangeEnd} initialSlide={statsSlide} onSlideChange={setStatsSlide} />
+            <StatsCarousel revenue={feesUnavailable ? collected.gross : collected.net} taxCollected={collected.tax} cashIncluded={collected.cash} feesPaid={collected.fees} tips={paidOutTips} commission={commission} netRevenue={netRevenue} feesLoading={feesLoading} feesUnavailable={feesUnavailable} paidVisits={paidVisits} refunds={collected.refunds} refundCount={txnsInRange.filter(t => isRefundRow(t) && !isGiftRefundRow(t)).length} freeGifts={collected.freeGifts} appointments={appointments} completed={completed} topBarbers={topBarbers} periodLabel={DATE_FILTER_LABELS[dateFilter]} rangeStart={rangeStart} rangeEnd={rangeEnd} initialSlide={statsSlide} onSlideChange={setStatsSlide} />
             {feesUnavailable && !feesLoading && <button type="button" className="mb-3 border border-border rounded-lg px-4 py-2 text-sm" onClick={() => setFeeRetry(v => v + 1)}>Retry processing fees</button>}
 
             {/* Minimal stat tiles — label + number only (helper sub-text removed),

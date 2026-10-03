@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { effectivePlan, isPaidPlan } from "@/lib/validation";
 import { FeatureLock } from "@/components/dashboard/feature-lock";
-import { collectedTotals, countablePosTxs, isNoShowTx, isPaid, isRefundRow, isSale, noShowFeeVisit, paidAheadPis, refundServiceKey, type RevAppt, type RevTx, type ByPi } from "@/lib/revenue";
+import { apptServiceCollected, collectedTotals, countablePosTxs, isNoShowTx, isPaid, isRefundRow, isSale, noShowFeeVisit, paidAheadPis, refundServiceKey, type RevAppt, type RevTx, type ByPi } from "@/lib/revenue";
 import { evidenceView, loadLinkedEvidence, type EvidenceSnapshot } from "@/lib/revenue-evidence";
 import { analyticsPeriod, analyticsRevenueBuckets, analyticsFeesKnown, timestampInPeriod, topServicesWithOther } from "@/lib/analytics-period";
 import { readAllRows } from "@/lib/read-all-rows";
@@ -33,13 +33,8 @@ const GOLD_PALETTE = ["#4a86d8","#2f9e6b","#d99a2e","#8b7bd6","#e07a5f","#64748b
 // Service ACTUALLY COLLECTED on a paid appointment, pre-tax — subtract any still-
 // owed balance_due and scale the tax to the collected fraction. Identical to the
 // Dashboard's apptServiceCollected, so charts + commission share ONE basis.
-function apptServiceCollectedOf(a: { total_amount?: number | null; tax_amount?: number | null; balance_due?: number | null }): number {
-  const total = Math.max(0, a.total_amount ?? 0);
-  const bal = Math.min(Math.max(0, a.balance_due ?? 0), total);
-  const collectedTotal = Math.max(0, total - bal);
-  const collectedTax = total > 0 ? (a.tax_amount ?? 0) * (collectedTotal / total) : (a.tax_amount ?? 0);
-  return Math.max(0, collectedTotal - collectedTax);
-}
+// (One shared rule — lib/revenue apptServiceCollected; a FREE gift card's part pays no commission.)
+const apptServiceCollectedOf = (a: object): number => apptServiceCollected(a as RevAppt);
 const STATUS_COLORS: Record<string, string> = {
   completed: "#10B981", confirmed: "#4a86d8", pending: "#F59E0B",
   cancelled: "#EF4444", "no-show": "#F97316",
@@ -235,7 +230,7 @@ export default function AnalyticsPage() {
     const netRevenue = t.net - t.tax - paidOutTips - commission;
     // `sales` / `collected` = money that CAME IN (before refunds); refunds are their
     // own line; `gross` / `net` stay after refunds (the statement totals).
-    return { gross: t.gross, sales: t.gross + t.refunds, fees: t.fees, collected: t.net + t.refunds, refunds: t.refunds, netAfterRefunds: t.net, tax: t.tax, tips: paidOutTips, totalTips: t.tips, commission, netRevenue };
+    return { gross: t.gross, sales: t.gross + t.refunds, fees: t.fees, collected: t.net + t.refunds, refunds: t.refunds, netAfterRefunds: t.net, freeGifts: t.freeGifts, tax: t.tax, tips: paidOutTips, totalTips: t.tips, commission, netRevenue };
   }, [revenueApptsInRange, filteredTx, byPi, barbers, shop?.owner_id, linkedEvidence]);
   const totalRevenue = money.sales;   // gross sales that came in (refunds shown separately)
   const totalAppts = filteredAppts.length;
@@ -431,6 +426,7 @@ export default function AnalyticsPage() {
                 <div className="flex justify-between"><span className="text-grey">− Refunds</span><span className="font-mono tabular-nums text-foreground">−{formatCurrency(money.refunds)}</span></div>
                 <div className="flex justify-between border-t border-dashed border-border pt-2"><span className="text-grey">Net after refunds</span><span className="font-mono tabular-nums text-foreground">{feesKnown ? formatCurrency(money.netAfterRefunds) : "Unavailable"}</span></div>
               </>}
+              {money.freeGifts > 0 && <div className="flex justify-between"><span className="text-grey">Free gift cards used <span className="text-grey-muted">(promo)</span></span><span className="font-mono tabular-nums text-grey">{formatCurrency(money.freeGifts)}</span></div>}
               <div className="flex justify-between"><span className="text-grey">{money.tax >= 0 ? "− Sales tax" : "+ Sales tax refunded"} <span className="text-grey-muted">(owed to gov&apos;t)</span></span><span className="font-mono tabular-nums text-foreground">{money.tax >= 0 ? "−" : "+"}{formatCurrency(Math.abs(money.tax))}</span></div>
               <div className="flex justify-between"><span className="text-grey">− Staff tips <span className="text-grey-muted">(excludes owner tips)</span></span><span className="font-mono tabular-nums text-foreground">{money.tips >= 0 ? "−" : "+"}{formatCurrency(Math.abs(money.tips))}</span></div>
               <div className="flex justify-between"><span className="text-grey">− Barber commission</span><span className="font-mono tabular-nums text-foreground">−{formatCurrency(money.commission)}</span></div>
